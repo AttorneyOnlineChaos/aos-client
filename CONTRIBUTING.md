@@ -4,9 +4,9 @@ Welcome to the AO repository. We are always looking for new developers and hope 
 thank you for considering a contribution to the project. You can follow updates on development both on the Github and in the Discord.
 
 #### **Base guidelines**
-* This project is open to anyone who wishes to contribuite for Windows (10/11) and Linux and MacOS. In order to test key features of this program, it is required to have either custom-made assets ready or to obtain them from the official AO discord, found in the #links channel.
+* This project is open to anyone who wishes to contribuite for Windows (10/11) and Linux and MacOS. In order to test key features of this program, it is required to have either custom-made assets ready or to obtain them from the official AO discord, found in the #links-downloads channel. Refer to #ms-hosting for hosting information.
 
-* The AO ORG concerns the official client/server and masterserver. If your contribution introduces large changes or is from a fork providing changes up the stream, consider checking out [**AO CHAOS**](https://github.com/AttorneyOnlineChaos). An expiremental branch where most breaking changes are tested.
+* The AO ORG concerns the official client/server and masterserver. If your contribution introduces large changes or may break existing functionality and requires testing, consider checking out [**AO CHAOS**](https://github.com/AttorneyOnlineChaos). An expiremental branch where most breaking changes are tested.
 
 #### **Issues**
 
@@ -49,7 +49,7 @@ Code that isn't the submitter's. Usually helpful if a problem has existed before
 
 * Contributions **MUST** disclaim if any snippet or part of this contribution was not made by the submitter. This can include code coming from other forks downstream, helped by a co-author, from online sources (Stackoverflow etc..), and from LLMs/Copilot or Other PRs using third-party code. Attatch the relevant sources in the description of the contribution in any form applicable. Failure to disclose this will result in punishment.
 
-* If you are considering using third-party code, The contributor will have to prove that this snippet is relevant to the topic at hand and that they understand how it achieves that goal.
+* If you are considering using third-party code, The contributor will have to show how this snippet is relevant to the topic at hand and that they understand how it achieves the goal of the contribution. Reviewers who accept or reject third-party code must state clearly how exactly the use is acceptable/unacceptable. Maintainers hold the right to deny the use of third-party code entierly for any given issue or PR.
   
 * It is recommend to clean up the addition as that will help expedite the review process in the case that the submitter doesn't understand fully how it works, such as:
   - Remove or convert excessive annotations and comments that are either overtly descriptive or mention things that are not relevant. (i.e //checks if true (if true) { code })
@@ -58,6 +58,10 @@ Code that isn't the submitter's. Usually helpful if a problem has existed before
   - Ensure as many parts of the contribution as possible do not have an over-reliance on templates, seemingly new and random includes into files, excessive function overloading and random guards or checks for unreasonable or unlikely events.
   - Acknowledge the risks involved and that contributions using these methods may be superseded. All credit is to be put appropriatley by both submitters, reviwers and maintainers, even if a PR is rejected.
 
-* Contributions using third-party code will automatically be tagged with "Expiremental" and treated as the WIP basis for the solution until proven otherwise and overseen by an active developer, maintainer with the aid of the submitter. Generally, it can be a good first-step to look at how others approached the problem, and then attempt to apply that here. However, it is also generally bad practice to lean on third-party code that "Just works".
+* Generally, it can be a good first-step to look at how others approached the problem, and then attempt to apply that here. However, it is also generally bad practice to lean on third-party code that "Just works".
 
-We hope to see your contribution in the future, best of luck!
+#### **License**
+
+* Under the GPL3 (Client) and AGPL3 (Server / Web) licenses any user is allowed to fork, modify the software and share it. Users are welcome to, but not obligated to, send any modifications upstream for review and addition to master. Users must not break the License rules.
+
+We hope to see your contribution in the future!
