@@ -6,7 +6,7 @@ thank you for considering a contribution to the project. You can follow updates 
 #### **Base guidelines**
 * This project is open to anyone who wishes to contribuite for Windows (10/11) and Linux and MacOS. In order to test key features of this program, it is required to have either custom-made assets ready or to obtain them from the official AO discord, found in the #links-downloads channel. Refer to #ms-hosting for hosting information.
 
-* The AO ORG concerns the official client/server and masterserver. If your contribution introduces large changes or may break existing functionality and requires testing, consider checking out [**AO CHAOS**](https://github.com/AttorneyOnlineChaos). An expiremental branch where most breaking changes are tested.
+* The AO CHAOS ORG concerns the official beta client/server and masterserver. If your contribution targets a specific issue or doesn't include any large or breaking changes, consider checking out [**AO Master**](https://github.com/AttorneyOnline). The master branch with version releases.
 
 #### **Issues**
 
