@@ -7,34 +7,10 @@
 #include "networkmanager.h"
 #include "options.h"
 
-void AOApplication::append_to_demofile(QString packet_string)
-{
-  if (is_demo_constructed()) // Currently playing a demo
-  {
-    return;
-  }
-
-  if (Options::getInstance().logToDemoFileEnabled() && !log_filename.isEmpty())
-  {
-    QString path = log_filename.left(log_filename.size()).replace(".log", ".demo");
-    if (!demo_timer.isValid())
-    {
-      demo_timer.start();
-    }
-    else
-    {
-      append_to_file("wait#" + QString::number(demo_timer.restart()) + "#%", path, true);
-    }
-    append_to_file(packet_string, path, true);
-  }
-}
-
-void AOApplication::server_packet_received(AOPacket packet)
+void spritechat::AOApplication::server_packet_received(AOPacket packet)
 {
   QString header = packet.header();
   QStringList content = packet.content();
-
-  bool log_to_demo = true;
 
 #ifdef DEBUG_NETWORK
   if (header != "checkconnection")
@@ -59,7 +35,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     QStringList f_contents = {f_hdid};
     AOPacket hi_packet("HI", f_contents);
     send_server_packet(hi_packet);
-    log_to_demo = false;
   }
   else if (header == "ID")
   {
@@ -71,7 +46,7 @@ void AOApplication::server_packet_received(AOPacket packet)
     client_id = content.at(0).toInt();
     m_serverdata.set_server_software(content.at(1));
 
-    emit net_manager->server_connected(true);
+    Q_EMIT net_manager->server_connected(true);
 
     QStringList f_contents = {"AO2", get_version_string()};
     send_server_packet(AOPacket("ID", f_contents));
@@ -96,7 +71,6 @@ void AOApplication::server_packet_received(AOPacket packet)
   {
     m_serverdata.set_features(content);
     w_courtroom->set_widgets();
-    log_to_demo = false;
   }
   else if (header == "PN")
   {
@@ -111,8 +85,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     {
       w_lobby->set_server_description(content.at(2));
     }
-
-    log_to_demo = false;
   }
   else if (header == "SI")
   {
@@ -149,9 +121,6 @@ void AOApplication::server_packet_received(AOPacket packet)
       }
     }
     break;
-    case 2:
-      window_title = "Local Demo Recording";
-      break;
     default:
       break;
     }
@@ -168,23 +137,8 @@ void AOApplication::server_packet_received(AOPacket packet)
 
     QString server_name_stripped = server_name;
     static QRegularExpression illegal_filename_chars("[\\\\/:*?\"<>|\']");
-    if (Options::getInstance().logToDemoFileEnabled() || !is_demo_constructed())
-    {
-      this->log_filename = QDateTime::currentDateTime().toUTC().toString("'logs/" + server_name_stripped.remove(illegal_filename_chars) + "/'yyyy-MM-dd hh-mm-ss t'.log'");
-      this->write_to_file("Joined server " + server_name_stripped + " hosted on address " + server_address + " on " + QDateTime::currentDateTime().toUTC().toString(), log_filename, true);
-    }
-    else
-    {
-      this->log_filename = "";
-    }
-
-    QCryptographicHash hash(QCryptographicHash::Algorithm::Sha256);
-    hash.addData(server_address.toUtf8());
-    if (Options::getInstance().discordEnabled())
-    {
-      discord->state_server(server_name.toStdString(), hash.result().toBase64().toStdString());
-    }
-    log_to_demo = false;
+    this->log_filename = QDateTime::currentDateTime().toUTC().toString("'logs/" + server_name_stripped.remove(illegal_filename_chars) + "/'yyyy-MM-dd hh-mm-ss t'.log'");
+    this->write_to_file("Joined server " + server_name_stripped + " hosted on address " + server_address + " on " + QDateTime::currentDateTime().toUTC().toString(), log_filename, true);
   }
   else if (header == "CharsCheck")
   {
@@ -204,7 +158,6 @@ void AOApplication::server_packet_received(AOPacket packet)
         w_courtroom->set_taken(n_char, false);
       }
     }
-    log_to_demo = false;
   }
 
   else if (header == "SC")
@@ -286,7 +239,6 @@ void AOApplication::server_packet_received(AOPacket packet)
 
     // TODO : Implement username messaging and requirement server-side properly.
     send_server_packet(AOPacket("CT", {Options::getInstance().username(), ""}));
-    log_to_demo = false;
   }
   else if (header == "FM") // Fetch music ONLY
   {
@@ -303,7 +255,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     }
 
     w_courtroom->list_music();
-    log_to_demo = false;
   }
   else if (header == "FA") // Fetch areas ONLY
   {
@@ -322,7 +273,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     }
 
     w_courtroom->list_areas();
-    log_to_demo = false;
   }
   else if (header == "DONE")
   {
@@ -337,7 +287,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     courtroom_loaded = true;
 
     destruct_lobby();
-    log_to_demo = false;
   }
   else if (header == "BN")
   {
@@ -470,7 +419,6 @@ void AOApplication::server_packet_received(AOPacket packet)
       }
       w_courtroom->list_areas();
     }
-    log_to_demo = false;
   }
   else if (header == "IL")
   {
@@ -478,7 +426,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     {
       w_courtroom->set_ip_list(content.at(0));
     }
-    log_to_demo = false;
   }
   else if (header == "MU")
   {
@@ -486,14 +433,12 @@ void AOApplication::server_packet_received(AOPacket packet)
     {
       w_courtroom->set_mute(true, content.at(0).toInt());
     }
-    log_to_demo = false;
   }
   else if (header == "UM")
   {
     if (is_courtroom_constructed() && !content.isEmpty())
     {
       w_courtroom->set_mute(false, content.at(0).toInt());
-      log_to_demo = false;
     }
   }
   else if (header == "BB")
@@ -502,7 +447,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     {
       call_notice(content.at(0));
     }
-    log_to_demo = false;
   }
   else if (header == "KK")
   {
@@ -512,7 +456,6 @@ void AOApplication::server_packet_received(AOPacket packet)
       construct_lobby();
       destruct_courtroom();
     }
-    log_to_demo = false;
   }
   else if (header == "KB")
   {
@@ -522,7 +465,6 @@ void AOApplication::server_packet_received(AOPacket packet)
       construct_lobby();
       destruct_courtroom();
     }
-    log_to_demo = false;
   }
   else if (header == "BD")
   {
@@ -531,7 +473,6 @@ void AOApplication::server_packet_received(AOPacket packet)
       return;
     }
     call_notice(tr("You are banned on this server.\nReason: %1").arg(content.at(0)));
-    log_to_demo = false;
   }
   else if (header == "ZZ")
   {
@@ -611,7 +552,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     {
       latency = ping_time;
     }
-    log_to_demo = false;
   }
   // Subtheme packet
   else if (header == "ST")
@@ -640,7 +580,7 @@ void AOApplication::server_packet_received(AOPacket packet)
   // Auth packet
   else if (header == "AUTH")
   {
-    if (!is_courtroom_constructed() || !m_serverdata.get_feature(server::BASE_FEATURE_SET::AUTH_PACKET) || content.isEmpty())
+    if (!is_courtroom_constructed() || !m_serverdata.get_feature(BASE_FEATURE_SET::AUTH_PACKET) || content.isEmpty())
     {
       return;
     }
@@ -652,7 +592,6 @@ void AOApplication::server_packet_received(AOPacket packet)
     }
 
     w_courtroom->on_authentication_state_received(authenticated);
-    log_to_demo = false;
   }
   else if (header == "JD")
   {
@@ -707,14 +646,9 @@ void AOApplication::server_packet_received(AOPacket packet)
     PlayerUpdate update{content.at(0).toInt(), PlayerUpdate::DATA_TYPE(content.at(1).toInt()), content.at(2)};
     w_courtroom->playerList()->updatePlayer(update);
   }
-
-  if (log_to_demo)
-  {
-    append_to_demofile(packet.toString(true));
-  }
 }
 
-void AOApplication::send_server_packet(AOPacket p_packet)
+void spritechat::AOApplication::send_server_packet(AOPacket p_packet)
 {
 #ifdef DEBUG_NETWORK
   qDebug() << "S:" << p_packet.to_string();

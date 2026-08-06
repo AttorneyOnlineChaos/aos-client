@@ -4,7 +4,7 @@
 #include <QMessageBox>
 #include <QObject>
 
-std::optional<QString> call_moderator_support(QString title)
+std::optional<QString> spritechat::call_moderator_support(QString title)
 {
   if (title.isEmpty())
   {

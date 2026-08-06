@@ -2,7 +2,7 @@
 
 #include "file_functions.h"
 
-AOEvidenceButton::AOEvidenceButton(int id, int width, int height, AOApplication *ao_app, QWidget *parent)
+spritechat::AOEvidenceButton::AOEvidenceButton(int id, int width, int height, AOApplication *ao_app, QWidget *parent)
     : QPushButton(parent)
     , ao_app(ao_app)
     , m_id(id)
@@ -24,7 +24,7 @@ AOEvidenceButton::AOEvidenceButton(int id, int width, int height, AOApplication 
   connect(this, &AOEvidenceButton::clicked, this, &AOEvidenceButton::on_clicked);
 }
 
-void AOEvidenceButton::setImage(QString fileName)
+void spritechat::AOEvidenceButton::setImage(QString fileName)
 {
   QString image_path = ao_app->get_real_path(ao_app->get_evidence_path(fileName));
   if (file_exists(fileName))
@@ -50,7 +50,7 @@ void AOEvidenceButton::setImage(QString fileName)
   }
 }
 
-void AOEvidenceButton::setThemeImage(QString fileName)
+void spritechat::AOEvidenceButton::setThemeImage(QString fileName)
 {
   QString theme_image_path = ao_app->get_real_path(ao_app->get_theme_path(fileName));
   QString default_image_path = ao_app->get_real_path(ao_app->get_theme_path(fileName, ao_app->default_theme));
@@ -69,7 +69,7 @@ void AOEvidenceButton::setThemeImage(QString fileName)
   setImage(final_image_path);
 }
 
-void AOEvidenceButton::setSelected(bool p_selected)
+void spritechat::AOEvidenceButton::setSelected(bool p_selected)
 {
   if (p_selected)
   {
@@ -81,22 +81,18 @@ void AOEvidenceButton::setSelected(bool p_selected)
   }
 }
 
-void AOEvidenceButton::on_clicked()
+void spritechat::AOEvidenceButton::on_clicked()
 {
   Q_EMIT evidenceClicked(m_id);
 }
 
-void AOEvidenceButton::mouseDoubleClickEvent(QMouseEvent *e)
+void spritechat::AOEvidenceButton::mouseDoubleClickEvent(QMouseEvent *e)
 {
   QPushButton::mouseDoubleClickEvent(e);
   Q_EMIT evidenceDoubleClicked(m_id);
 }
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-void AOEvidenceButton::enterEvent(QEvent *e)
-#else
-void AOEvidenceButton::enterEvent(QEnterEvent *e)
-#endif
+void spritechat::AOEvidenceButton::enterEvent(QEnterEvent *e)
 {
   ui_selector->show();
 
@@ -106,7 +102,7 @@ void AOEvidenceButton::enterEvent(QEnterEvent *e)
   QPushButton::enterEvent(e);
 }
 
-void AOEvidenceButton::leaveEvent(QEvent *e)
+void spritechat::AOEvidenceButton::leaveEvent(QEvent *e)
 {
   ui_selector->hide();
 

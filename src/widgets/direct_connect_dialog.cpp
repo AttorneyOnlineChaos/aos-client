@@ -9,11 +9,11 @@
 #include <QUiLoader>
 #include <QVBoxLayout>
 
-const QString DirectConnectDialog::UI_FILE_PATH = "direct_connect_dialog.ui";
-const QRegularExpression DirectConnectDialog::SCHEME_PATTERN{"^\\w+://.+$"};
-const int DirectConnectDialog::CONNECT_TIMEOUT = 5 * 1000;
+const QString spritechat::DirectConnectDialog::UI_FILE_PATH = "direct_connect_dialog.ui";
+const QRegularExpression spritechat::DirectConnectDialog::SCHEME_PATTERN{"^\\w+://.+$"};
+const int spritechat::DirectConnectDialog::CONNECT_TIMEOUT = 5 * 1000;
 
-DirectConnectDialog::DirectConnectDialog(NetworkManager *netManager, QWidget *parent)
+spritechat::DirectConnectDialog::DirectConnectDialog(NetworkManager *netManager, QWidget *parent)
     : QDialog(parent)
     , net_manager(netManager)
 {
@@ -46,7 +46,7 @@ DirectConnectDialog::DirectConnectDialog(NetworkManager *netManager, QWidget *pa
   m_connect_timeout.setSingleShot(true);
 }
 
-void DirectConnectDialog::onConnectPressed()
+void spritechat::DirectConnectDialog::onConnectPressed()
 {
   QString l_hostname = ui_direct_hostname_edit->text();
   if (!SCHEME_PATTERN.match(l_hostname).hasMatch())
@@ -84,7 +84,7 @@ void DirectConnectDialog::onConnectPressed()
   m_connect_timeout.start(CONNECT_TIMEOUT);
 }
 
-void DirectConnectDialog::onServerConnected()
+void spritechat::DirectConnectDialog::onServerConnected()
 {
   net_manager->join_to_server();
   ui_direct_connection_status_lbl->setText("Connected!");
@@ -92,7 +92,7 @@ void DirectConnectDialog::onServerConnected()
   close();
 }
 
-void DirectConnectDialog::onConnectTimeout()
+void spritechat::DirectConnectDialog::onConnectTimeout()
 {
   ui_direct_connect_button->setEnabled(true);
   ui_direct_connection_status_lbl->setText("Connection Timeout!");

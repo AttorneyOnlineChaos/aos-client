@@ -11,7 +11,7 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 
-NetworkManager::NetworkManager(AOApplication *parent)
+spritechat::NetworkManager::NetworkManager(AOApplication *parent)
     : QObject(parent)
 {
   ao_app = parent;
@@ -30,7 +30,7 @@ NetworkManager::NetworkManager(AOApplication *parent)
   heartbeat_timer->start(heartbeat_interval);
 }
 
-void NetworkManager::get_server_list()
+void spritechat::NetworkManager::get_server_list()
 {
   QNetworkRequest req(QUrl(ms_baseurl + "/servers"));
   req.setRawHeader("User-Agent", get_user_agent().toUtf8());
@@ -39,7 +39,7 @@ void NetworkManager::get_server_list()
   connect(reply, &QNetworkReply::finished, this, std::bind(&NetworkManager::ms_request_finished, this, reply));
 }
 
-void NetworkManager::ms_request_finished(QNetworkReply *reply)
+void spritechat::NetworkManager::ms_request_finished(QNetworkReply *reply)
 {
   QJsonDocument json = QJsonDocument::fromJson(reply->readAll());
   if (json.isNull())
@@ -90,12 +90,12 @@ void NetworkManager::ms_request_finished(QNetworkReply *reply)
   reply->deleteLater();
 }
 
-QString NetworkManager::get_user_agent() const
+QString spritechat::NetworkManager::get_user_agent() const
 {
   return QStringLiteral("AttorneyOnline/%1 (Desktop)").arg(ao_app->get_version_string());
 }
 
-void NetworkManager::send_heartbeat()
+void spritechat::NetworkManager::send_heartbeat()
 {
   // Ping the server periodically to tell the MS that you've been playing
   // within a 5 minute window, so that the the number of people playing within
@@ -112,7 +112,7 @@ void NetworkManager::send_heartbeat()
   http->post(req, QByteArray());
 }
 
-void NetworkManager::request_document(MSDocumentType document_type, const std::function<void(QString)> &cb)
+void spritechat::NetworkManager::request_document(MSDocumentType document_type, const std::function<void(QString)> &cb)
 {
   const QMap<MSDocumentType, QString> endpoints{// I have to balance an evil with a good
                                                 {MSDocumentType::PrivacyPolicy, "/privacy"},
@@ -148,7 +148,7 @@ void NetworkManager::request_document(MSDocumentType document_type, const std::f
   });
 }
 
-void NetworkManager::connect_to_server(ServerInfo server)
+void spritechat::NetworkManager::connect_to_server(ServerInfo server)
 {
   disconnect_from_server();
 
@@ -165,7 +165,7 @@ void NetworkManager::connect_to_server(ServerInfo server)
   m_connection->connectToServer(server);
 }
 
-void NetworkManager::disconnect_from_server()
+void spritechat::NetworkManager::disconnect_from_server()
 {
   if (m_connection)
   {
@@ -175,14 +175,14 @@ void NetworkManager::disconnect_from_server()
   }
 }
 
-void NetworkManager::reconnect_to_last_server()
+void spritechat::NetworkManager::reconnect_to_last_server()
 {
   connect(this, &NetworkManager::server_connected, this, &NetworkManager::join_to_server);
 
   connect_to_server(m_last_server);
 }
 
-void NetworkManager::ship_server_packet(AOPacket packet)
+void spritechat::NetworkManager::ship_server_packet(AOPacket packet)
 {
   if (!m_connection)
   {
@@ -201,13 +201,13 @@ void NetworkManager::ship_server_packet(AOPacket packet)
   m_connection->sendPacket(packet);
 }
 
-void NetworkManager::join_to_server()
+void spritechat::NetworkManager::join_to_server()
 {
   disconnect(this, &NetworkManager::server_connected, this, &NetworkManager::join_to_server);
   ship_server_packet(AOPacket("askchaa"));
 }
 
-void NetworkManager::handle_server_packet(AOPacket packet)
+void spritechat::NetworkManager::handle_server_packet(AOPacket packet)
 {
 #ifdef NETWORK_DEBUG
   qInfo().noquote() << "Received packet:" << packet.toString();

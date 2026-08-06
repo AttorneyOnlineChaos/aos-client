@@ -1,7 +1,7 @@
 #include "courtroom.h"
 #include "options.h"
 
-void Courtroom::initialize_evidence()
+void spritechat::Courtroom::initialize_evidence()
 {
   ui_evidence = new AOImage(ao_app, this);
   ui_evidence->setObjectName("ui_evidence");
@@ -89,7 +89,7 @@ void Courtroom::initialize_evidence()
   evidence_load("inventories/autosave.ini");
 }
 
-void Courtroom::refresh_evidence()
+void spritechat::Courtroom::refresh_evidence()
 {
   set_font(ui_evidence_name, "", "evidence_name");
   set_font(ui_evidence_image_name, "", "evidence_image_name");
@@ -236,7 +236,7 @@ void Courtroom::refresh_evidence()
   }
 }
 
-void Courtroom::set_evidence_list(QVector<EvidenceItem> &p_evi_list)
+void spritechat::Courtroom::set_evidence_list(QVector<EvidenceItem> &p_evi_list)
 {
   global_evidence_list = p_evi_list;
   if (!current_evidence_global)
@@ -298,7 +298,7 @@ void Courtroom::set_evidence_list(QVector<EvidenceItem> &p_evi_list)
   }
 }
 
-void Courtroom::set_evidence_page()
+void spritechat::Courtroom::set_evidence_page()
 {
   int total_evidence = local_evidence_list.size();
 
@@ -375,7 +375,7 @@ void Courtroom::set_evidence_page()
   }
 }
 
-void Courtroom::show_evidence(int f_real_id)
+void spritechat::Courtroom::show_evidence(int f_real_id)
 {
   // Make sure we're in the global evidence list
   evidence_switch(true);
@@ -387,7 +387,7 @@ void Courtroom::show_evidence(int f_real_id)
   on_evidence_double_clicked(p_id);
 }
 
-void Courtroom::on_evidence_name_edited()
+void spritechat::Courtroom::on_evidence_name_edited()
 {
   if (current_evidence >= local_evidence_list.size())
   {
@@ -395,7 +395,7 @@ void Courtroom::on_evidence_name_edited()
   }
 }
 
-void Courtroom::on_evidence_image_name_edited()
+void spritechat::Courtroom::on_evidence_image_name_edited()
 {
   if (current_evidence >= local_evidence_list.size())
   {
@@ -403,7 +403,7 @@ void Courtroom::on_evidence_image_name_edited()
   }
 }
 
-void Courtroom::on_evidence_image_button_clicked()
+void spritechat::Courtroom::on_evidence_image_button_clicked()
 {
   QDir dir(get_base_path() + "/evidence/");
   QFileDialog dialog(this);
@@ -441,7 +441,7 @@ void Courtroom::on_evidence_image_button_clicked()
   on_evidence_image_name_edited();
 }
 
-void Courtroom::on_evidence_clicked(int p_id)
+void spritechat::Courtroom::on_evidence_clicked(int p_id)
 {
   int f_real_id = p_id + max_evidence_on_page * current_evidence_page;
 
@@ -490,7 +490,7 @@ void Courtroom::on_evidence_clicked(int p_id)
   current_evidence = f_real_id;
 }
 
-void Courtroom::on_evidence_double_clicked(int p_id)
+void spritechat::Courtroom::on_evidence_double_clicked(int p_id)
 {
   int f_real_id = p_id + max_evidence_on_page * current_evidence_page;
 
@@ -542,7 +542,7 @@ void Courtroom::on_evidence_double_clicked(int p_id)
   ui_evidence_ok->hide();
 }
 
-void Courtroom::on_evidence_hover(int p_id, bool p_state)
+void spritechat::Courtroom::on_evidence_hover(int p_id, bool p_state)
 {
   if (ui_evidence_overlay->isVisible())
   {
@@ -573,21 +573,21 @@ void Courtroom::on_evidence_hover(int p_id, bool p_state)
   }
 }
 
-void Courtroom::on_evidence_left_clicked()
+void spritechat::Courtroom::on_evidence_left_clicked()
 {
   --current_evidence_page;
 
   set_evidence_page();
 }
 
-void Courtroom::on_evidence_right_clicked()
+void spritechat::Courtroom::on_evidence_right_clicked()
 {
   ++current_evidence_page;
 
   set_evidence_page();
 }
 
-void Courtroom::on_evidence_present_clicked()
+void spritechat::Courtroom::on_evidence_present_clicked()
 {
   if (!current_evidence_global)
   {
@@ -609,7 +609,7 @@ void Courtroom::on_evidence_present_clicked()
   ui_ic_chat_message->setFocus();
 }
 
-void Courtroom::on_evidence_delete_clicked()
+void spritechat::Courtroom::on_evidence_delete_clicked()
 {
   evidence_close();
   if (current_evidence_global)
@@ -629,7 +629,7 @@ void Courtroom::on_evidence_delete_clicked()
   current_evidence = 0;
 }
 
-bool Courtroom::on_evidence_x_clicked()
+bool spritechat::Courtroom::on_evidence_x_clicked()
 {
   if (current_evidence >= local_evidence_list.size()) // Should never happen but you never know.
   {
@@ -665,7 +665,7 @@ bool Courtroom::on_evidence_x_clicked()
   }
 }
 
-void Courtroom::on_evidence_ok_clicked()
+void spritechat::Courtroom::on_evidence_ok_clicked()
 {
   ui_evidence_ok->hide();
   if (current_evidence < local_evidence_list.size())
@@ -700,12 +700,12 @@ void Courtroom::on_evidence_ok_clicked()
   }
 }
 
-void Courtroom::on_evidence_switch_clicked()
+void spritechat::Courtroom::on_evidence_switch_clicked()
 {
   evidence_switch(!current_evidence_global);
 }
 
-void Courtroom::on_evidence_transfer_clicked()
+void spritechat::Courtroom::on_evidence_transfer_clicked()
 {
   if (current_evidence >= local_evidence_list.size())
   {
@@ -743,7 +743,7 @@ void Courtroom::on_evidence_transfer_clicked()
   msgBox->exec();
 }
 
-void Courtroom::on_evidence_edited()
+void spritechat::Courtroom::on_evidence_edited()
 {
   if (current_evidence >= local_evidence_list.size()) // Should never happen but you never know.
   {
@@ -763,7 +763,7 @@ void Courtroom::on_evidence_edited()
   }
 }
 
-void Courtroom::evidence_close()
+void spritechat::Courtroom::evidence_close()
 {
   ui_evidence_description->setReadOnly(true);
   ui_evidence_name->setReadOnly(true);
@@ -771,7 +771,7 @@ void Courtroom::evidence_close()
   ui_evidence_overlay->hide();
 }
 
-void Courtroom::evidence_switch(bool global)
+void spritechat::Courtroom::evidence_switch(bool global)
 {
   evidence_close();
   current_evidence_global = global;
@@ -808,7 +808,7 @@ void Courtroom::evidence_switch(bool global)
   set_evidence_page();
 }
 
-void Courtroom::on_evidence_save_clicked()
+void spritechat::Courtroom::on_evidence_save_clicked()
 {
   if (current_evidence_global)
   {
@@ -831,7 +831,7 @@ void Courtroom::on_evidence_save_clicked()
   evidence_save(p_path);
 }
 
-void Courtroom::on_evidence_load_clicked()
+void spritechat::Courtroom::on_evidence_load_clicked()
 {
   if (current_evidence_global)
   {
@@ -852,7 +852,7 @@ void Courtroom::on_evidence_load_clicked()
   set_evidence_page();
 }
 
-void Courtroom::evidence_load(QString filename)
+void spritechat::Courtroom::evidence_load(QString filename)
 {
   if (!file_exists(filename))
   {
@@ -860,11 +860,8 @@ void Courtroom::evidence_load(QString filename)
     return;
   }
   QSettings inventory(filename, QSettings::IniFormat);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  inventory.setIniCodec("UTF-8");
-#endif
   private_evidence_list.clear();
-  foreach (QString evi, inventory.childGroups())
+  for (const QString &evi : inventory.childGroups())
   {
     if (evi == "General")
     {
@@ -879,7 +876,7 @@ void Courtroom::evidence_load(QString filename)
   }
 }
 
-void Courtroom::evidence_save(QString filename)
+void spritechat::Courtroom::evidence_save(QString filename)
 {
   // "Inventories" dir keeps our private evidence data
   if (!dir_exists("inventories"))
@@ -889,9 +886,6 @@ void Courtroom::evidence_save(QString filename)
   }
 
   QSettings inventory(filename, QSettings::IniFormat);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  inventory.setIniCodec("UTF-8");
-#endif
   inventory.clear();
   for (int i = 0; i < private_evidence_list.size(); i++)
   {
@@ -904,7 +898,7 @@ void Courtroom::evidence_save(QString filename)
   inventory.sync();
 }
 
-bool Courtroom::compare_evidence_changed(EvidenceItem evi_a, EvidenceItem evi_b)
+bool spritechat::Courtroom::compare_evidence_changed(EvidenceItem evi_a, EvidenceItem evi_b)
 {
   return evi_a.name != evi_b.name || evi_a.image != evi_b.image || evi_a.description != evi_b.description;
 }

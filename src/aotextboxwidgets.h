@@ -9,6 +9,8 @@
 #include <QStyle>
 #include <QTextEdit>
 
+namespace spritechat
+{
 class AOChatboxLabel : public QLabel
 {
   Q_OBJECT
@@ -40,3 +42,4 @@ private:
   QBrush m_brush;
   QPen m_pen;
 };
+} // namespace spritechat

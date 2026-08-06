@@ -8,6 +8,8 @@
 #include <QTextEdit>
 #include <QWidget>
 
+namespace spritechat
+{
 class AOApplication;
 
 class ModeratorDialog : public QWidget
@@ -38,3 +40,4 @@ private:
 private Q_SLOTS:
   void onAcceptedClicked();
 };
+} // namespace spritechat

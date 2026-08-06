@@ -15,6 +15,8 @@
 #include <QElapsedTimer>
 #endif
 
+namespace spritechat
+{
 class AOApplication;
 class VPath;
 
@@ -39,8 +41,6 @@ class VPath;
 //
 // For questions comments or concerns, bother someone else
 
-namespace kal
-{
 class AnimationLayer : public QLabel
 {
   Q_OBJECT
@@ -263,4 +263,4 @@ public:
 private:
   AOApplication *ao_app;
 };
-} // namespace kal
+} // namespace spritechat

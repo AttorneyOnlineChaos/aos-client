@@ -11,6 +11,8 @@
 
 #include <string.h>
 
+namespace spritechat
+{
 class AOBlipPlayer
 {
 public:
@@ -35,3 +37,4 @@ private:
 
   void updateInternalVolume();
 };
+} // namespace spritechat

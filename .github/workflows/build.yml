@@ -39,28 +39,19 @@ jobs:
           cache-key-prefix: install-qt-action
           modules: 'qtimageformats qtwebsockets'
 
-      - name: Install Windows Discord RPC
-        shell: bash
-        run: |
-          curl -L https://github.com/discordapp/discord-rpc/releases/download/v3.4.0/discord-rpc-win.zip -o discord_rpc.zip
-          unzip discord_rpc.zip
-          cp ./discord-rpc/win64-dynamic/lib/discord-rpc.lib ./lib/
-          cp ./discord-rpc/win64-dynamic/bin/discord-rpc.dll ./bin/
-          cp ./discord-rpc/win64-dynamic/include/discord*.h ./lib/
-          
       - name: Install Windows BASS
         shell: bash
         run: |
           curl http://www.un4seen.com/files/bass24.zip -o bass.zip
           unzip -d bass -o bass.zip
-          cp ./bass/c/bass.h ./lib
-          cp ./bass/c/x64/bass.lib ./lib/
+          cp ./bass/c/bass.h ./external
+          cp ./bass/c/x64/bass.lib ./external/
           cp ./bass/x64/bass.dll ./bin/
 
           curl http://www.un4seen.com/files/bassopus24.zip -o bassopus.zip
           unzip -d bass -o bassopus.zip
-          cp ./bass/c/bassopus.h ./lib
-          cp ./bass/c/x64/bassopus.lib ./lib/
+          cp ./bass/c/bassopus.h ./external
+          cp ./bass/c/x64/bassopus.lib ./external/
           cp ./bass/x64/bassopus.dll ./bin/
 
       - name: Clone Apng plugin
@@ -79,7 +70,7 @@ jobs:
 
       - name: Build
         run: |
-          cmake . -G "MinGW Makefiles" -D CMAKE_BUILD_TYPE=Release
+          cmake . -G "MinGW Makefiles" -D CMAKE_BUILD_TYPE=Release -D SPRITECHAT_RUNTIME_NAME=Attorney_Online
           cmake --build . --config Release
 
       - name: Deploy Windows
@@ -126,26 +117,18 @@ jobs:
           cache-key-prefix: install-qt-action
           modules: 'qtimageformats qtwebsockets'
 
-      - name: Install Linux Discord RPC
-        run: |
-          curl -L https://github.com/discordapp/discord-rpc/releases/download/v3.4.0/discord-rpc-linux.zip -o discord_rpc.zip
-          unzip discord_rpc.zip
-          cp ./discord-rpc/linux-dynamic/lib/libdiscord-rpc.so ./lib/
-          cp ./discord-rpc/linux-dynamic/lib/libdiscord-rpc.so ./bin/
-          cp ./discord-rpc/linux-dynamic/include/discord*.h ./src/
-
       - name: Install Linux BASS
         run: |
           curl http://www.un4seen.com/files/bass24-linux.zip -o bass.zip
           unzip -d bass -o bass.zip
-          cp ./bass/c/bass.h ./lib
-          cp ./bass/libs/x86_64/libbass.so ./lib/
+          cp ./bass/c/bass.h ./external
+          cp ./bass/libs/x86_64/libbass.so ./external/
           cp ./bass/libs/x86_64/libbass.so ./bin/
 
           curl http://www.un4seen.com/files/bassopus24-linux.zip -o bassopus.zip
           unzip -d bass -o bassopus.zip
-          cp ./bass/c/bassopus.h ./lib
-          cp ./bass/libs/x86_64/libbassopus.so ./lib/
+          cp ./bass/c/bassopus.h ./external
+          cp ./bass/libs/x86_64/libbassopus.so ./external/
           cp ./bass/libs/x86_64/libbassopus.so ./bin/
 
       - name: Clone Apng plugin
@@ -165,7 +148,7 @@ jobs:
 
       - name: Build
         run: |
-          cmake .
+          cmake . -D SPRITECHAT_RUNTIME_NAME=Attorney_Online
           cmake --build . --config Release
 
       - name: Clone Themes

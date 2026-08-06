@@ -5,7 +5,7 @@
 #include "file_functions.h"
 #include "hardware_functions.h"
 
-void Courtroom::construct_char_select()
+void spritechat::Courtroom::construct_char_select()
 {
   this->setWindowFlags((this->windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
 
@@ -66,7 +66,7 @@ void Courtroom::construct_char_select()
   connect(ui_char_taken, &QCheckBox::stateChanged, this, &Courtroom::on_char_taken_clicked);
 }
 
-void Courtroom::set_char_select()
+void spritechat::Courtroom::set_char_select()
 {
   QString filename = "courtroom_design.ini";
 
@@ -109,7 +109,7 @@ void Courtroom::set_char_select()
   ui_char_search->setFocus();
 }
 
-void Courtroom::set_char_select_page()
+void spritechat::Courtroom::set_char_select_page()
 {
   ui_char_select_background->show();
 
@@ -165,7 +165,7 @@ void Courtroom::set_char_select_page()
   put_button_in_place(current_char_page * max_chars_on_page, chars_on_page);
 }
 
-void Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item, int column)
+void spritechat::Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item, int column)
 {
   Q_UNUSED(column);
   int cid = p_item->text(1).toInt();
@@ -182,7 +182,7 @@ void Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item, int column)
   char_clicked(cid);
 }
 
-void Courtroom::char_clicked(int n_char)
+void spritechat::Courtroom::char_clicked(int n_char)
 {
   if (n_char != -1)
   {
@@ -211,7 +211,7 @@ void Courtroom::char_clicked(int n_char)
   }
 }
 
-void Courtroom::on_char_button_context_menu_requested(const QPoint &pos)
+void spritechat::Courtroom::on_char_button_context_menu_requested(const QPoint &pos)
 {
   AOCharButton *button = qobject_cast<AOCharButton *>(sender());
   int n_char = ui_char_button_list.indexOf(button);
@@ -243,7 +243,7 @@ void Courtroom::on_char_button_context_menu_requested(const QPoint &pos)
   menu->popup(button->mapToGlobal(pos));
 }
 
-void Courtroom::put_button_in_place(int starting, int chars_on_this_page)
+void spritechat::Courtroom::put_button_in_place(int starting, int chars_on_this_page)
 {
   if (ui_char_button_list_filtered.size() == 0)
   {
@@ -275,13 +275,13 @@ void Courtroom::put_button_in_place(int starting, int chars_on_this_page)
   }
 }
 
-void Courtroom::character_loading_finished()
+void spritechat::Courtroom::character_loading_finished()
 {
   // Zeroeth, we'll clear any leftover characters from previous server visits.
   ao_app->generated_chars = 0;
   if (ui_char_button_list.size() > 0)
   {
-    foreach (AOCharButton *item, ui_char_button_list)
+    for (AOCharButton *item : std::as_const(ui_char_button_list))
     {
       delete item;
     }
@@ -345,7 +345,7 @@ void Courtroom::character_loading_finished()
   ui_char_list->expandAll();
 }
 
-void Courtroom::filter_character_list()
+void spritechat::Courtroom::filter_character_list()
 {
   ui_char_button_list_filtered.clear();
   for (int i = 0; i < char_list.size(); i++)
@@ -390,17 +390,17 @@ void Courtroom::filter_character_list()
   set_char_select_page();
 }
 
-void Courtroom::on_char_search_changed()
+void spritechat::Courtroom::on_char_search_changed()
 {
   filter_character_list();
 }
 
-void Courtroom::on_char_passworded_clicked()
+void spritechat::Courtroom::on_char_passworded_clicked()
 {
   filter_character_list();
 }
 
-void Courtroom::on_char_taken_clicked()
+void spritechat::Courtroom::on_char_taken_clicked()
 {
   filter_character_list();
 }

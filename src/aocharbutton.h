@@ -9,6 +9,8 @@
 #include <QString>
 #include <QWidget>
 
+namespace spritechat
+{
 class AOCharButton : public QPushButton
 {
   Q_OBJECT
@@ -21,11 +23,7 @@ public:
   void setTaken(bool enabled);
 
 protected:
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  void enterEvent(QEvent *event) override;
-#else
   void enterEvent(QEnterEvent *event) override;
-#endif
   void leaveEvent(QEvent *event) override;
 
 private:
@@ -34,3 +32,4 @@ private:
   AOImage *ui_taken;
   AOImage *ui_selector;
 };
+} // namespace spritechat

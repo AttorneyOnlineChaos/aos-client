@@ -7,6 +7,8 @@
 #include <QMap>
 #include <QPointer>
 
+namespace spritechat
+{
 class AOApplication;
 class ModeratorDialog;
 
@@ -44,3 +46,4 @@ Q_SIGNALS:
 private Q_SLOTS:
   void onCustomContextMenuRequested(const QPoint &pos);
 };
+} // namespace spritechat

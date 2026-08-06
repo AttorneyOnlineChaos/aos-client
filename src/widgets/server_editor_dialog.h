@@ -11,6 +11,8 @@
 #include <QPushButton>
 #include <QSpinBox>
 
+namespace spritechat
+{
 class ServerEditorDialog : public QDialog
 {
   Q_OBJECT
@@ -38,3 +40,4 @@ private:
 private Q_SLOTS:
   void parseLegacyEntry();
 };
+} // namespace spritechat

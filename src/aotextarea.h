@@ -5,6 +5,8 @@
 #include <QTextBrowser>
 #include <QTextCursor>
 
+namespace spritechat
+{
 class AOTextArea : public QTextBrowser
 {
   Q_OBJECT
@@ -18,3 +20,4 @@ public:
 private:
   void auto_scroll(QTextCursor old_cursor, int scrollbar_value, bool is_scrolled_down);
 };
+} // namespace spritechat

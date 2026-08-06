@@ -2,7 +2,6 @@
 
 #include "aoapplication.h"
 #include "aoutils.h"
-#include "demoserver.h"
 #include "gui_utils.h"
 #include "networkmanager.h"
 #include "widgets/direct_connect_dialog.h"
@@ -14,7 +13,7 @@
 #include <QVersionNumber>
 #include <qnamespace.h>
 
-Lobby::Lobby(AOApplication *p_ao_app, NetworkManager *p_net_manager)
+spritechat::Lobby::Lobby(AOApplication *p_ao_app, NetworkManager *p_net_manager)
     : QMainWindow{}
     , ao_app{p_ao_app}
     , net_manager{p_net_manager}
@@ -23,7 +22,7 @@ Lobby::Lobby(AOApplication *p_ao_app, NetworkManager *p_net_manager)
   setObjectName("lobby");
 }
 
-void Lobby::on_tab_changed(int index)
+void spritechat::Lobby::on_tab_changed(int index)
 {
   switch (index)
   {
@@ -53,13 +52,14 @@ void Lobby::on_tab_changed(int index)
     ui_edit_favorite_button->setVisible(false);
     ui_direct_connect_button->setVisible(false);
     reset_selection();
+    QMessageBox::information(this, tr("Demos"), tr("Demo recording and playback has been removed for now. The functionality will come back later."));
     break;
   default:
     break;
   }
 }
 
-int Lobby::get_selected_server()
+int spritechat::Lobby::get_selected_server()
 {
   switch (ui_connections_tabview->currentIndex())
   {
@@ -81,18 +81,18 @@ int Lobby::get_selected_server()
   return -1;
 }
 
-int Lobby::pageSelected()
+int spritechat::Lobby::pageSelected()
 {
   return current_page;
 }
 
-void Lobby::closeEvent(QCloseEvent *event)
+void spritechat::Lobby::closeEvent(QCloseEvent *event)
 {
   Options::getInstance().setWindowPosition(objectName(), pos());
   QMainWindow::closeEvent(event);
 }
 
-void Lobby::reset_selection()
+void spritechat::Lobby::reset_selection()
 {
   last_index = -1;
   ui_server_player_count_lbl->setText(tr("Offline"));
@@ -103,7 +103,7 @@ void Lobby::reset_selection()
   ui_connect_button->setEnabled(false);
 }
 
-void Lobby::loadUI()
+void spritechat::Lobby::loadUI()
 {
   setWindowIcon(QIcon(":/data/logo-client.png"));
   setWindowFlags((windowFlags() | Qt::CustomizeWindowHint));
@@ -141,10 +141,6 @@ void Lobby::loadUI()
   FROM_UI(QTreeWidget, favorites_tree);
   connect(ui_favorites_tree, &QTreeWidget::itemClicked, this, &Lobby::on_favorite_tree_clicked);
   connect(ui_favorites_tree, &QTreeWidget::itemDoubleClicked, this, &Lobby::on_list_doubleclicked);
-
-  FROM_UI(QTreeWidget, demo_tree);
-  connect(ui_demo_tree, &QTreeWidget::itemClicked, this, &Lobby::on_demo_clicked);
-  connect(ui_demo_tree, &QTreeWidget::itemDoubleClicked, this, &Lobby::on_list_doubleclicked);
 
   FROM_UI(QPushButton, refresh_button);
   connect(ui_refresh_button, &QPushButton::released, this, &Lobby::on_refresh_released);
@@ -199,31 +195,30 @@ void Lobby::loadUI()
   }
 }
 
-void Lobby::reloadUi()
+void spritechat::Lobby::reloadUi()
 {
   loadUI();
   list_servers();
   list_favorites();
-  list_demos();
   get_motd();
   check_for_updates();
   reset_selection();
 }
 
-void Lobby::on_refresh_released()
+void spritechat::Lobby::on_refresh_released()
 {
   net_manager->get_server_list();
   get_motd();
   list_favorites();
 }
 
-void Lobby::on_direct_connect_released()
+void spritechat::Lobby::on_direct_connect_released()
 {
   DirectConnectDialog connect_dialog(net_manager);
   connect_dialog.exec();
 }
 
-void Lobby::on_add_to_fav_released()
+void spritechat::Lobby::on_add_to_fav_released()
 {
   int selection = get_selected_server();
   if (selection > -1)
@@ -233,7 +228,7 @@ void Lobby::on_add_to_fav_released()
   }
 }
 
-void Lobby::on_add_server_to_fave_released()
+void spritechat::Lobby::on_add_server_to_fave_released()
 {
   ServerEditorDialog dialog;
   if (dialog.exec())
@@ -244,7 +239,7 @@ void Lobby::on_add_server_to_fave_released()
   }
 }
 
-void Lobby::on_edit_favorite_released()
+void spritechat::Lobby::on_edit_favorite_released()
 {
   const int index = get_selected_server();
   ServerEditorDialog dialog(Options::getInstance().favorites().at(index));
@@ -256,7 +251,7 @@ void Lobby::on_edit_favorite_released()
   }
 }
 
-void Lobby::on_remove_from_fav_released()
+void spritechat::Lobby::on_remove_from_fav_released()
 {
   int selection = get_selected_server();
   if (selection >= 0)
@@ -266,7 +261,7 @@ void Lobby::on_remove_from_fav_released()
   }
 }
 
-void Lobby::on_about_clicked()
+void spritechat::Lobby::on_about_clicked()
 {
   const bool hasApng = QImageReader::supportedImageFormats().contains("apng");
   QString msg = tr("<h2>Attorney Online %1</h2>"
@@ -314,7 +309,7 @@ void Lobby::on_about_clicked()
 }
 
 // clicked on an item in the serverlist
-void Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int column)
+void spritechat::Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int column)
 {
   column = 0;
   ServerInfo f_server;
@@ -352,7 +347,7 @@ void Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int column)
 }
 
 // doubleclicked on an item in the serverlist so we'll connect right away
-void Lobby::on_list_doubleclicked(QTreeWidgetItem *p_item, int column)
+void spritechat::Lobby::on_list_doubleclicked(QTreeWidgetItem *p_item, int column)
 {
   Q_UNUSED(p_item)
   Q_UNUSED(column)
@@ -360,7 +355,7 @@ void Lobby::on_list_doubleclicked(QTreeWidgetItem *p_item, int column)
   net_manager->join_to_server();
 }
 
-void Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int column)
+void spritechat::Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int column)
 {
   column = 0;
   ServerInfo f_server;
@@ -400,7 +395,7 @@ void Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int column)
   net_manager->connect_to_server(f_server);
 }
 
-void Lobby::on_server_search_edited(QString p_text)
+void spritechat::Lobby::on_server_search_edited(QString p_text)
 {
   // Iterate through all QTreeWidgetItem items
   QTreeWidgetItemIterator it(ui_serverlist_tree);
@@ -414,7 +409,7 @@ void Lobby::on_server_search_edited(QString p_text)
   {
     // Search in metadata
     QList<QTreeWidgetItem *> clist = ui_serverlist_tree->findItems(ui_serverlist_search->text(), Qt::MatchContains | Qt::MatchRecursive, 1);
-    foreach (QTreeWidgetItem *item, clist)
+    for (QTreeWidgetItem *item : std::as_const(clist))
     {
       if (item->parent() != nullptr) // So the category shows up too
       {
@@ -425,27 +420,7 @@ void Lobby::on_server_search_edited(QString p_text)
   }
 }
 
-void Lobby::on_demo_clicked(QTreeWidgetItem *item, int column)
-{
-  Q_UNUSED(column)
-
-  if (item == nullptr)
-  {
-    return;
-  }
-
-  ao_app->reconstruct_demo();
-
-  QString l_filepath = (get_app_path() + "/logs/%1/%2").arg(item->data(0, Qt::DisplayRole).toString(), item->data(1, Qt::DisplayRole).toString());
-  ao_app->demo_server->start_server();
-  ServerInfo demo_server_connection;
-  demo_server_connection.address = "127.0.0.1";
-  demo_server_connection.port = ao_app->demo_server->port();
-  ao_app->demo_server->set_demo_file(l_filepath);
-  net_manager->connect_to_server(demo_server_connection);
-}
-
-void Lobby::onReloadThemeRequested()
+void spritechat::Lobby::onReloadThemeRequested()
 {
   // This is destructive to the active widget data.
   // Whatever, this is lobby. Nothing here is worth saving.
@@ -454,14 +429,14 @@ void Lobby::onReloadThemeRequested()
   reloadUi();
 }
 
-void Lobby::onSettingsRequested()
+void spritechat::Lobby::onSettingsRequested()
 {
   AOOptionsDialog options(ao_app);
   connect(&options, &AOOptionsDialog::reloadThemeRequest, this, &Lobby::onReloadThemeRequested);
   options.exec();
 }
 
-void Lobby::list_servers()
+void spritechat::Lobby::list_servers()
 {
   ui_serverlist_tree->setSortingEnabled(false);
   ui_serverlist_tree->clear();
@@ -496,7 +471,7 @@ void Lobby::list_servers()
   ui_serverlist_tree->resizeColumnToContents(0);
 }
 
-void Lobby::list_favorites()
+void spritechat::Lobby::list_favorites()
 {
   ui_favorites_tree->setSortingEnabled(false);
   ui_favorites_tree->clear();
@@ -529,27 +504,7 @@ void Lobby::list_favorites()
   ui_favorites_tree->resizeColumnToContents(0);
 }
 
-void Lobby::list_demos()
-{
-  ui_demo_tree->setSortingEnabled(false);
-  ui_demo_tree->clear();
-
-  QMultiMap<QString, QString> m_demo_entries = ao_app->load_demo_logs_list();
-  for (auto &l_key : m_demo_entries.uniqueKeys())
-  {
-    for (const QString &l_entry : m_demo_entries.values(l_key))
-    {
-      QTreeWidgetItem *treeItem = new QTreeWidgetItem(ui_demo_tree);
-      treeItem->setData(0, Qt::DisplayRole, l_key);
-      treeItem->setData(1, Qt::DisplayRole, l_entry);
-    }
-  }
-  ui_demo_tree->setSortingEnabled(true);
-  ui_demo_tree->sortItems(0, Qt::SortOrder::AscendingOrder);
-  ui_demo_tree->resizeColumnToContents(0);
-}
-
-void Lobby::get_motd()
+void spritechat::Lobby::get_motd()
 {
   net_manager->request_document(MSDocumentType::Motd, [this](QString document) {
     if (document.isEmpty())
@@ -563,7 +518,7 @@ void Lobby::get_motd()
   });
 }
 
-void Lobby::check_for_updates()
+void spritechat::Lobby::check_for_updates()
 {
   net_manager->request_document(MSDocumentType::ClientVersion, [this](QString version) {
     QVersionNumber current_version = QVersionNumber::fromString(ao_app->get_version_string());
@@ -573,24 +528,24 @@ void Lobby::check_for_updates()
     {
       ui_game_version_lbl->setText(tr("Version: %1 [OUTDATED]").arg(current_version.toString()));
       setWindowTitle(tr("[Your client is outdated]"));
-      const QString download_url = AOUtils::convert_to_html(QStringLiteral("https://github.com/AttorneyOnline/AO2-Client/releases/latest"));
+      const QString download_url = convert_to_html(QStringLiteral("https://github.com/AttorneyOnline/AO2-Client/releases/latest"));
       const QString message = QString("Your client is outdated!<br>Your Version: %1<br>Current Version: %2<br>Download the latest version at<br>%3").arg(current_version.toString(), master_version.toString(), download_url);
       QMessageBox::warning(this, "Your client is outdated!", message);
     }
   });
 }
 
-void Lobby::set_player_count(int players_online, int max_players)
+void spritechat::Lobby::set_player_count(int players_online, int max_players)
 {
   QString f_string = tr("Online: %1/%2").arg(QString::number(players_online), QString::number(max_players));
   ui_server_player_count_lbl->setText(f_string);
 }
 
-void Lobby::set_server_description(const QString &server_description)
+void spritechat::Lobby::set_server_description(const QString &server_description)
 {
   ui_server_description_text->clear();
-  ui_server_description_text->insertHtml(AOUtils::convert_to_html(server_description));
+  ui_server_description_text->insertHtml(convert_to_html(server_description));
 }
 
-Lobby::~Lobby()
+spritechat::Lobby::~Lobby()
 {}

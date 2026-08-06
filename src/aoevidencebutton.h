@@ -8,6 +8,8 @@
 #include <QPushButton>
 #include <QString>
 
+namespace spritechat
+{
 class AOEvidenceButton : public QPushButton
 {
   Q_OBJECT
@@ -28,11 +30,7 @@ Q_SIGNALS:
   void mouseoverUpdated(int id, bool state);
 
 protected:
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  void enterEvent(QEvent *e) override;
-#else
   void enterEvent(QEnterEvent *e) override;
-#endif
   void leaveEvent(QEvent *e) override;
 
   void mouseDoubleClickEvent(QMouseEvent *e) override;
@@ -48,3 +46,4 @@ private:
 private Q_SLOTS:
   void on_clicked();
 };
+} // namespace spritechat

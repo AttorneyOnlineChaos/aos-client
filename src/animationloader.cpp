@@ -3,23 +3,21 @@
 #include <QMutexLocker>
 #include <QtConcurrent/QtConcurrent>
 
-namespace kal
-{
-AnimationLoader::AnimationLoader(QThreadPool *threadPool)
+spritechat::AnimationLoader::AnimationLoader(QThreadPool *threadPool)
     : m_thread_pool(threadPool)
 {}
 
-AnimationLoader::~AnimationLoader()
+spritechat::AnimationLoader::~AnimationLoader()
 {
   stopLoading();
 }
 
-QString AnimationLoader::loadedFileName() const
+QString spritechat::AnimationLoader::loadedFileName() const
 {
   return m_file_name;
 }
 
-void AnimationLoader::load(const QString &fileName)
+void spritechat::AnimationLoader::load(const QString &fileName)
 {
   if (m_file_name == fileName)
   {
@@ -37,7 +35,7 @@ void AnimationLoader::load(const QString &fileName)
   m_task = QtConcurrent::run(m_thread_pool, [this, reader]() { populateVector(reader); });
 }
 
-void AnimationLoader::stopLoading()
+void spritechat::AnimationLoader::stopLoading()
 {
   m_exit_task = true;
   if (m_task.isRunning())
@@ -46,17 +44,17 @@ void AnimationLoader::stopLoading()
   }
 }
 
-QSize AnimationLoader::size()
+QSize spritechat::AnimationLoader::size()
 {
   return m_size;
 }
 
-int AnimationLoader::frameCount()
+int spritechat::AnimationLoader::frameCount()
 {
   return m_frame_count;
 }
 
-AnimationFrame AnimationLoader::frame(int frameNumber)
+spritechat::AnimationFrame spritechat::AnimationLoader::frame(int frameNumber)
 {
   if (m_frame_count <= 0)
   {
@@ -78,12 +76,12 @@ AnimationFrame AnimationLoader::frame(int frameNumber)
   return frame;
 }
 
-int AnimationLoader::loopCount()
+int spritechat::AnimationLoader::loopCount()
 {
   return m_loop_count;
 }
 
-void AnimationLoader::populateVector(QImageReader *reader)
+void spritechat::AnimationLoader::populateVector(QImageReader *reader)
 {
   int loaded_frame_count = 0;
   int frame_count = reader->imageCount();
@@ -102,4 +100,3 @@ void AnimationLoader::populateVector(QImageReader *reader)
 
   delete reader;
 }
-} // namespace kal

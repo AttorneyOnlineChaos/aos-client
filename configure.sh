@@ -25,7 +25,7 @@ print_help() {
     echo "Usage: $0 [options]"
     echo "Options:"
     echo "  -h, --help: Print this help message"
-    echo "  clean: Remove all files from lib, bin and tmp"
+    echo "  clean: Remove all files from external, bin and tmp"
     echo "  QT_ROOT=path: Specify the root path to where Qt is installed (eg. /c/Qt/)"
 }
 
@@ -221,8 +221,8 @@ get_zip() {
 
 get_bass() {
     echo "Checking for BASS..."
-    # If lib/bass.h exists, assume that BASS is already present
-    if [ -f "./lib/bass.h" ]; then
+    # If external/bass.h exists, assume that BASS is already present
+    if [ -f "./external/bass.h" ]; then
         echo "BASS is installed."
         return 0
     fi
@@ -230,25 +230,25 @@ get_bass() {
     echo "Downloading BASS..."
     if [[ "$PLATFORM" == "windows" ]]; then
         get_zip https://www.un4seen.com/files/bass24.zip \
-            c/bass.h:./lib \
-            c/x64/bass.lib:./lib \
+            c/bass.h:./external \
+            c/x64/bass.lib:./external \
             x64/bass.dll:./bin
     elif [[ "$PLATFORM" == "linux" ]]; then
         get_zip https://www.un4seen.com/files/bass24-linux.zip \
-            c/bass.h:./lib \
-            libs/x86_64/libbass.so:./lib \
+            c/bass.h:./external \
+            libs/x86_64/libbass.so:./external \
             libs/x86_64/libbass.so:./bin
     elif [[ "$PLATFORM" == "macos" ]]; then
         get_zip https://www.un4seen.com/files/bass24-osx.zip \
-            c/bass.h:./lib \
-            libbass.dylib:./lib
+            c/bass.h:./external \
+            libbass.dylib:./external
     fi
 }
 
 get_bassopus() {
     echo "Checking for BASSOPUS..."
-    # If lib/bassopus.h exists, assume that BASSOPUS is already present
-    if [ -f "./lib/bassopus.h" ]; then
+    # If external/bassopus.h exists, assume that BASSOPUS is already present
+    if [ -f "./external/bassopus.h" ]; then
         echo "BASSOPUS is installed."
         return 0
     fi
@@ -256,47 +256,18 @@ get_bassopus() {
     echo "Downloading BASSOPUS..."
     if [[ "$PLATFORM" == "windows" ]]; then
         get_zip https://www.un4seen.com/files/bassopus24.zip \
-            c/bassopus.h:./lib \
-            c/x64/bassopus.lib:./lib \
+            c/bassopus.h:./external \
+            c/x64/bassopus.lib:./external \
             x64/bassopus.dll:./bin
     elif [[ "$PLATFORM" == "linux" ]]; then
         get_zip https://www.un4seen.com/files/bassopus24-linux.zip \
-            c/bassopus.h:./lib \
-            libs/x86_64/libbassopus.so:./lib \
+            c/bassopus.h:./external \
+            libs/x86_64/libbassopus.so:./external \
             libs/x86_64/libbassopus.so:./bin
     elif [[ "$PLATFORM" == "macos" ]]; then
         get_zip https://www.un4seen.com/files/bassopus24-osx.zip \
-            c/bassopus.h:./lib \
-            libbassopus.dylib:./lib
-    fi
-}
-
-get_discordrpc() {
-    echo "Checking for Discord RPC..."
-    # If lib/discord_rpc.h exists, assume that Discord RPC is already present
-    if [ -f "./lib/discord_rpc.h" ]; then
-        echo "Discord RPC is installed."
-        return 0
-    fi
-
-    echo "Downloading Discord RPC..."
-    if [[ "$PLATFORM" == "windows" ]]; then
-        get_zip https://github.com/discordapp/discord-rpc/releases/download/v3.4.0/discord-rpc-win.zip \
-            discord-rpc/win64-dynamic/lib/discord-rpc.lib:./lib \
-            discord-rpc/win64-dynamic/bin/discord-rpc.dll:./bin \
-            discord-rpc/win64-dynamic/include/discord_rpc.h:./lib \
-            discord-rpc/win64-dynamic/include/discord_register.h:./lib
-    elif [[ "$PLATFORM" == "linux" ]]; then
-        get_zip https://github.com/discordapp/discord-rpc/releases/download/v3.4.0/discord-rpc-linux.zip \
-            discord-rpc/linux-dynamic/lib/libdiscord-rpc.so:./lib \
-            discord-rpc/linux-dynamic/lib/libdiscord-rpc.so:./bin \
-            discord-rpc/linux-dynamic/include/discord_rpc.h:./lib \
-            discord-rpc/linux-dynamic/include/discord_register.h:./lib
-    elif [[ "$PLATFORM" == "macos" ]]; then
-        get_zip https://github.com/discord/discord-rpc/releases/download/v3.4.0/discord-rpc-osx.zip \
-            discord-rpc/osx-dynamic/lib/libdiscord-rpc.dylib:./lib \
-            discord-rpc/osx-dynamic/include/discord_rpc.h:./lib \
-            discord-rpc/osx-dynamic/include/discord_rpc.h:./lib
+            c/bassopus.h:./external \
+            libbassopus.dylib:./external
     fi
 }
 
@@ -369,10 +340,10 @@ configure() {
         exit 0
     fi
 
-    # If clean is passed, remove all files from lib, bin and tmp
+    # If clean is passed, remove all files from external, bin and tmp
     if [ "$#" -gt 0 ] && { [ "$1" = "clean" ]; }; then
-        echo "Cleaning up... removing lib, bin and tmp"
-        rm -rf ./lib/*
+        echo "Cleaning up... removing external, bin and tmp"
+        rm -rf ./external/*
         rm -rf ./bin/*
         rm -rf ./tmp/*
         rm -rf ./qtapng/
@@ -462,13 +433,12 @@ configure() {
 
     # Make sure key folders exist
     mkdir -p ./tmp/
-    mkdir -p ./lib/
+    mkdir -p ./external/
     mkdir -p ./bin/
 
     # Get the dependencies
     get_bass
     get_bassopus
-    get_discordrpc
     get_qtapng
     get_themes
 
@@ -480,7 +450,8 @@ $CMAKE . \
 -DCMAKE_PREFIX_PATH=${QT_PATH} \
 -DCMAKE_BUILD_TYPE=${BUILD_CONFIG} \
 -DCMAKE_C_COMPILER=${CC} \
--DCMAKE_CXX_COMPILER=${CXX}"
+-DCMAKE_CXX_COMPILER=${CXX} \
+-DSPRITECHAT_RUNTIME_NAME=Attorney_Online"
 
     $FULL_CMAKE_CMD
     $NINJA

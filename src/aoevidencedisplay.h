@@ -8,6 +8,8 @@
 #include <QLabel>
 #include <QPushButton>
 
+namespace spritechat
+{
 class AOEvidenceDisplay : public QLabel
 {
   Q_OBJECT
@@ -29,10 +31,11 @@ private:
   int m_last_evidence_index = -1;
   AOSfxPlayer *m_sfx_player;
 
-  kal::InterfaceAnimationLayer *m_evidence_movie;
+  InterfaceAnimationLayer *m_evidence_movie;
   QPushButton *ui_prompt_details;
 
 private Q_SLOTS:
   void show_done();
   void icon_clicked();
 };
+} // namespace spritechat

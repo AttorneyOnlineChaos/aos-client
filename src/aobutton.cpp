@@ -2,7 +2,7 @@
 
 #include "options.h"
 
-AOButton::AOButton(AOApplication *ao_app, QWidget *parent)
+spritechat::AOButton::AOButton(AOApplication *ao_app, QWidget *parent)
     : QPushButton(parent)
     , ao_app(ao_app)
 {
@@ -14,12 +14,12 @@ AOButton::AOButton(AOApplication *ao_app, QWidget *parent)
   });
 }
 
-AOButton::~AOButton()
+spritechat::AOButton::~AOButton()
 {
   deleteMovie();
 }
 
-void AOButton::setImage(QString image_name)
+void spritechat::AOButton::setImage(QString image_name)
 {
   deleteMovie();
 
@@ -50,7 +50,7 @@ void AOButton::setImage(QString image_name)
   }
 }
 
-void AOButton::deleteMovie()
+void spritechat::AOButton::deleteMovie()
 {
   if (m_movie)
   {
@@ -62,12 +62,12 @@ void AOButton::deleteMovie()
   }
 }
 
-void AOButton::handleNextFrame()
+void spritechat::AOButton::handleNextFrame()
 {
   updateIcon(m_movie->currentPixmap());
 }
 
-void AOButton::updateIcon(QPixmap icon)
+void spritechat::AOButton::updateIcon(QPixmap icon)
 {
   const QSize current_size = size();
   setIcon(icon.scaled(current_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));

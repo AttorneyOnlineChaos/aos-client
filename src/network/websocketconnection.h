@@ -6,6 +6,8 @@
 #include <QObject>
 #include <QWebSocket>
 
+namespace spritechat
+{
 class AOApplication;
 
 class WebSocketConnection : public QObject
@@ -41,3 +43,4 @@ private Q_SLOTS:
   void onStateChanged(QAbstractSocket::SocketState state);
   void onTextMessageReceived(QString message);
 };
+} // namespace spritechat

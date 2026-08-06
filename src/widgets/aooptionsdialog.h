@@ -18,6 +18,8 @@
 #include <QTextBrowser>
 #include <QVariant>
 
+namespace spritechat
+{
 class AOApplication;
 
 struct OptionEntry
@@ -59,7 +61,6 @@ private:
   QLineEdit *ui_default_showname_textbox;
   QFrame *ui_net_divider;
   QLineEdit *ui_ms_textbox;
-  QCheckBox *ui_discord_cb;
   QLabel *ui_language_label;
   QComboBox *ui_language_combobox;
   QComboBox *ui_resize_combobox;
@@ -114,7 +115,6 @@ private:
   QCheckBox *ui_desync_logs_cb;
   QCheckBox *ui_log_ic_actions_cb;
   QCheckBox *ui_log_text_cb;
-  QCheckBox *ui_log_demo_cb;
 
   /**
    * Allows the AO2 master server hoster to go broke.
@@ -154,3 +154,4 @@ private Q_SLOTS:
   void themeChanged(int i);
   void setupUI();
 };
+} // namespace spritechat

@@ -4,6 +4,8 @@
 #include <QString>
 #include <QStringList>
 
+namespace spritechat
+{
 class AOPacket
 {
 public:
@@ -23,4 +25,6 @@ private:
   QString m_header;
   QStringList m_content;
 };
-Q_DECLARE_METATYPE(AOPacket)
+} // namespace spritechat
+
+Q_DECLARE_METATYPE(spritechat::AOPacket)

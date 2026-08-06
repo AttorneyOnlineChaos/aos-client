@@ -4,6 +4,8 @@
 #include <QDateTime>
 #include <QString>
 
+namespace spritechat
+{
 class ChatLogPiece
 {
   Q_DECLARE_TR_FUNCTIONS(ChatLogPiece)
@@ -19,3 +21,4 @@ public:
 
   QString toString();
 };
+} // namespace spritechat

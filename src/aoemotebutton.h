@@ -5,6 +5,8 @@
 #include <QLabel>
 #include <QPushButton>
 
+namespace spritechat
+{
 class AOEmoteButton : public QPushButton
 {
   Q_OBJECT
@@ -28,3 +30,4 @@ private:
 
   QLabel *ui_selected = nullptr;
 };
+} // namespace spritechat

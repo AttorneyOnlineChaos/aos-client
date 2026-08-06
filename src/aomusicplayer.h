@@ -4,6 +4,8 @@
 
 #include <QFutureWatcher>
 
+namespace spritechat
+{
 class AOMusicPlayer
 {
 public:
@@ -36,3 +38,4 @@ private:
 
   bool ensureValidStreamId(int streamId);
 };
+} // namespace spritechat

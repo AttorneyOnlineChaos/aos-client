@@ -4,7 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 
-bool file_exists(QString file_path)
+bool spritechat::file_exists(QString file_path)
 {
   if (file_path.isEmpty())
   {
@@ -16,7 +16,7 @@ bool file_exists(QString file_path)
   return check_file.exists() && check_file.isFile();
 }
 
-bool dir_exists(QString dir_path)
+bool spritechat::dir_exists(QString dir_path)
 {
   if (dir_path == "")
   {
@@ -28,14 +28,14 @@ bool dir_exists(QString dir_path)
   return check_dir.exists();
 }
 
-bool exists(QString p_path)
+bool spritechat::exists(QString p_path)
 {
   QFile file(p_path);
 
   return file.exists();
 }
 
-QString get_app_path()
+QString spritechat::get_app_path()
 {
   QString path = QCoreApplication::applicationDirPath();
 
@@ -75,7 +75,7 @@ QString get_app_path()
   return path;
 }
 
-QString get_base_path()
+QString spritechat::get_base_path()
 {
   return QDir(get_app_path()).absoluteFilePath("base") + "/";
 }

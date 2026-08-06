@@ -2,7 +2,7 @@
 
 #include "datatypes.h"
 
-AOEvidenceDisplay::AOEvidenceDisplay(AOApplication *p_ao_app, QWidget *p_parent)
+spritechat::AOEvidenceDisplay::AOEvidenceDisplay(AOApplication *p_ao_app, QWidget *p_parent)
     : QLabel(p_parent)
     , ao_app(p_ao_app)
 {
@@ -11,13 +11,13 @@ AOEvidenceDisplay::AOEvidenceDisplay(AOApplication *p_ao_app, QWidget *p_parent)
 
   m_sfx_player = new AOSfxPlayer(ao_app);
 
-  m_evidence_movie = new kal::InterfaceAnimationLayer(ao_app, this);
+  m_evidence_movie = new InterfaceAnimationLayer(ao_app, this);
 
-  connect(m_evidence_movie, &kal::InterfaceAnimationLayer::finishedPlayback, this, &AOEvidenceDisplay::show_done);
+  connect(m_evidence_movie, &InterfaceAnimationLayer::finishedPlayback, this, &AOEvidenceDisplay::show_done);
   connect(ui_prompt_details, &QPushButton::clicked, this, &AOEvidenceDisplay::icon_clicked);
 }
 
-void AOEvidenceDisplay::show_evidence(int p_index, QString p_evidence_image, bool is_left_side, int p_volume)
+void spritechat::AOEvidenceDisplay::show_evidence(int p_index, QString p_evidence_image, bool is_left_side, int p_volume)
 {
   QString gif_name;
   QString icon_identifier;
@@ -63,7 +63,7 @@ void AOEvidenceDisplay::show_evidence(int p_index, QString p_evidence_image, boo
   }
 }
 
-void AOEvidenceDisplay::reset()
+void spritechat::AOEvidenceDisplay::reset()
 {
   m_sfx_player->stop();
   m_evidence_movie->stopPlayback();
@@ -71,12 +71,12 @@ void AOEvidenceDisplay::reset()
   this->clear();
 }
 
-void AOEvidenceDisplay::show_done()
+void spritechat::AOEvidenceDisplay::show_done()
 {
   ui_prompt_details->show();
 }
 
-void AOEvidenceDisplay::icon_clicked()
+void spritechat::AOEvidenceDisplay::icon_clicked()
 {
   if (m_last_evidence_index != -1)
   {
@@ -84,14 +84,14 @@ void AOEvidenceDisplay::icon_clicked()
   }
 }
 
-void AOEvidenceDisplay::combo_resize(int w, int h)
+void spritechat::AOEvidenceDisplay::combo_resize(int w, int h)
 {
   QSize f_size(w, h);
   this->resize(f_size);
   m_evidence_movie->resize(w, h);
 }
 
-void AOEvidenceDisplay::setLastEvidenceIndex(int f_index)
+void spritechat::AOEvidenceDisplay::setLastEvidenceIndex(int f_index)
 {
   m_last_evidence_index = f_index;
 }

@@ -8,9 +8,7 @@
 
 static QThreadPool *thread_pool;
 
-namespace kal
-{
-AnimationLayer::AnimationLayer(QWidget *parent)
+spritechat::AnimationLayer::AnimationLayer(QWidget *parent)
     : QLabel(parent)
 {
   setAlignment(Qt::AlignCenter);
@@ -30,17 +28,17 @@ AnimationLayer::AnimationLayer(QWidget *parent)
   createLoader();
 }
 
-AnimationLayer::~AnimationLayer()
+spritechat::AnimationLayer::~AnimationLayer()
 {
   deleteLoader();
 }
 
-QString AnimationLayer::fileName()
+QString spritechat::AnimationLayer::fileName()
 {
   return m_file_name;
 }
 
-void AnimationLayer::setFileName(QString fileName)
+void spritechat::AnimationLayer::setFileName(QString fileName)
 {
   stopPlayback();
   m_file_name = fileName;
@@ -54,7 +52,7 @@ void AnimationLayer::setFileName(QString fileName)
   resetData();
 }
 
-void AnimationLayer::startPlayback()
+void spritechat::AnimationLayer::startPlayback()
 {
   if (m_processing)
   {
@@ -70,7 +68,7 @@ void AnimationLayer::startPlayback()
   frameTicker();
 }
 
-void AnimationLayer::stopPlayback()
+void spritechat::AnimationLayer::stopPlayback()
 {
   if (m_ticker->isActive())
   {
@@ -84,13 +82,13 @@ void AnimationLayer::stopPlayback()
   Q_EMIT stoppedPlayback();
 }
 
-void AnimationLayer::restartPlayback()
+void spritechat::AnimationLayer::restartPlayback()
 {
   stopPlayback();
   startPlayback();
 }
 
-void AnimationLayer::pausePlayback(bool enabled)
+void spritechat::AnimationLayer::pausePlayback(bool enabled)
 {
   if (m_pause == enabled)
   {
@@ -102,17 +100,17 @@ void AnimationLayer::pausePlayback(bool enabled)
   m_pause = enabled;
 }
 
-QSize AnimationLayer::frameSize()
+QSize spritechat::AnimationLayer::frameSize()
 {
   return m_frame_size;
 }
 
-int AnimationLayer::frameCount()
+int spritechat::AnimationLayer::frameCount()
 {
   return m_frame_count;
 }
 
-int AnimationLayer::currentFrameNumber()
+int spritechat::AnimationLayer::currentFrameNumber()
 {
   return m_frame_number;
 }
@@ -122,7 +120,7 @@ int AnimationLayer::currentFrameNumber()
  * @param number The frame number to jump to. Must be in valid range. If the number is out of range, the method does nothing.
  * @details If frame number is valid and playback is processing, the frame will immediately be displayed.
  */
-void AnimationLayer::jumpToFrame(int number)
+void spritechat::AnimationLayer::jumpToFrame(int number)
 {
   if (number < 0 || number >= m_frame_count)
   {
@@ -144,65 +142,65 @@ void AnimationLayer::jumpToFrame(int number)
   }
 }
 
-bool AnimationLayer::isPlayOnce()
+bool spritechat::AnimationLayer::isPlayOnce()
 {
   return m_play_once;
 }
 
-void AnimationLayer::setPlayOnce(bool enabled)
+void spritechat::AnimationLayer::setPlayOnce(bool enabled)
 {
   m_play_once = enabled;
 }
 
-void AnimationLayer::setStretchToFit(bool enabled)
+void spritechat::AnimationLayer::setStretchToFit(bool enabled)
 {
   m_stretch_to_fit = enabled;
 }
 
-void AnimationLayer::setResetCacheWhenStopped(bool enabled)
+void spritechat::AnimationLayer::setResetCacheWhenStopped(bool enabled)
 {
   m_reset_cache_when_stopped = enabled;
 }
 
-void AnimationLayer::setFlipped(bool enabled)
+void spritechat::AnimationLayer::setFlipped(bool enabled)
 {
   m_flipped = enabled;
 }
 
-void AnimationLayer::setResizeMode(RESIZE_MODE mode)
+void spritechat::AnimationLayer::setResizeMode(RESIZE_MODE mode)
 {
   m_resize_mode = mode;
 }
 
-void AnimationLayer::setMinimumDurationPerFrame(int duration)
+void spritechat::AnimationLayer::setMinimumDurationPerFrame(int duration)
 {
   m_minimum_duration = duration;
 }
 
-void AnimationLayer::setMaximumDurationPerFrame(int duration)
+void spritechat::AnimationLayer::setMaximumDurationPerFrame(int duration)
 {
   m_maximum_duration = duration;
 }
 
-void AnimationLayer::setMaskingRect(QRect rect)
+void spritechat::AnimationLayer::setMaskingRect(QRect rect)
 {
   m_mask_rect_hint = rect;
   calculateFrameGeometry();
 }
 
-void AnimationLayer::resizeEvent(QResizeEvent *event)
+void spritechat::AnimationLayer::resizeEvent(QResizeEvent *event)
 {
   QLabel::resizeEvent(event);
   calculateFrameGeometry();
 }
 
-void AnimationLayer::createLoader()
+void spritechat::AnimationLayer::createLoader()
 {
   deleteLoader();
   m_loader = new AnimationLoader(thread_pool);
 }
 
-void AnimationLayer::deleteLoader()
+void spritechat::AnimationLayer::deleteLoader()
 {
   if (m_loader)
   {
@@ -211,7 +209,7 @@ void AnimationLayer::deleteLoader()
   }
 }
 
-void AnimationLayer::resetData()
+void spritechat::AnimationLayer::resetData()
 {
   m_first_frame = true;
   m_frame_number = 0;
@@ -226,7 +224,7 @@ void AnimationLayer::resetData()
   calculateFrameGeometry();
 }
 
-void AnimationLayer::calculateFrameGeometry()
+void spritechat::AnimationLayer::calculateFrameGeometry()
 {
   m_mask_rect = QRect();
   m_scaled_frame_size = QSize();
@@ -272,20 +270,20 @@ void AnimationLayer::calculateFrameGeometry()
   displayCurrentFrame();
 }
 
-void AnimationLayer::finishPlayback()
+void spritechat::AnimationLayer::finishPlayback()
 {
   stopPlayback();
   Q_EMIT finishedPlayback();
 }
 
-void AnimationLayer::prepareNextTick()
+void spritechat::AnimationLayer::prepareNextTick()
 {
   int duration = qMax(m_minimum_duration, m_current_frame.duration);
   duration = (m_maximum_duration > 0) ? qMin(m_maximum_duration, duration) : duration;
   m_ticker->start(duration);
 }
 
-void AnimationLayer::displayCurrentFrame()
+void spritechat::AnimationLayer::displayCurrentFrame()
 {
   QPixmap image = m_current_frame.texture;
 
@@ -315,7 +313,7 @@ void AnimationLayer::displayCurrentFrame()
   setPixmap(image);
 }
 
-void AnimationLayer::frameTicker()
+void spritechat::AnimationLayer::frameTicker()
 {
   if (!m_processing)
   {
@@ -374,7 +372,7 @@ void AnimationLayer::frameTicker()
   }
 }
 
-CharacterAnimationLayer::CharacterAnimationLayer(AOApplication *ao_app, QWidget *parent)
+spritechat::CharacterAnimationLayer::CharacterAnimationLayer(AOApplication *ao_app, QWidget *parent)
     : AnimationLayer(parent)
     , ao_app(ao_app)
 {
@@ -387,7 +385,7 @@ CharacterAnimationLayer::CharacterAnimationLayer(AOApplication *ao_app, QWidget 
   connect(this, &CharacterAnimationLayer::finishedPlayback, this, &CharacterAnimationLayer::notifyEmotePlaybackFinished);
 }
 
-void CharacterAnimationLayer::loadCharacterEmote(QString character, QString fileName, EmoteType emoteType, int durationLimit)
+void spritechat::CharacterAnimationLayer::loadCharacterEmote(QString character, QString fileName, EmoteType emoteType, int durationLimit)
 {
   auto is_dialog_emote = [](EmoteType emoteType) {
     return emoteType == IdleEmote || emoteType == TalkEmote;
@@ -469,7 +467,7 @@ void CharacterAnimationLayer::loadCharacterEmote(QString character, QString file
   m_duration = durationLimit;
 }
 
-void CharacterAnimationLayer::setFrameEffects(QStringList data)
+void spritechat::CharacterAnimationLayer::setFrameEffects(QStringList data)
 {
   m_effects.clear();
 
@@ -508,7 +506,7 @@ void CharacterAnimationLayer::setFrameEffects(QStringList data)
   }
 }
 
-void CharacterAnimationLayer::startTimeLimit()
+void spritechat::CharacterAnimationLayer::startTimeLimit()
 {
   if (m_duration > 0)
   {
@@ -516,7 +514,7 @@ void CharacterAnimationLayer::startTimeLimit()
   }
 }
 
-void CharacterAnimationLayer::onPlaybackStopped()
+void spritechat::CharacterAnimationLayer::onPlaybackStopped()
 {
   if (m_duration_timer->isActive())
   {
@@ -524,7 +522,7 @@ void CharacterAnimationLayer::onPlaybackStopped()
   }
 }
 
-void CharacterAnimationLayer::notifyEmotePlaybackFinished()
+void spritechat::CharacterAnimationLayer::notifyEmotePlaybackFinished()
 {
   if (m_emote_type == PreEmote || m_emote_type == PostEmote)
   {
@@ -532,7 +530,7 @@ void CharacterAnimationLayer::notifyEmotePlaybackFinished()
   }
 }
 
-void CharacterAnimationLayer::onPlaybackFinished()
+void spritechat::CharacterAnimationLayer::onPlaybackFinished()
 {
   if (m_emote_type == PreEmote || m_emote_type == PostEmote)
   {
@@ -545,13 +543,13 @@ void CharacterAnimationLayer::onPlaybackFinished()
   }
 }
 
-void CharacterAnimationLayer::onDurationLimitReached()
+void spritechat::CharacterAnimationLayer::onDurationLimitReached()
 {
   stopPlayback();
   notifyEmotePlaybackFinished();
 }
 
-void CharacterAnimationLayer::notifyFrameEffect(int frameNumber)
+void spritechat::CharacterAnimationLayer::notifyFrameEffect(int frameNumber)
 {
   auto it = m_effects.constFind(frameNumber);
   if (it != m_effects.constEnd())
@@ -582,12 +580,12 @@ void CharacterAnimationLayer::notifyFrameEffect(int frameNumber)
   }
 }
 
-BackgroundAnimationLayer::BackgroundAnimationLayer(AOApplication *ao_app, QWidget *parent)
+spritechat::BackgroundAnimationLayer::BackgroundAnimationLayer(AOApplication *ao_app, QWidget *parent)
     : AnimationLayer(parent)
     , ao_app(ao_app)
 {}
 
-void BackgroundAnimationLayer::loadAndPlayAnimation(QString fileName)
+void spritechat::BackgroundAnimationLayer::loadAndPlayAnimation(QString fileName)
 {
   QString file_path = ao_app->get_image_suffix(ao_app->get_background_path(fileName));
 #ifdef DEBUG_MOVIE
@@ -621,7 +619,7 @@ void BackgroundAnimationLayer::loadAndPlayAnimation(QString fileName)
   }
 }
 
-SplashAnimationLayer::SplashAnimationLayer(AOApplication *ao_app, QWidget *parent)
+spritechat::SplashAnimationLayer::SplashAnimationLayer(AOApplication *ao_app, QWidget *parent)
     : AnimationLayer(parent)
     , ao_app(ao_app)
 {
@@ -629,7 +627,7 @@ SplashAnimationLayer::SplashAnimationLayer(AOApplication *ao_app, QWidget *paren
   connect(this, &SplashAnimationLayer::stoppedPlayback, this, &SplashAnimationLayer::hide);
 }
 
-void SplashAnimationLayer::loadAndPlayAnimation(QString p_filename, QString p_charname, QString p_miscname)
+void spritechat::SplashAnimationLayer::loadAndPlayAnimation(QString p_filename, QString p_charname, QString p_miscname)
 {
   QString file_path = ao_app->get_image(p_filename, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, p_miscname, p_charname, "placeholder");
   setFileName(file_path);
@@ -637,7 +635,7 @@ void SplashAnimationLayer::loadAndPlayAnimation(QString p_filename, QString p_ch
   startPlayback();
 }
 
-EffectAnimationLayer::EffectAnimationLayer(AOApplication *ao_app, QWidget *parent)
+spritechat::EffectAnimationLayer::EffectAnimationLayer(AOApplication *ao_app, QWidget *parent)
     : AnimationLayer(parent)
     , ao_app(ao_app)
 {
@@ -645,19 +643,19 @@ EffectAnimationLayer::EffectAnimationLayer(AOApplication *ao_app, QWidget *paren
   connect(this, &EffectAnimationLayer::stoppedPlayback, this, &EffectAnimationLayer::maybeHide);
 }
 
-void EffectAnimationLayer::loadAndPlayAnimation(QString p_filename, bool repeat)
+void spritechat::EffectAnimationLayer::loadAndPlayAnimation(QString p_filename, bool repeat)
 {
   setFileName(p_filename);
   setPlayOnce(!repeat);
   startPlayback();
 }
 
-void EffectAnimationLayer::setHideWhenStopped(bool enabled)
+void spritechat::EffectAnimationLayer::setHideWhenStopped(bool enabled)
 {
   m_hide_when_stopped = enabled;
 }
 
-void EffectAnimationLayer::maybeHide()
+void spritechat::EffectAnimationLayer::maybeHide()
 {
   if (m_hide_when_stopped && isPlayOnce())
   {
@@ -665,7 +663,7 @@ void EffectAnimationLayer::maybeHide()
   }
 }
 
-InterfaceAnimationLayer::InterfaceAnimationLayer(AOApplication *ao_app, QWidget *parent)
+spritechat::InterfaceAnimationLayer::InterfaceAnimationLayer(AOApplication *ao_app, QWidget *parent)
     : AnimationLayer(parent)
     , ao_app(ao_app)
 {
@@ -675,14 +673,14 @@ InterfaceAnimationLayer::InterfaceAnimationLayer(AOApplication *ao_app, QWidget 
   connect(this, &InterfaceAnimationLayer::stoppedPlayback, this, &InterfaceAnimationLayer::hide);
 }
 
-void InterfaceAnimationLayer::loadAndPlayAnimation(QString fileName, QString miscName)
+void spritechat::InterfaceAnimationLayer::loadAndPlayAnimation(QString fileName, QString miscName)
 {
   QString file_path = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, miscName);
   setFileName(file_path);
   startPlayback();
 }
 
-StickerAnimationLayer::StickerAnimationLayer(AOApplication *ao_app, QWidget *parent)
+spritechat::StickerAnimationLayer::StickerAnimationLayer(AOApplication *ao_app, QWidget *parent)
     : AnimationLayer(parent)
     , ao_app(ao_app)
 {
@@ -690,7 +688,7 @@ StickerAnimationLayer::StickerAnimationLayer(AOApplication *ao_app, QWidget *par
   connect(this, &StickerAnimationLayer::stoppedPlayback, this, &StickerAnimationLayer::hide);
 }
 
-void StickerAnimationLayer::loadAndPlayAnimation(QString fileName)
+void spritechat::StickerAnimationLayer::loadAndPlayAnimation(QString fileName)
 {
   QString misc_file; // FIXME this is a bad name
   if (Options::getInstance().customChatboxEnabled())
@@ -703,4 +701,3 @@ void StickerAnimationLayer::loadAndPlayAnimation(QString fileName)
   setResizeMode(ao_app->get_misc_scaling(misc_file));
   startPlayback();
 }
-} // namespace kal

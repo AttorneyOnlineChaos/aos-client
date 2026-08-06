@@ -3,29 +3,29 @@
 // Sane outlined QLabel solution ported from PyQt solution on StackOverflow by alec
 // https://stackoverflow.com/questions/64290561/qlabel-correct-positioning-for-text-outline
 
-AOChatboxLabel::AOChatboxLabel(QWidget *parent)
+spritechat::AOChatboxLabel::AOChatboxLabel(QWidget *parent)
     : QLabel(parent)
 {
   setBrush(QBrush(Qt::white));
   setPen(QPen(Qt::black));
 }
 
-void AOChatboxLabel::setIsOutlined(bool outlined)
+void spritechat::AOChatboxLabel::setIsOutlined(bool outlined)
 {
   m_outline = outlined;
 }
 
-bool AOChatboxLabel::pointMode()
+bool spritechat::AOChatboxLabel::pointMode()
 {
   return m_pointmode;
 }
 
-void AOChatboxLabel::setPointMode(bool mode)
+void spritechat::AOChatboxLabel::setPointMode(bool mode)
 {
   m_pointmode = mode;
 }
 
-double AOChatboxLabel::outlineThickness()
+double spritechat::AOChatboxLabel::outlineThickness()
 {
   if (pointMode())
   {
@@ -35,32 +35,32 @@ double AOChatboxLabel::outlineThickness()
     return m_outline_width;
 }
 
-void AOChatboxLabel::setOutlineThickness(double w)
+void spritechat::AOChatboxLabel::setOutlineThickness(double w)
 {
   m_outline_width = w;
 }
 
-void AOChatboxLabel::setBrush(QBrush brush)
+void spritechat::AOChatboxLabel::setBrush(QBrush brush)
 {
   m_brush = brush;
 }
-void AOChatboxLabel::setPen(QPen pen)
+void spritechat::AOChatboxLabel::setPen(QPen pen)
 {
   m_pen = pen;
 }
 
-QSize AOChatboxLabel::sizeHint()
+QSize spritechat::AOChatboxLabel::sizeHint()
 {
   int nrml_w = std::ceil(outlineThickness() * 2);
   return QLabel::sizeHint() + QSize(nrml_w, nrml_w);
 }
-QSize AOChatboxLabel::minimumSizeHint()
+QSize spritechat::AOChatboxLabel::minimumSizeHint()
 {
   int nrml_w = std::ceil(outlineThickness() * 2);
   return QLabel::minimumSizeHint() + QSize(nrml_w, nrml_w);
 }
 
-void AOChatboxLabel::paintEvent(QPaintEvent *event)
+void spritechat::AOChatboxLabel::paintEvent(QPaintEvent *event)
 {
   if (m_outline)
   {

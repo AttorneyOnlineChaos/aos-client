@@ -5,6 +5,8 @@
 #include <QMovie>
 #include <QPushButton>
 
+namespace spritechat
+{
 class AOButton : public QPushButton
 {
   Q_OBJECT
@@ -27,3 +29,4 @@ private Q_SLOTS:
 
   void updateIcon(QPixmap icon);
 };
+} // namespace spritechat

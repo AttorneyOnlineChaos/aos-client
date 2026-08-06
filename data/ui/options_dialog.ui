@@ -283,23 +283,6 @@
            <item row="16" column="1">
             <widget class="QLineEdit" name="ms_textbox"/>
            </item>
-           <item row="17" column="0">
-            <widget class="QLabel" name="discord_lbl">
-             <property name="toolTip">
-              <string>Allows others on Discord to see what server you are in, what character are you playing, and how long you have been playing for.</string>
-             </property>
-             <property name="text">
-              <string>Discord:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="17" column="1">
-            <widget class="QCheckBox" name="discord_cb">
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
            <item row="18" column="0">
             <widget class="QLabel" name="language_label">
              <property name="toolTip">
@@ -1099,23 +1082,6 @@ Default: 0.</string>
        </item>
        <item row="8" column="1">
         <widget class="QCheckBox" name="log_text_cb">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="9" column="0">
-        <widget class="QLabel" name="log_demo_lbl">
-         <property name="toolTip">
-          <string>Gameplay will be automatically recorded as demos in the /logs folder.</string>
-         </property>
-         <property name="text">
-          <string>Log to Demo Files:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="9" column="1">
-        <widget class="QCheckBox" name="log_demo_cb">
          <property name="text">
           <string/>
          </property>

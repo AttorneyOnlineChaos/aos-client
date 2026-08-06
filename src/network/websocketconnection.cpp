@@ -5,7 +5,7 @@
 #include <QNetworkRequest>
 #include <QUrl>
 
-WebSocketConnection::WebSocketConnection(AOApplication *ao_app, QObject *parent)
+spritechat::WebSocketConnection::WebSocketConnection(AOApplication *ao_app, QObject *parent)
     : QObject(parent)
     , ao_app(ao_app)
     , m_socket(new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this))
@@ -16,18 +16,18 @@ WebSocketConnection::WebSocketConnection(AOApplication *ao_app, QObject *parent)
   connect(m_socket, &QWebSocket::textMessageReceived, this, &WebSocketConnection::onTextMessageReceived);
 }
 
-WebSocketConnection::~WebSocketConnection()
+spritechat::WebSocketConnection::~WebSocketConnection()
 {
   m_socket->disconnect(this);
   disconnectFromServer();
 }
 
-bool WebSocketConnection::isConnected()
+bool spritechat::WebSocketConnection::isConnected()
 {
   return m_last_state == QAbstractSocket::ConnectedState;
 }
 
-void WebSocketConnection::connectToServer(const ServerInfo &server)
+void spritechat::WebSocketConnection::connectToServer(const ServerInfo &server)
 {
   disconnectFromServer();
 
@@ -42,7 +42,7 @@ void WebSocketConnection::connectToServer(const ServerInfo &server)
   m_socket->open(req);
 }
 
-void WebSocketConnection::disconnectFromServer()
+void spritechat::WebSocketConnection::disconnectFromServer()
 {
   if (isConnected())
   {
@@ -50,17 +50,17 @@ void WebSocketConnection::disconnectFromServer()
   }
 }
 
-void WebSocketConnection::sendPacket(AOPacket packet)
+void spritechat::WebSocketConnection::sendPacket(AOPacket packet)
 {
   m_socket->sendTextMessage(packet.toString(true));
 }
 
-void WebSocketConnection::onError()
+void spritechat::WebSocketConnection::onError()
 {
   Q_EMIT errorOccurred(m_socket->errorString());
 }
 
-void WebSocketConnection::onStateChanged(QAbstractSocket::SocketState state)
+void spritechat::WebSocketConnection::onStateChanged(QAbstractSocket::SocketState state)
 {
   m_last_state = state;
   switch (state)
@@ -78,7 +78,7 @@ void WebSocketConnection::onStateChanged(QAbstractSocket::SocketState state)
   }
 }
 
-void WebSocketConnection::onTextMessageReceived(QString message)
+void spritechat::WebSocketConnection::onTextMessageReceived(QString message)
 {
   if (!message.endsWith("#%"))
   {

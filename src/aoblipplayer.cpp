@@ -1,22 +1,22 @@
 #include "aoblipplayer.h"
 
-AOBlipPlayer::AOBlipPlayer(AOApplication *ao_app)
+spritechat::AOBlipPlayer::AOBlipPlayer(AOApplication *ao_app)
     : ao_app(ao_app)
 {}
 
-void AOBlipPlayer::setVolume(int value)
+void spritechat::AOBlipPlayer::setVolume(int value)
 {
   m_volume = value;
   updateInternalVolume();
 }
 
-void AOBlipPlayer::setMuted(bool enabled)
+void spritechat::AOBlipPlayer::setMuted(bool enabled)
 {
   m_muted = enabled;
   updateInternalVolume();
 }
 
-void AOBlipPlayer::setBlip(QString blip)
+void spritechat::AOBlipPlayer::setBlip(QString blip)
 {
   QString path = ao_app->get_sfx_suffix(ao_app->get_sounds_path(blip));
   for (int i = 0; i < STREAM_COUNT; ++i)
@@ -36,7 +36,7 @@ void AOBlipPlayer::setBlip(QString blip)
   updateInternalVolume();
 }
 
-void AOBlipPlayer::playBlip()
+void spritechat::AOBlipPlayer::playBlip()
 {
   HSTREAM stream = m_stream[m_cycle];
   BASS_ChannelSetDevice(stream, BASS_GetDevice());
@@ -44,7 +44,7 @@ void AOBlipPlayer::playBlip()
   m_cycle = ++m_cycle % STREAM_COUNT;
 }
 
-void AOBlipPlayer::updateInternalVolume()
+void spritechat::AOBlipPlayer::updateInternalVolume()
 {
   float volume = m_muted ? 0.0f : (m_volume * 0.01);
   for (int i = 0; i < STREAM_COUNT; ++i)

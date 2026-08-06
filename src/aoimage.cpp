@@ -5,17 +5,17 @@
 
 #include <QBitmap>
 
-AOImage::AOImage(AOApplication *ao_app, QWidget *parent)
+spritechat::AOImage::AOImage(AOApplication *ao_app, QWidget *parent)
     : QLabel(parent)
     , ao_app(ao_app)
 {}
 
-QString AOImage::image()
+QString spritechat::AOImage::image()
 {
   return m_file_name;
 }
 
-bool AOImage::setImage(QString fileName, QString miscellaneous)
+bool spritechat::AOImage::setImage(QString fileName, QString miscellaneous)
 {
   QString p_image_resolved = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, miscellaneous, "", "", false);
 
@@ -33,7 +33,7 @@ bool AOImage::setImage(QString fileName, QString miscellaneous)
   return true;
 }
 
-bool AOImage::setImage(QString fileName)
+bool spritechat::AOImage::setImage(QString fileName)
 {
   return setImage(fileName, QString());
 }

@@ -3,6 +3,8 @@
 #include <QEvent>
 #include <QLineEdit>
 
+namespace spritechat
+{
 class AOLineEditFilter : public QObject
 {
   Q_OBJECT
@@ -16,3 +18,4 @@ Q_SIGNALS:
 protected:
   bool eventFilter(QObject *obj, QEvent *event) override;
 };
+} // namespace spritechat

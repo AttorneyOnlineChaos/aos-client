@@ -12,6 +12,8 @@
 #include <QResource>
 #include <QTranslator>
 
+using namespace spritechat;
+
 int main(int argc, char *argv[])
 {
   qSetMessagePattern("%{type}: %{if-category}%{category}: %{endif}%{message}");
@@ -19,13 +21,6 @@ int main(int argc, char *argv[])
   qRegisterMetaType<AOPacket>();
 
   QApplication app(argc, argv);
-
-#ifdef ANDROID
-  if (QtAndroid::checkPermission("android.permission.READ_EXTERNAL_STORAGE") == QtAndroid::PermissionResult::Denied)
-  {
-    QtAndroid::requestPermissionsSync({"android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE"});
-  }
-#endif
 
   AOApplication main_app;
   QApplication::setApplicationVersion(AOApplication::get_version_string());

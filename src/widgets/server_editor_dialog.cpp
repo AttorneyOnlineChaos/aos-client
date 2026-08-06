@@ -9,9 +9,9 @@
 #include <QUiLoader>
 #include <QVBoxLayout>
 
-const QString ServerEditorDialog::UI_FILE_PATH = "favorite_server_dialog.ui";
+const QString spritechat::ServerEditorDialog::UI_FILE_PATH = "favorite_server_dialog.ui";
 
-ServerEditorDialog::ServerEditorDialog(QWidget *parent)
+spritechat::ServerEditorDialog::ServerEditorDialog(QWidget *parent)
     : QDialog(parent)
 {
   setWindowIcon(QIcon(":/data/logo-client.png"));
@@ -43,7 +43,7 @@ ServerEditorDialog::ServerEditorDialog(QWidget *parent)
   connect(ui_button_box, &QDialogButtonBox::rejected, this, &ServerEditorDialog::reject);
 }
 
-ServerEditorDialog::ServerEditorDialog(const ServerInfo &server, QWidget *parent)
+spritechat::ServerEditorDialog::ServerEditorDialog(const ServerInfo &server, QWidget *parent)
     : ServerEditorDialog(parent)
 {
   ui_name->setText(server.name);
@@ -52,7 +52,7 @@ ServerEditorDialog::ServerEditorDialog(const ServerInfo &server, QWidget *parent
   ui_description->setPlainText(server.description);
 }
 
-ServerInfo ServerEditorDialog::currentServerInfo() const
+spritechat::ServerInfo spritechat::ServerEditorDialog::currentServerInfo() const
 {
   ServerInfo server;
   server.name = ui_name->text();
@@ -62,7 +62,7 @@ ServerInfo ServerEditorDialog::currentServerInfo() const
   return server;
 }
 
-void ServerEditorDialog::parseLegacyEntry()
+void spritechat::ServerEditorDialog::parseLegacyEntry()
 {
   QStringList entry = ui_legacy_edit->text().split(":");
   if (entry.size() < 3)

@@ -2,7 +2,7 @@
 
 #include <QStringBuilder>
 
-QString ChatLogPiece::toString()
+QString spritechat::ChatLogPiece::toString()
 {
   auto maybe_unknown = [](QString str) -> QString {
     if (str.isEmpty())

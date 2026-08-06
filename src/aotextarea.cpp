@@ -2,17 +2,17 @@
 
 #include "aoutils.h"
 
-AOTextArea::AOTextArea(QWidget *parent)
+spritechat::AOTextArea::AOTextArea(QWidget *parent)
     : AOTextArea(5000, parent)
 {}
 
-AOTextArea::AOTextArea(int maximumLogLenth, QWidget *parent)
+spritechat::AOTextArea::AOTextArea(int maximumLogLenth, QWidget *parent)
     : QTextBrowser(parent)
 {
   document()->setMaximumBlockCount(maximumLogLenth);
 }
 
-void AOTextArea::addMessage(QString name, QString message, QString nameColor, QString messageColor)
+void spritechat::AOTextArea::addMessage(QString name, QString message, QString nameColor, QString messageColor)
 {
   const QTextCursor old_cursor = this->textCursor();
   const int old_scrollbar_value = this->verticalScrollBar()->value();
@@ -29,7 +29,7 @@ void AOTextArea::addMessage(QString name, QString message, QString nameColor, QS
     message += " ";
   }
 
-  QString result = AOUtils::convert_to_html(message);
+  QString result = convert_to_html(message);
 
   if (!messageColor.isEmpty())
   {
@@ -41,7 +41,7 @@ void AOTextArea::addMessage(QString name, QString message, QString nameColor, QS
   this->auto_scroll(old_cursor, old_scrollbar_value, is_scrolled_down);
 }
 
-void AOTextArea::auto_scroll(QTextCursor old_cursor, int old_scrollbar_value, bool is_scrolled_down)
+void spritechat::AOTextArea::auto_scroll(QTextCursor old_cursor, int old_scrollbar_value, bool is_scrolled_down)
 {
   if (old_cursor.hasSelection() || !is_scrolled_down)
   {

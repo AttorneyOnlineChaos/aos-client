@@ -9,7 +9,7 @@
 
 #include <functional>
 
-void call_error(QString p_message)
+void spritechat::call_error(QString p_message)
 {
   QMessageBox *msgBox = new QMessageBox;
 
@@ -21,7 +21,7 @@ void call_error(QString p_message)
   msgBox->exec();
 }
 
-void call_notice(QString p_message)
+void spritechat::call_notice(QString p_message)
 {
   auto *msgBox = new QMessageBox;
 

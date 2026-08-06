@@ -11,9 +11,9 @@
 #include <QVBoxLayout>
 #include <chrono>
 
-const QString ModeratorDialog::UI_FILE_PATH = "moderator_action_dialog.ui";
+const QString spritechat::ModeratorDialog::UI_FILE_PATH = "moderator_action_dialog.ui";
 
-ModeratorDialog::ModeratorDialog(int clientId, bool ban, AOApplication *ao_app, QWidget *parent)
+spritechat::ModeratorDialog::ModeratorDialog(int clientId, bool ban, AOApplication *ao_app, QWidget *parent)
     : QWidget{parent}
     , ao_app(ao_app)
     , m_client_id(clientId)
@@ -60,10 +60,10 @@ ModeratorDialog::ModeratorDialog(int clientId, bool ban, AOApplication *ao_app, 
   connect(ui_button_box, &QDialogButtonBox::rejected, this, &ModeratorDialog::close);
 }
 
-ModeratorDialog::~ModeratorDialog()
+spritechat::ModeratorDialog::~ModeratorDialog()
 {}
 
-void ModeratorDialog::onAcceptedClicked()
+void spritechat::ModeratorDialog::onAcceptedClicked()
 {
   QString reason = ui_details->toPlainText();
   if (reason.isEmpty())

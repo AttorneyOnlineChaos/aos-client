@@ -66,6 +66,8 @@
 #include <algorithm>
 #include <stack>
 
+namespace spritechat
+{
 class AOApplication;
 
 class Courtroom : public QMainWindow
@@ -156,7 +158,7 @@ public:
 
   // sets p_layer according to SELF_OFFSET, only a function bc it's used with
   // desk_mod 4 and 5
-  void set_self_offset(const QString &p_list, kal::AnimationLayer *p_layer);
+  void set_self_offset(const QString &p_list, AnimationLayer *p_layer);
 
   // takes in serverD-formatted IP list as prints a converted version to server
   // OOC admittedly poorly named
@@ -281,7 +283,6 @@ public:
   void pause_clock(int id);
   void stop_clock(int id);
   void set_clock_visibility(int id, bool visible);
-  void skip_clocks(qint64 msecs);
 
   qint64 pong();
   // Truncates text so it fits within theme-specified boundaries and sets the tooltip to the full string
@@ -322,7 +323,7 @@ private:
 
   QParallelAnimationGroup *m_screenshake_anim_group;
 
-  kal::ScreenSlideTimer *m_screenslide_timer;
+  ScreenSlideTimer *m_screenslide_timer;
 
   bool next_character_is_not_special = false; // If true, write the
                                               // next character as it is.
@@ -611,23 +612,23 @@ private:
   AOImage *ui_background;
 
   QWidget *ui_viewport;
-  kal::BackgroundAnimationLayer *ui_vp_background;
-  kal::SplashAnimationLayer *ui_vp_speedlines;
-  kal::CharacterAnimationLayer *ui_vp_player_char;
-  kal::CharacterAnimationLayer *ui_vp_sideplayer_char;
-  kal::CharacterAnimationLayer *ui_vp_dummy_char;
-  kal::CharacterAnimationLayer *ui_vp_sidedummy_char;
-  QList<kal::CharacterAnimationLayer *> ui_vp_char_list;
-  kal::BackgroundAnimationLayer *ui_vp_desk;
+  BackgroundAnimationLayer *ui_vp_background;
+  SplashAnimationLayer *ui_vp_speedlines;
+  CharacterAnimationLayer *ui_vp_player_char;
+  CharacterAnimationLayer *ui_vp_sideplayer_char;
+  CharacterAnimationLayer *ui_vp_dummy_char;
+  CharacterAnimationLayer *ui_vp_sidedummy_char;
+  QList<CharacterAnimationLayer *> ui_vp_char_list;
+  BackgroundAnimationLayer *ui_vp_desk;
   AOEvidenceDisplay *ui_vp_evidence_display;
   AOImage *ui_vp_chatbox;
   AOChatboxLabel *ui_vp_showname;
-  kal::InterfaceAnimationLayer *ui_vp_chat_arrow;
+  InterfaceAnimationLayer *ui_vp_chat_arrow;
   QTextEdit *ui_vp_message;
-  kal::SplashAnimationLayer *ui_vp_testimony;
-  kal::SplashAnimationLayer *ui_vp_wtce;
-  kal::EffectAnimationLayer *ui_vp_effect;
-  kal::SplashAnimationLayer *ui_vp_objection;
+  SplashAnimationLayer *ui_vp_testimony;
+  SplashAnimationLayer *ui_vp_wtce;
+  EffectAnimationLayer *ui_vp_effect;
+  SplashAnimationLayer *ui_vp_objection;
 
   QTextEdit *ui_ic_chatlog;
 
@@ -640,9 +641,9 @@ private:
   PlayerListWidget *ui_player_list;
 
   ScrollText *ui_music_name;
-  kal::InterfaceAnimationLayer *ui_music_display;
+  InterfaceAnimationLayer *ui_music_display;
 
-  kal::StickerAnimationLayer *ui_vp_sticker;
+  StickerAnimationLayer *ui_vp_sticker;
 
   static const int max_clocks = 5;
   AOClockLabel *ui_clock[max_clocks];
@@ -982,10 +983,11 @@ private Q_SLOTS:
   // Proceed to parse the oldest chatmessage and remove it from the stack
   void chatmessage_dequeue();
 
-  void preview_emote(QString emote, kal::CharacterAnimationLayer::EmoteType emoteType);
+  void preview_emote(QString emote, CharacterAnimationLayer::EmoteType emoteType);
   void update_emote_preview();
 
   // After attempting to play a transition animation, clean up the viewport
   // objects for everyone else and continue the IC processing callstack
   void post_transition_cleanup();
 };
+} // namespace spritechat

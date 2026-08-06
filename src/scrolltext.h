@@ -6,6 +6,8 @@
 #include <QTimer>
 #include <QWidget>
 
+namespace spritechat
+{
 class ScrollText : public QWidget
 {
   Q_OBJECT
@@ -19,7 +21,7 @@ public:
   QString text() const;
   QString separator() const;
 
-signals:
+Q_SIGNALS:
   void textChanged(QString newText);
   void separatorChanged(QString newSeparator);
 
@@ -50,3 +52,4 @@ private:
 private Q_SLOTS:
   virtual void timer_timeout();
 };
+} // namespace spritechat

@@ -4,7 +4,7 @@
 
 #include <QDebug>
 
-AOEmoteButton::AOEmoteButton(int id, int width, int height, AOApplication *ao_app, QWidget *parent)
+spritechat::AOEmoteButton::AOEmoteButton(int id, int width, int height, AOApplication *ao_app, QWidget *parent)
     : QPushButton(parent)
     , ao_app(ao_app)
     , m_id(id)
@@ -19,7 +19,7 @@ AOEmoteButton::AOEmoteButton(int id, int width, int height, AOApplication *ao_ap
   connect(this, &AOEmoteButton::clicked, this, [this] { Q_EMIT emoteClicked(m_id); });
 }
 
-void AOEmoteButton::setSelectedImage(QString p_image)
+void spritechat::AOEmoteButton::setSelectedImage(QString p_image)
 {
   if (file_exists(p_image))
   {
@@ -31,12 +31,12 @@ void AOEmoteButton::setSelectedImage(QString p_image)
   }
 }
 
-int AOEmoteButton::id()
+int spritechat::AOEmoteButton::id()
 {
   return m_id;
 }
 
-void AOEmoteButton::setImage(QString character, int emoteId, bool enabled)
+void spritechat::AOEmoteButton::setImage(QString character, int emoteId, bool enabled)
 {
   QString emotion_number = QString::number(emoteId + 1);
 

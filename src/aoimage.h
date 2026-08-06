@@ -8,6 +8,8 @@
 #include <QLabel>
 #include <QMovie>
 
+namespace spritechat
+{
 class AOImage : public QLabel
 {
   Q_OBJECT
@@ -25,3 +27,4 @@ private:
 
   QString m_file_name;
 };
+} // namespace spritechat

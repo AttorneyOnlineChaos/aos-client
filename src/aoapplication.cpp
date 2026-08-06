@@ -7,7 +7,7 @@
 #include "widgets/aooptionsdialog.h"
 
 static QtMessageHandler original_message_handler;
-static AOApplication *message_handler_context;
+static spritechat::AOApplication *message_handler_context;
 
 void message_handler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -15,12 +15,10 @@ void message_handler(QtMsgType type, const QMessageLogContext &context, const QS
   original_message_handler(type, context, msg);
 }
 
-AOApplication::AOApplication(QObject *parent)
+spritechat::AOApplication::AOApplication(QObject *parent)
     : QObject(parent)
 {
   net_manager = new NetworkManager(this);
-
-  discord = new AttorneyOnline::Discord();
 
   asset_lookup_cache.reserve(2048);
 
@@ -28,20 +26,19 @@ AOApplication::AOApplication(QObject *parent)
   original_message_handler = qInstallMessageHandler(message_handler);
 }
 
-AOApplication::~AOApplication()
+spritechat::AOApplication::~AOApplication()
 {
   destruct_lobby();
   destruct_courtroom();
-  delete discord;
   qInstallMessageHandler(original_message_handler);
 }
 
-bool AOApplication::is_lobby_constructed()
+bool spritechat::AOApplication::is_lobby_constructed()
 {
   return w_lobby;
 }
 
-void AOApplication::construct_lobby()
+void spritechat::AOApplication::construct_lobby()
 {
   if (is_lobby_constructed())
   {
@@ -53,17 +50,10 @@ void AOApplication::construct_lobby()
 
   centerOrMoveWidgetOnPrimaryScreen(w_lobby);
 
-  if (Options::getInstance().discordEnabled())
-  {
-    discord->state_lobby();
-  }
-
-  destruct_demo();
-
   w_lobby->show();
 }
 
-void AOApplication::destruct_lobby()
+void spritechat::AOApplication::destruct_lobby()
 {
   if (!is_lobby_constructed())
   {
@@ -75,12 +65,12 @@ void AOApplication::destruct_lobby()
   w_lobby = nullptr;
 }
 
-bool AOApplication::is_courtroom_constructed()
+bool spritechat::AOApplication::is_courtroom_constructed()
 {
   return w_courtroom;
 }
 
-void AOApplication::construct_courtroom()
+void spritechat::AOApplication::construct_courtroom()
 {
   if (is_courtroom_constructed())
   {
@@ -91,18 +81,9 @@ void AOApplication::construct_courtroom()
   w_courtroom = new Courtroom(this);
 
   centerOrMoveWidgetOnPrimaryScreen(w_courtroom);
-
-  if (demo_server)
-  {
-    QObject::connect(demo_server, &DemoServer::skip_timers, w_courtroom, &Courtroom::skip_clocks);
-  }
-  else
-  {
-    qWarning() << "demo server did not exist during courtroom construction";
-  }
 }
 
-void AOApplication::destruct_courtroom()
+void spritechat::AOApplication::destruct_courtroom()
 {
   if (!is_courtroom_constructed())
   {
@@ -114,46 +95,12 @@ void AOApplication::destruct_courtroom()
   w_courtroom = nullptr;
 }
 
-bool AOApplication::is_demo_constructed()
-{
-  return demo_server;
-}
-
-void AOApplication::construct_demo()
-{
-  if (demo_server)
-  {
-    qWarning() << "DEMO server is already constructed, cannot construct again";
-    return;
-  }
-
-  demo_server = new DemoServer(this);
-}
-
-void AOApplication::destruct_demo()
-{
-  if (!demo_server)
-  {
-    qWarning() << "DEMO server is not constructed, cannot destruct";
-    return;
-  }
-
-  delete demo_server;
-  demo_server = nullptr;
-}
-
-void AOApplication::reconstruct_demo()
-{
-  destruct_demo();
-  construct_demo();
-}
-
-QString AOApplication::get_version_string()
+QString spritechat::AOApplication::get_version_string()
 {
   return QString::number(RELEASE) + "." + QString::number(MAJOR_VERSION) + "." + QString::number(MINOR_VERSION);
 }
 
-QString AOApplication::find_image(QStringList p_list)
+QString spritechat::AOApplication::find_image(QStringList p_list)
 {
   QString image_path;
   for (const QString &path : p_list)
@@ -167,7 +114,7 @@ QString AOApplication::find_image(QStringList p_list)
   return image_path;
 }
 
-void AOApplication::server_disconnected()
+void spritechat::AOApplication::server_disconnected()
 {
   bool try_reconnect = false;
   if (is_courtroom_constructed())
@@ -188,12 +135,12 @@ void AOApplication::server_disconnected()
   }
 }
 
-void AOApplication::loading_cancelled()
+void spritechat::AOApplication::loading_cancelled()
 {
   destruct_courtroom();
 }
 
-void AOApplication::call_settings_menu()
+void spritechat::AOApplication::call_settings_menu()
 {
   AOOptionsDialog *l_dialog = new AOOptionsDialog(this);
 
@@ -216,7 +163,7 @@ void AOApplication::call_settings_menu()
 
 // Callback for when BASS device is lost
 // Only actually used for music syncs
-void CALLBACK AOApplication::BASSreset(HSTREAM handle, DWORD channel, DWORD data, void *user)
+void CALLBACK spritechat::AOApplication::BASSreset(HSTREAM handle, DWORD channel, DWORD data, void *user)
 {
   Q_UNUSED(handle);
   Q_UNUSED(channel);
@@ -225,14 +172,14 @@ void CALLBACK AOApplication::BASSreset(HSTREAM handle, DWORD channel, DWORD data
   doBASSreset();
 }
 
-void AOApplication::doBASSreset()
+void spritechat::AOApplication::doBASSreset()
 {
   BASS_Free();
   BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
   load_bass_plugins();
 }
 
-void AOApplication::server_connected()
+void spritechat::AOApplication::server_connected()
 {
   qInfo() << "Established connection to server.";
 
@@ -242,7 +189,7 @@ void AOApplication::server_connected()
   courtroom_loaded = false;
 }
 
-void AOApplication::initBASS()
+void spritechat::AOApplication::initBASS()
 {
   BASS_SetConfig(BASS_CONFIG_DEV_DEFAULT, 1);
   BASS_Free();
@@ -274,7 +221,7 @@ void AOApplication::initBASS()
   }
 }
 
-bool AOApplication::pointExistsOnScreen(QPoint point)
+bool spritechat::AOApplication::pointExistsOnScreen(QPoint point)
 {
   for (QScreen *screen : QApplication::screens())
   {
@@ -286,7 +233,7 @@ bool AOApplication::pointExistsOnScreen(QPoint point)
   return false;
 }
 
-void AOApplication::centerOrMoveWidgetOnPrimaryScreen(QWidget *widget)
+void spritechat::AOApplication::centerOrMoveWidgetOnPrimaryScreen(QWidget *widget)
 {
   auto point = Options::getInstance().windowPosition(widget->objectName());
   if (!Options::getInstance().restoreWindowPositionEnabled() || !point.has_value() || !pointExistsOnScreen(point.value()))
@@ -303,17 +250,17 @@ void AOApplication::centerOrMoveWidgetOnPrimaryScreen(QWidget *widget)
 }
 
 #if (defined(_WIN32) || defined(_WIN64))
-void AOApplication::load_bass_plugins()
+void spritechat::AOApplication::load_bass_plugins()
 {
   BASS_PluginLoad("bassopus.dll", 0);
 }
 #elif defined __APPLE__
-void AOApplication::load_bass_plugins()
+void spritechat::AOApplication::load_bass_plugins()
 {
   BASS_PluginLoad("libbassopus.dylib", 0);
 }
 #elif (defined(LINUX) || defined(__linux__))
-void AOApplication::load_bass_plugins()
+void spritechat::AOApplication::load_bass_plugins()
 {
   BASS_PluginLoad("libbassopus.so", 0);
 }

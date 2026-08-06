@@ -12,6 +12,8 @@
 
 #include <cstring>
 
+namespace spritechat
+{
 enum MSDocumentType
 {
   PrivacyPolicy,
@@ -64,3 +66,4 @@ private:
 
   ServerInfo m_last_server;
 };
+} // namespace spritechat

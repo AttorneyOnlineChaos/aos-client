@@ -16,7 +16,7 @@ cd ${ROOT_DIR}
 /usr/local/opt/qt/bin/macdeployqt ../bin/Attorney_Online.app
 
 # Need to add the dependencies
-cp ../lib/* ../bin/Attorney_Online.app/Contents/Frameworks
+cp ../external/* ../bin/Attorney_Online.app/Contents/Frameworks
 
 # libbass has a funny path for some reason, just use rpath
 install_name_tool -change @loader_path/libbass.dylib @rpath/libbass.dylib ../bin/Attorney_Online.app/Contents/MacOS/Attorney_Online

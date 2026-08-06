@@ -1,21 +1,21 @@
 #include "aoclocklabel.h"
 
-AOClockLabel::AOClockLabel(QWidget *parent)
+spritechat::AOClockLabel::AOClockLabel(QWidget *parent)
     : QLabel(parent)
 {}
 
-void AOClockLabel::start()
+void spritechat::AOClockLabel::start()
 {
   m_timer.start(1000 / 60, this);
 }
 
-void AOClockLabel::start(qint64 msecs)
+void spritechat::AOClockLabel::start(qint64 msecs)
 {
   this->set(msecs);
   this->start();
 }
 
-void AOClockLabel::set(qint64 msecs, bool update_text)
+void spritechat::AOClockLabel::set(qint64 msecs, bool update_text)
 {
   m_target_time = QDateTime::currentDateTime().addMSecs(msecs);
   if (update_text)
@@ -34,29 +34,29 @@ void AOClockLabel::set(qint64 msecs, bool update_text)
   }
 }
 
-void AOClockLabel::pause()
+void spritechat::AOClockLabel::pause()
 {
   m_timer.stop();
 }
 
-void AOClockLabel::stop()
+void spritechat::AOClockLabel::stop()
 {
   this->setText("00:00:00.000");
   m_timer.stop();
 }
 
-void AOClockLabel::skip(qint64 msecs)
+void spritechat::AOClockLabel::skip(qint64 msecs)
 {
   qint64 ms_left = QDateTime::currentDateTime().msecsTo(m_target_time);
   this->set(ms_left - msecs, true);
 }
 
-bool AOClockLabel::active()
+bool spritechat::AOClockLabel::active()
 {
   return m_timer.isActive();
 }
 
-void AOClockLabel::timerEvent(QTimerEvent *event)
+void spritechat::AOClockLabel::timerEvent(QTimerEvent *event)
 {
   if (event->timerId() == m_timer.timerId())
   {

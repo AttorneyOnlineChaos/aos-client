@@ -38,7 +38,6 @@ object_script*
 /Attorney_Online_*.rc
 /attorney_online_*_plugin_import.cpp
 server/__pycache__
-discord/
 *.TMP
 
 # Jetbrains config and build dir (CLion)
@@ -52,15 +51,11 @@ cmake-build-*
 .ninja_deps
 .ninja_log
 .qt/
-Attorney_Online_autogen/
+spritechat_autogen/
+spritechat-runtime_autogen/
 CMakeCache.txt
 CMakeFiles/
 Testing/
 build.ninja
 cmake_install.cmake
-test/CMakeFiles/
-test/CTestTestfile.cmake
-test/cmake_install.cmake
-test/test_aopacket_autogen/
-test/test_aopacket
 cmake_cmd.txt

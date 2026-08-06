@@ -1,11 +1,10 @@
-#ifndef SERVERDATA_H
-#define SERVERDATA_H
+#pragma once
 
 #include <QObject>
 #include <QString>
 #include <QStringList>
 
-namespace server
+namespace spritechat
 {
 Q_NAMESPACE
 
@@ -151,6 +150,4 @@ private:
    */
   QString m_asset_url;
 };
-} // namespace server
-
-#endif // SERVERDATA_H
+} // namespace spritechat

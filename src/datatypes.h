@@ -5,6 +5,8 @@
 
 #include <optional>
 
+namespace spritechat
+{
 struct CharacterSlot
 {
   QString name;
@@ -145,3 +147,4 @@ public:
   DATA_TYPE type;
   QString data;
 };
+} // namespace spritechat

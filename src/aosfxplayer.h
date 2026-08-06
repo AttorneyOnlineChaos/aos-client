@@ -8,6 +8,8 @@
 #include <QDebug>
 #include <QWidget>
 
+namespace spritechat
+{
 class AOSfxPlayer
 {
 public:
@@ -43,3 +45,4 @@ private:
   bool ensureValidStreamId(int streamId);
   void updateInternalVolume();
 };
+} // namespace spritechat

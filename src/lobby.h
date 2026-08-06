@@ -12,10 +12,8 @@
 #include "networkmanager.h"
 #include <QMainWindow>
 
-#ifdef ANDROID
-#include <QtAndroidExtras/QtAndroid>
-#endif
-
+namespace spritechat
+{
 class AOApplication;
 
 class Lobby : public QMainWindow
@@ -42,7 +40,6 @@ private:
   const QString DEFAULT_UI = "lobby.ui";
 
   void list_favorites();
-  void list_demos();
   void get_motd();
   void check_for_updates();
   void reset_selection();
@@ -71,9 +68,6 @@ private:
 
   QTreeWidget *ui_favorites_tree;
   QLineEdit *ui_favorites_search;
-
-  QTreeWidget *ui_demo_tree;
-  QLineEdit *ui_demo_search;
 
   QPushButton *ui_add_to_favorite_button;
   QPushButton *ui_add_server_button;
@@ -110,7 +104,7 @@ private Q_SLOTS:
   void on_list_doubleclicked(QTreeWidgetItem *p_item, int column);
   void on_favorite_tree_clicked(QTreeWidgetItem *p_item, int column);
   void on_server_search_edited(QString p_text);
-  void on_demo_clicked(QTreeWidgetItem *item, int column);
   void onReloadThemeRequested(); // Oh boy.
   void onSettingsRequested();
 };
+} // namespace spritechat

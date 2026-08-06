@@ -9,11 +9,11 @@
 #include <QFuture>
 #include <QWidget>
 
-AOMusicPlayer::AOMusicPlayer(AOApplication *ao_app)
+spritechat::AOMusicPlayer::AOMusicPlayer(AOApplication *ao_app)
     : ao_app(ao_app)
 {}
 
-AOMusicPlayer::~AOMusicPlayer()
+spritechat::AOMusicPlayer::~AOMusicPlayer()
 {
   for (int n_stream = 0; n_stream < STREAM_COUNT; ++n_stream)
   {
@@ -21,7 +21,7 @@ AOMusicPlayer::~AOMusicPlayer()
   }
 }
 
-QString AOMusicPlayer::playStream(QString song, int streamId, bool loopEnabled, int effectFlags)
+QString spritechat::AOMusicPlayer::playStream(QString song, int streamId, bool loopEnabled, int effectFlags)
 {
   if (!ensureValidStreamId(streamId))
   {
@@ -70,7 +70,7 @@ QString AOMusicPlayer::playStream(QString song, int streamId, bool loopEnabled, 
   {
     QStringList lines = ao_app->read_file(d_path).split("\n");
     bool seconds_mode = false;
-    foreach (QString line, lines)
+    for (const QString &line : std::as_const(lines))
     {
       QStringList args = line.split("=");
       if (args.size() < 2)
@@ -196,7 +196,7 @@ QString AOMusicPlayer::playStream(QString song, int streamId, bool loopEnabled, 
   return "";
 }
 
-void AOMusicPlayer::setMuted(bool enabled)
+void spritechat::AOMusicPlayer::setMuted(bool enabled)
 {
   m_muted = enabled;
   // Update all volume based on the mute setting
@@ -206,7 +206,7 @@ void AOMusicPlayer::setMuted(bool enabled)
   }
 }
 
-void AOMusicPlayer::setStreamVolume(int value, int streamId)
+void spritechat::AOMusicPlayer::setStreamVolume(int value, int streamId)
 {
   if (!ensureValidStreamId(streamId))
   {
@@ -240,7 +240,7 @@ void CALLBACK loopProc(HSYNC handle, DWORD channel, DWORD data, void *user)
   BASS_ChannelLock(channel, false);
 }
 
-void AOMusicPlayer::setStreamLooping(bool enabled, int streamId)
+void spritechat::AOMusicPlayer::setStreamLooping(bool enabled, int streamId)
 {
   if (!ensureValidStreamId(streamId))
   {
@@ -281,7 +281,7 @@ void AOMusicPlayer::setStreamLooping(bool enabled, int streamId)
   }
 }
 
-bool AOMusicPlayer::ensureValidStreamId(int streamId)
+bool spritechat::AOMusicPlayer::ensureValidStreamId(int streamId)
 {
   return (streamId >= 0 && streamId < STREAM_COUNT);
 }

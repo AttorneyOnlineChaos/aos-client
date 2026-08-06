@@ -7,7 +7,7 @@
 #include <QListWidgetItem>
 #include <QMenu>
 
-PlayerListWidget::PlayerListWidget(AOApplication *ao_app, QWidget *parent)
+spritechat::PlayerListWidget::PlayerListWidget(AOApplication *ao_app, QWidget *parent)
     : QListWidget(parent)
     , ao_app(ao_app)
 {
@@ -16,10 +16,10 @@ PlayerListWidget::PlayerListWidget(AOApplication *ao_app, QWidget *parent)
   connect(this, &PlayerListWidget::customContextMenuRequested, this, &PlayerListWidget::onCustomContextMenuRequested);
 }
 
-PlayerListWidget::~PlayerListWidget()
+spritechat::PlayerListWidget::~PlayerListWidget()
 {}
 
-void PlayerListWidget::registerPlayer(const PlayerRegister &update)
+void spritechat::PlayerListWidget::registerPlayer(const PlayerRegister &update)
 {
   switch (update.type)
   {
@@ -37,7 +37,7 @@ void PlayerListWidget::registerPlayer(const PlayerRegister &update)
   }
 }
 
-void PlayerListWidget::updatePlayer(const PlayerUpdate &update)
+void spritechat::PlayerListWidget::updatePlayer(const PlayerUpdate &update)
 {
   PlayerData &player = m_player_map[update.id];
 
@@ -70,7 +70,7 @@ void PlayerListWidget::updatePlayer(const PlayerUpdate &update)
   filterPlayerList();
 }
 
-void PlayerListWidget::reloadPlayers()
+void spritechat::PlayerListWidget::reloadPlayers()
 {
   for (const PlayerData &player : std::as_const(m_player_map))
   {
@@ -78,7 +78,7 @@ void PlayerListWidget::reloadPlayers()
   }
 }
 
-void PlayerListWidget::setAuthenticated(bool f_state)
+void spritechat::PlayerListWidget::setAuthenticated(bool f_state)
 {
   m_is_authenticated = f_state;
   for (const PlayerData &data : std::as_const(m_player_map))
@@ -88,7 +88,7 @@ void PlayerListWidget::setAuthenticated(bool f_state)
   }
 }
 
-void PlayerListWidget::onCustomContextMenuRequested(const QPoint &pos)
+void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &pos)
 {
   QListWidgetItem *item = itemAt(pos);
   if (item == nullptr)
@@ -134,7 +134,7 @@ void PlayerListWidget::onCustomContextMenuRequested(const QPoint &pos)
   menu->popup(mapToGlobal(pos));
 }
 
-void PlayerListWidget::addPlayer(int playerId)
+void spritechat::PlayerListWidget::addPlayer(int playerId)
 {
   m_player_map.insert(playerId, PlayerData{.id = playerId});
   QListWidgetItem *item = new QListWidgetItem(this);
@@ -143,7 +143,7 @@ void PlayerListWidget::addPlayer(int playerId)
   updatePlayer(playerId, false);
 }
 
-void PlayerListWidget::removePlayer(int playerId)
+void spritechat::PlayerListWidget::removePlayer(int playerId)
 {
   if (active_moderator_menu.first == playerId && active_moderator_menu.second)
   {
@@ -155,28 +155,28 @@ void PlayerListWidget::removePlayer(int playerId)
   m_player_map.remove(playerId);
 }
 
-void PlayerListWidget::filterPlayerList()
+void spritechat::PlayerListWidget::filterPlayerList()
 {
   int area_id = m_player_map.value(ao_app->client_id).area_id;
   for (QListWidgetItem *item : std::as_const(m_item_map))
   {
     if (!item)
     {
-      qWarning() << "Trying to filter item that does not exist. This indicates either a broken server-implementation or a bad demo file.";
+      qWarning() << "Trying to filter item that does not exist. This indicates a broken server-implementation.";
       break;
     }
     item->setHidden(m_player_map[item->data(Qt::UserRole).toInt()].area_id != area_id && !m_is_authenticated);
   }
 }
 
-void PlayerListWidget::updatePlayer(int playerId, bool updateIcon)
+void spritechat::PlayerListWidget::updatePlayer(int playerId, bool updateIcon)
 {
   PlayerData &data = m_player_map[playerId];
   QListWidgetItem *item = m_item_map[playerId];
 
   if (!item)
   {
-    qWarning() << "No player at ID" << playerId << ". This might indicate a broker server implementation or a bad demo file.";
+    qWarning() << "No player at ID" << playerId << ". This might indicate a broker server implementation.";
     return;
   }
 
@@ -201,7 +201,7 @@ void PlayerListWidget::updatePlayer(int playerId, bool updateIcon)
   }
 }
 
-QString PlayerListWidget::formatLabel(const PlayerData &data)
+QString spritechat::PlayerListWidget::formatLabel(const PlayerData &data)
 {
   QString format = Options::getInstance().playerlistFormatString();
   return format.replace("{id}", QString::number(data.id)).replace("{character}", data.character).replace("{displayname}", data.character_name.isEmpty() ? "No Data" : data.character_name).replace("{username}", data.name).simplified();

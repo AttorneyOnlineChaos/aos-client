@@ -8,6 +8,8 @@
 
 #include <QPoint>
 
+namespace spritechat
+{
 class Options
 {
 public:
@@ -78,11 +80,6 @@ public:
   // according to the queue (Text Stay Time) from the config.ini
   bool desynchronisedLogsEnabled() const;
   void setDesynchronisedLogsEnabled(bool value);
-
-  // Returns the value of whether Discord should be enabled on startup
-  // from the config.ini.
-  bool discordEnabled() const;
-  void setDiscordEnabled(bool value);
 
   // Returns the value of whether shaking should be enabled.
   // from the config.ini.
@@ -208,10 +205,6 @@ public:
   bool logToTextFileEnabled() const;
   void setLogToTextFileEnabled(bool value);
 
-  // Get if demo logging is Enabled
-  bool logToDemoFileEnabled() const;
-  void setLogToDemoFileEnabled(bool value);
-
   // Get the subtheme from settings
   QString subTheme() const;
   QString settingsSubTheme() const;
@@ -304,3 +297,4 @@ private:
 
   QString m_server_subtheme;
 };
+} // namespace spritechat

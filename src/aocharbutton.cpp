@@ -2,7 +2,7 @@
 
 #include "file_functions.h"
 
-AOCharButton::AOCharButton(AOApplication *ao_app, QWidget *parent)
+spritechat::AOCharButton::AOCharButton(AOApplication *ao_app, QWidget *parent)
     : QPushButton(parent)
     , ao_app(ao_app)
 {
@@ -24,7 +24,7 @@ AOCharButton::AOCharButton(AOApplication *ao_app, QWidget *parent)
   ui_selector->hide();
 }
 
-void AOCharButton::setTaken(bool enabled)
+void spritechat::AOCharButton::setTaken(bool enabled)
 {
   if (enabled)
   {
@@ -37,7 +37,7 @@ void AOCharButton::setTaken(bool enabled)
   }
 }
 
-void AOCharButton::setCharacter(QString character)
+void spritechat::AOCharButton::setCharacter(QString character)
 {
   QString image_path = ao_app->get_image_suffix(ao_app->get_character_path(character, "char_icon"), true);
 
@@ -59,11 +59,7 @@ void AOCharButton::setCharacter(QString character)
   }
 }
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-void AOCharButton::enterEvent(QEvent *event)
-#else
-void AOCharButton::enterEvent(QEnterEvent *event)
-#endif
+void spritechat::AOCharButton::enterEvent(QEnterEvent *event)
 {
   int offset = Options::getInstance().themeScalingFactor();
   ui_selector->move(x() - offset, y() - offset);
@@ -75,7 +71,7 @@ void AOCharButton::enterEvent(QEnterEvent *event)
   QPushButton::enterEvent(event);
 }
 
-void AOCharButton::leaveEvent(QEvent *event)
+void spritechat::AOCharButton::leaveEvent(QEvent *event)
 {
   ui_selector->hide();
 

@@ -6,6 +6,8 @@
 #include <QLabel>
 #include <QTimerEvent>
 
+namespace spritechat
+{
 class AOClockLabel : public QLabel
 {
   Q_OBJECT
@@ -28,3 +30,4 @@ private:
   QBasicTimer m_timer;
   QDateTime m_target_time;
 };
+} // namespace spritechat

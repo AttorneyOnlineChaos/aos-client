@@ -1,6 +1,5 @@
 #include "aooptionsdialog.h"
 
-#include "QDesktopServices"
 #include "aoapplication.h"
 #include "file_functions.h"
 #include "gui_utils.h"
@@ -10,20 +9,23 @@
 #include <bass.h>
 
 #include <QCollator>
+#include <QDesktopServices>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
 #include <QGroupBox>
+#include <QMessageBox>
 #include <QResource>
 #include <QUiLoader>
 #include <QVBoxLayout>
 
-AOOptionsDialog::AOOptionsDialog(AOApplication *p_ao_app, QWidget *parent)
+spritechat::AOOptionsDialog::AOOptionsDialog(AOApplication *p_ao_app, QWidget *parent)
     : QDialog(parent)
     , ao_app(p_ao_app)
 {
   setupUI();
 }
 
-void AOOptionsDialog::populateAudioDevices()
+void spritechat::AOOptionsDialog::populateAudioDevices()
 {
   ui_audio_device_combobox->clear();
   if (needsDefaultAudioDevice())
@@ -39,79 +41,79 @@ void AOOptionsDialog::populateAudioDevices()
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QCheckBox *widget, const bool &value)
+void spritechat::AOOptionsDialog::setWidgetData(QCheckBox *widget, const bool &value)
 {
   widget->setChecked(value);
 }
 
 template <>
-bool AOOptionsDialog::widgetData(QCheckBox *widget) const
+bool spritechat::AOOptionsDialog::widgetData(QCheckBox *widget) const
 {
   return widget->isChecked();
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QLineEdit *widget, const QString &value)
+void spritechat::AOOptionsDialog::setWidgetData(QLineEdit *widget, const QString &value)
 {
   widget->setText(value);
 }
 
 template <>
-QString AOOptionsDialog::widgetData(QLineEdit *widget) const
+QString spritechat::AOOptionsDialog::widgetData(QLineEdit *widget) const
 {
   return widget->text();
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QLineEdit *widget, const uint16_t &value)
+void spritechat::AOOptionsDialog::setWidgetData(QLineEdit *widget, const uint16_t &value)
 {
   widget->setText(QString::number(value));
 }
 
 template <>
-uint16_t AOOptionsDialog::widgetData(QLineEdit *widget) const
+uint16_t spritechat::AOOptionsDialog::widgetData(QLineEdit *widget) const
 {
   return widget->text().toUShort();
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QPlainTextEdit *widget, const QStringList &value)
+void spritechat::AOOptionsDialog::setWidgetData(QPlainTextEdit *widget, const QStringList &value)
 {
   widget->setPlainText(value.join('\n'));
 }
 
 template <>
-QStringList AOOptionsDialog::widgetData(QPlainTextEdit *widget) const
+QStringList spritechat::AOOptionsDialog::widgetData(QPlainTextEdit *widget) const
 {
   return widget->toPlainText().trimmed().split('\n');
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QSpinBox *widget, const int &value)
+void spritechat::AOOptionsDialog::setWidgetData(QSpinBox *widget, const int &value)
 {
   widget->setValue(value);
 }
 
 template <>
-int AOOptionsDialog::widgetData(QSpinBox *widget) const
+int spritechat::AOOptionsDialog::widgetData(QSpinBox *widget) const
 {
   return widget->value();
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QDoubleSpinBox *widget, const double &value)
+void spritechat::AOOptionsDialog::setWidgetData(QDoubleSpinBox *widget, const double &value)
 {
   widget->setValue(value);
 }
 
 template <>
-double AOOptionsDialog::widgetData(QDoubleSpinBox *widget) const
+double spritechat::AOOptionsDialog::widgetData(QDoubleSpinBox *widget) const
 {
   return widget->value();
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QComboBox *widget, const QString &value)
+void spritechat::AOOptionsDialog::setWidgetData(QComboBox *widget, const QString &value)
 {
   for (auto i = 0; i < widget->count(); i++)
   {
@@ -125,43 +127,43 @@ void AOOptionsDialog::setWidgetData(QComboBox *widget, const QString &value)
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QComboBox *widget, const RESIZE_MODE &value)
+void spritechat::AOOptionsDialog::setWidgetData(QComboBox *widget, const RESIZE_MODE &value)
 {
   widget->setCurrentIndex(value);
 }
 
 template <>
-QString AOOptionsDialog::widgetData(QComboBox *widget) const
+QString spritechat::AOOptionsDialog::widgetData(QComboBox *widget) const
 {
   return widget->currentData().toString();
 }
 
 template <>
-RESIZE_MODE AOOptionsDialog::widgetData(QComboBox *widget) const
+spritechat::RESIZE_MODE spritechat::AOOptionsDialog::widgetData(QComboBox *widget) const
 {
   return RESIZE_MODE(widget->currentIndex());
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QGroupBox *widget, const bool &value)
+void spritechat::AOOptionsDialog::setWidgetData(QGroupBox *widget, const bool &value)
 {
   widget->setChecked(value);
 }
 
 template <>
-bool AOOptionsDialog::widgetData(QGroupBox *widget) const
+bool spritechat::AOOptionsDialog::widgetData(QGroupBox *widget) const
 {
   return widget->isChecked();
 }
 
 template <>
-void AOOptionsDialog::setWidgetData(QListWidget *widget, const QStringList &value)
+void spritechat::AOOptionsDialog::setWidgetData(QListWidget *widget, const QStringList &value)
 {
   widget->addItems(value);
 }
 
 template <>
-QStringList AOOptionsDialog::widgetData(QListWidget *widget) const
+QStringList spritechat::AOOptionsDialog::widgetData(QListWidget *widget) const
 {
   QStringList paths;
   for (auto i = 1; i < widget->count(); i++)
@@ -172,7 +174,7 @@ QStringList AOOptionsDialog::widgetData(QListWidget *widget) const
 }
 
 template <typename T, typename V>
-void AOOptionsDialog::registerOption(const QString &widgetName, V (Options::*getter)() const, void (Options::*setter)(V))
+void spritechat::AOOptionsDialog::registerOption(const QString &widgetName, V (Options::*getter)() const, void (Options::*setter)(V))
 {
   auto *widget = findChild<T *>(widgetName);
   if (!widget)
@@ -192,7 +194,7 @@ void AOOptionsDialog::registerOption(const QString &widgetName, V (Options::*get
   optionEntries.append(entry);
 }
 
-void AOOptionsDialog::updateValues()
+void spritechat::AOOptionsDialog::updateValues()
 {
   QSet<QString> themes;
   QStringList bases = Options::getInstance().mountPaths();
@@ -240,7 +242,7 @@ void AOOptionsDialog::updateValues()
   }
 }
 
-void AOOptionsDialog::savePressed()
+void spritechat::AOOptionsDialog::savePressed()
 {
   bool l_reload_theme_required = (ui_theme_combobox->currentText() != Options::getInstance().theme()) || (ui_theme_scaling_factor_sb->value() != Options::getInstance().themeScalingFactor());
   for (const OptionEntry &entry : std::as_const(optionEntries))
@@ -255,12 +257,12 @@ void AOOptionsDialog::savePressed()
   close();
 }
 
-void AOOptionsDialog::discardPressed()
+void spritechat::AOOptionsDialog::discardPressed()
 {
   close();
 }
 
-void AOOptionsDialog::buttonClicked(QAbstractButton *button)
+void spritechat::AOOptionsDialog::buttonClicked(QAbstractButton *button)
 {
   if (ui_settings_buttons->buttonRole(button) == QDialogButtonBox::ResetRole)
   {
@@ -273,7 +275,7 @@ void AOOptionsDialog::buttonClicked(QAbstractButton *button)
   }
 }
 
-void AOOptionsDialog::onReloadThemeClicked()
+void spritechat::AOOptionsDialog::onReloadThemeClicked()
 {
   Options::getInstance().setTheme(ui_theme_combobox->currentText());
   Options::getInstance().setSettingsSubTheme(ui_subtheme_combobox->currentText());
@@ -285,7 +287,7 @@ void AOOptionsDialog::onReloadThemeClicked()
   setupUI();
 }
 
-void AOOptionsDialog::themeChanged(int i)
+void spritechat::AOOptionsDialog::themeChanged(int i)
 {
   ui_subtheme_combobox->clear();
   // Fill the combobox with the names of the themes.
@@ -313,7 +315,7 @@ void AOOptionsDialog::themeChanged(int i)
   QResource::registerResource(l_resource);
 }
 
-void AOOptionsDialog::setupUI()
+void spritechat::AOOptionsDialog::setupUI()
 {
   setWindowIcon(QIcon(":/data/logo-client.png"));
   QUiLoader l_loader(this);
@@ -337,7 +339,7 @@ void AOOptionsDialog::setupUI()
 
   // Gameplay Tab
   FROM_UI(QComboBox, theme_combobox);
-  connect(ui_theme_combobox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &AOOptionsDialog::themeChanged);
+  connect(ui_theme_combobox, &QComboBox::currentIndexChanged, this, &AOOptionsDialog::themeChanged);
 
   registerOption<QComboBox, QString>("theme_combobox", &Options::theme, &Options::setTheme);
 
@@ -345,7 +347,7 @@ void AOOptionsDialog::setupUI()
   registerOption<QComboBox, QString>("subtheme_combobox", &Options::settingsSubTheme, &Options::setSettingsSubTheme);
 
   FROM_UI(QPushButton, theme_reload_button);
-  connect(ui_theme_reload_button, &QPushButton::clicked, this, &::AOOptionsDialog::onReloadThemeClicked);
+  connect(ui_theme_reload_button, &QPushButton::clicked, this, &AOOptionsDialog::onReloadThemeClicked);
 
   FROM_UI(QPushButton, theme_folder_button);
   connect(ui_theme_folder_button, &QPushButton::clicked, this, [=, this] {
@@ -367,7 +369,6 @@ void AOOptionsDialog::setupUI()
   FROM_UI(QCheckBox, showname_cb);
   FROM_UI(QLineEdit, default_showname_textbox);
   FROM_UI(QLineEdit, ms_textbox);
-  FROM_UI(QCheckBox, discord_cb);
   FROM_UI(QComboBox, language_combobox);
   FROM_UI(QComboBox, resize_combobox);
   FROM_UI(QCheckBox, shake_cb);
@@ -397,7 +398,6 @@ void AOOptionsDialog::setupUI()
   registerOption<QCheckBox, bool>("showname_cb", &Options::customShownameEnabled, &Options::setCustomShownameEnabled);
   registerOption<QLineEdit, QString>("default_showname_textbox", &Options::shownameOnJoin, &Options::setShownameOnJoin);
   registerOption<QLineEdit, QString>("ms_textbox", &Options::alternativeMasterserver, &Options::setAlternativeMasterserver);
-  registerOption<QCheckBox, bool>("discord_cb", &Options::discordEnabled, &Options::setDiscordEnabled);
   registerOption<QComboBox, QString>("language_combobox", &Options::language, &Options::setLanguage);
 
   ui_language_combobox->addItem("English", "en");
@@ -445,8 +445,8 @@ void AOOptionsDialog::setupUI()
   FROM_UI(QCheckBox, objectmusic_cb);
   FROM_UI(QCheckBox, disablestreams_cb);
 
-  registerOption<QSpinBox, int>("suppress_audio_spinbox", &::Options::defaultSuppressAudio, &Options::setDefaultSupressedAudio);
-  registerOption<QSpinBox, int>("bliprate_spinbox", &::Options::blipRate, &Options::setBlipRate);
+  registerOption<QSpinBox, int>("suppress_audio_spinbox", &Options::defaultSuppressAudio, &Options::setDefaultSupressedAudio);
+  registerOption<QSpinBox, int>("bliprate_spinbox", &Options::blipRate, &Options::setBlipRate);
   registerOption<QCheckBox, bool>("blank_blips_cb", &Options::blankBlip, &Options::setBlankBlip);
   registerOption<QCheckBox, bool>("loopsfx_cb", &Options::loopingSfx, &Options::setLoopingSfx);
   registerOption<QCheckBox, bool>("objectmusic_cb", &Options::objectionStopMusic, &Options::setObjectionStopMusic);
@@ -568,12 +568,12 @@ void AOOptionsDialog::setupUI()
 
   FROM_UI(QCheckBox, log_timestamp_cb);
   registerOption<QCheckBox, bool>("log_timestamp_cb", &Options::logTimestampEnabled, &Options::setLogTimestampEnabled);
-  connect(ui_log_timestamp_cb, &QCheckBox::stateChanged, this, &::AOOptionsDialog::timestampCbChanged);
+  connect(ui_log_timestamp_cb, &QCheckBox::stateChanged, this, &AOOptionsDialog::timestampCbChanged);
   ui_log_timestamp_format_lbl->setText(tr("Log timestamp format:\n") + QDateTime::currentDateTime().toString(Options::getInstance().logTimestampFormat()));
 
   FROM_UI(QComboBox, log_timestamp_format_combobox);
   registerOption<QComboBox, QString>("log_timestamp_format_combobox", &Options::logTimestampFormat, &Options::setLogTimestampFormat);
-  connect(ui_log_timestamp_format_combobox, &QComboBox::currentTextChanged, this, &::AOOptionsDialog::onTimestampFormatEdited);
+  connect(ui_log_timestamp_format_combobox, &QComboBox::currentTextChanged, this, &AOOptionsDialog::onTimestampFormatEdited);
 
   QString l_current_format = Options::getInstance().logTimestampFormat();
 
@@ -597,7 +597,6 @@ void AOOptionsDialog::setupUI()
   registerOption<QCheckBox, bool>("log_ic_actions_cb", &Options::logIcActions, &Options::setLogIcActions);
   registerOption<QCheckBox, bool>("desync_logs_cb", &Options::desynchronisedLogsEnabled, &Options::setDesynchronisedLogsEnabled);
   registerOption<QCheckBox, bool>("log_text_cb", &Options::logToTextFileEnabled, &Options::setLogToTextFileEnabled);
-  registerOption<QCheckBox, bool>("log_demo_cb", &Options::logToDemoFileEnabled, &Options::setLogToDemoFileEnabled);
 
   // DSGVO/Privacy tab
 
@@ -609,7 +608,7 @@ void AOOptionsDialog::setupUI()
   updateValues();
 }
 
-void AOOptionsDialog::onTimestampFormatEdited()
+void spritechat::AOOptionsDialog::onTimestampFormatEdited()
 {
   const QString format = ui_log_timestamp_format_combobox->currentText();
   const int index = ui_log_timestamp_format_combobox->currentIndex();
@@ -619,23 +618,23 @@ void AOOptionsDialog::onTimestampFormatEdited()
   ui_log_timestamp_format_lbl->setText(tr("Log timestamp format:\n") + QDateTime::currentDateTime().toString(format));
 }
 
-void AOOptionsDialog::timestampCbChanged(int state)
+void spritechat::AOOptionsDialog::timestampCbChanged(int state)
 {
   ui_log_timestamp_format_combobox->setDisabled(state == 0);
 }
 
 #if (defined(_WIN32) || defined(_WIN64))
-bool AOOptionsDialog::needsDefaultAudioDevice()
+bool spritechat::AOOptionsDialog::needsDefaultAudioDevice()
 {
   return true;
 }
 #elif (defined(LINUX) || defined(__linux__))
-bool AOOptionsDialog::needsDefaultAudioDevice()
+bool spritechat::AOOptionsDialog::needsDefaultAudioDevice()
 {
   return false;
 }
 #elif defined __APPLE__
-bool AOOptionsDialog::needsDefaultAudioDevice()
+bool spritechat::AOOptionsDialog::needsDefaultAudioDevice()
 {
   return true;
 }

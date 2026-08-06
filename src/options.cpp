@@ -9,7 +9,7 @@
 #include <QRegularExpression>
 #include <QSize>
 
-void Options::migrateCallwords()
+void spritechat::Options::migrateCallwords()
 {
   // Bla bla, evil boilerplate.
   QStringList l_callwords;
@@ -24,9 +24,6 @@ void Options::migrateCallwords()
   }
 
   QTextStream in(&l_file);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  in.setCodec("UTF-8");
-#endif
 
   while (!in.atEnd())
   {
@@ -39,22 +36,15 @@ void Options::migrateCallwords()
   setCallwords(l_callwords);
 }
 
-Options::Options()
+spritechat::Options::Options()
     : config(get_base_path() + "config.ini", QSettings::IniFormat, nullptr)
     , favorite(get_base_path() + "favorite_servers.ini", QSettings::IniFormat, nullptr)
 {
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  config.setIniCodec("UTF-8");
-#endif
   migrate();
-
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  favorite.setIniCodec("UTF-8");
-#endif
 }
 
 /*! Migrate old configuration keys/values to a relevant format. */
-void Options::migrate()
+void spritechat::Options::migrate()
 {
   if (QFile::exists(get_base_path() + "callwords.ini"))
   {
@@ -82,17 +72,17 @@ void Options::migrate()
   }
 }
 
-QString Options::theme() const
+QString spritechat::Options::theme() const
 {
   return config.value("theme", "AceAttorney2x").toString();
 }
 
-void Options::setTheme(QString value)
+void spritechat::Options::setTheme(QString value)
 {
   config.setValue("theme", value);
 }
 
-double Options::themeScalingFactor() const
+double spritechat::Options::themeScalingFactor() const
 {
   double value = config.value("theme_scaling_factor", "1").toDouble();
   if (value < 0.1)
@@ -102,412 +92,392 @@ double Options::themeScalingFactor() const
   return value;
 }
 
-void Options::setThemeScalingFactor(double value)
+void spritechat::Options::setThemeScalingFactor(double value)
 {
   config.setValue("theme_scaling_factor", value);
 }
 
-int Options::blipRate() const
+int spritechat::Options::blipRate() const
 {
   return config.value("blip_rate", 2).toInt();
 }
 
-void Options::setBlipRate(int value)
+void spritechat::Options::setBlipRate(int value)
 {
   config.setValue("blip_rate", value);
 }
 
-int Options::musicVolume() const
+int spritechat::Options::musicVolume() const
 {
   return config.value("default_music", 50).toInt();
 }
 
-void Options::setMusicVolume(int value)
+void spritechat::Options::setMusicVolume(int value)
 {
   config.setValue("default_music", value);
 }
 
-int Options::sfxVolume() const
+int spritechat::Options::sfxVolume() const
 {
   return config.value("default_sfx", 50).toInt();
 }
 
-void Options::setSfxVolume(int value)
+void spritechat::Options::setSfxVolume(int value)
 {
   config.setValue("default_sfx", value);
 }
 
-int Options::blipVolume() const
+int spritechat::Options::blipVolume() const
 {
   return config.value("default_blip", 50).toInt();
 }
 
-void Options::setBlipVolume(int value)
+void spritechat::Options::setBlipVolume(int value)
 {
   config.setValue("default_blip", value);
 }
 
-int Options::defaultSuppressAudio() const
+int spritechat::Options::defaultSuppressAudio() const
 {
   return config.value("suppress_audio", 50).toInt();
 }
 
-void Options::setDefaultSupressedAudio(int value)
+void spritechat::Options::setDefaultSupressedAudio(int value)
 {
   config.setValue("suppress_audio", value);
 }
 
-int Options::maxLogSize() const
+int spritechat::Options::maxLogSize() const
 {
   return config.value("log_maximum", 200).toInt();
 }
 
-void Options::setMaxLogSize(int value)
+void spritechat::Options::setMaxLogSize(int value)
 {
   config.setValue("log_maximum", value);
 }
 
-int Options::textStayTime() const
+int spritechat::Options::textStayTime() const
 {
   return config.value("stay_time", 200).toInt();
 }
 
-void Options::setTextStayTime(int value)
+void spritechat::Options::setTextStayTime(int value)
 {
   config.setValue("stay_time", value);
 }
 
-int Options::textCrawlSpeed() const
+int spritechat::Options::textCrawlSpeed() const
 {
   return config.value("text_crawl", 40).toInt();
 }
 
-void Options::setTextCrawlSpeed(int value)
+void spritechat::Options::setTextCrawlSpeed(int value)
 {
   config.setValue("text_crawl", value);
 }
 
-int Options::chatRateLimit() const
+int spritechat::Options::chatRateLimit() const
 {
   return config.value("chat_ratelimit", 300).toInt();
 }
 
-void Options::setChatRateLimit(int value)
+void spritechat::Options::setChatRateLimit(int value)
 {
   config.setValue("chat_ratelimit", value);
 }
 
-bool Options::logDirectionDownwards() const
+bool spritechat::Options::logDirectionDownwards() const
 {
   return config.value("log_goes_downwards", true).toBool();
 }
 
-void Options::setLogDirectionDownwards(bool value)
+void spritechat::Options::setLogDirectionDownwards(bool value)
 {
   config.setValue("log_goes_downwards", value);
 }
 
-bool Options::logNewline() const
+bool spritechat::Options::logNewline() const
 {
   return config.value("log_newline", false).toBool();
 }
 
-void Options::setLogNewline(bool value)
+void spritechat::Options::setLogNewline(bool value)
 {
   config.setValue("log_newline", value);
 }
 
-int Options::logMargin() const
+int spritechat::Options::logMargin() const
 {
   return config.value("log_margin", 0).toInt();
 }
 
-void Options::setLogMargin(int value)
+void spritechat::Options::setLogMargin(int value)
 {
   config.setValue("log_margin", value);
 }
 
-bool Options::logTimestampEnabled() const
+bool spritechat::Options::logTimestampEnabled() const
 {
   return config.value("log_timestamp", false).toBool();
 }
 
-void Options::setLogTimestampEnabled(bool value)
+void spritechat::Options::setLogTimestampEnabled(bool value)
 {
   config.setValue("log_timestamp", value);
 }
 
-QString Options::logTimestampFormat() const
+QString spritechat::Options::logTimestampFormat() const
 {
   return config.value("log_timestamp_format", "h:mm:ss AP").toString();
 }
 
-void Options::setLogTimestampFormat(QString value)
+void spritechat::Options::setLogTimestampFormat(QString value)
 {
   config.setValue("log_timestamp_format", value);
 }
 
-bool Options::logIcActions() const
+bool spritechat::Options::logIcActions() const
 {
   return config.value("log_ic_actions", true).toBool();
 }
 
-void Options::setLogIcActions(bool value)
+void spritechat::Options::setLogIcActions(bool value)
 {
   config.setValue("log_ic_actions", value);
 }
 
-bool Options::customShownameEnabled() const
+bool spritechat::Options::customShownameEnabled() const
 {
   return config.value("show_custom_shownames", true).toBool();
 }
 
-void Options::setCustomShownameEnabled(bool value)
+void spritechat::Options::setCustomShownameEnabled(bool value)
 {
   config.setValue("show_custom_shownames", value);
 }
 
-QString Options::username() const
+QString spritechat::Options::username() const
 {
   return config.value("default_username", "").value<QString>();
 }
 
-void Options::setUsername(QString value)
+void spritechat::Options::setUsername(QString value)
 {
   config.setValue("default_username", value);
 }
 
-QString Options::shownameOnJoin() const
+QString spritechat::Options::shownameOnJoin() const
 {
   return config.value("default_showname", "").toString();
 }
 
-void Options::setShownameOnJoin(QString value)
+void spritechat::Options::setShownameOnJoin(QString value)
 {
   config.setValue("default_showname", value);
 }
 
-QString Options::audioOutputDevice() const
+QString spritechat::Options::audioOutputDevice() const
 {
   return config.value("default_audio_device", "default").toString();
 }
 
-void Options::setAudioOutputDevice(QString value)
+void spritechat::Options::setAudioOutputDevice(QString value)
 {
   config.setValue("default_audio_device", value);
 }
 
-bool Options::blankBlip() const
+bool spritechat::Options::blankBlip() const
 {
   return config.value("blank_blip", false).toBool();
 }
 
-void Options::setBlankBlip(bool value)
+void spritechat::Options::setBlankBlip(bool value)
 {
   config.setValue("blank_blip", value);
 }
 
-bool Options::loopingSfx() const
+bool spritechat::Options::loopingSfx() const
 {
   return config.value("looping_sfx", true).toBool();
 }
 
-void Options::setLoopingSfx(bool value)
+void spritechat::Options::setLoopingSfx(bool value)
 {
   config.setValue("looping_sfx", value);
 }
 
-bool Options::objectionStopMusic() const
+bool spritechat::Options::objectionStopMusic() const
 {
   return config.value("objection_stop_music", false).toBool();
 }
 
-void Options::setObjectionStopMusic(bool value)
+void spritechat::Options::setObjectionStopMusic(bool value)
 {
   config.setValue("objection_stop_music", value);
 }
 
-bool Options::streamingEnabled() const
+bool spritechat::Options::streamingEnabled() const
 {
   return config.value("streaming_enabled", true).toBool();
 }
 
-void Options::setStreamingEnabled(bool value)
+void spritechat::Options::setStreamingEnabled(bool value)
 {
   config.setValue("streaming_enabled", value);
 }
 
-bool Options::objectionSkipQueueEnabled() const
+bool spritechat::Options::objectionSkipQueueEnabled() const
 {
   return config.value("instant_objection", true).toBool();
 }
 
-void Options::setObjectionSkipQueueEnabled(bool value)
+void spritechat::Options::setObjectionSkipQueueEnabled(bool value)
 {
   config.setValue("instant_objection", value);
 }
 
-bool Options::desynchronisedLogsEnabled() const
+bool spritechat::Options::desynchronisedLogsEnabled() const
 {
   return config.value("desync_logs", false).toBool();
 }
 
-void Options::setDesynchronisedLogsEnabled(bool value)
+void spritechat::Options::setDesynchronisedLogsEnabled(bool value)
 {
   config.setValue("desync_logs", value);
 }
 
-bool Options::discordEnabled() const
-{
-  return config.value("discord", true).toBool();
-}
-
-void Options::setDiscordEnabled(bool value)
-{
-  config.setValue("discord", value);
-}
-
-bool Options::shakeEnabled() const
+bool spritechat::Options::shakeEnabled() const
 {
   return config.value("shake", true).toBool();
 }
 
-void Options::setShakeEnabled(bool value)
+void spritechat::Options::setShakeEnabled(bool value)
 {
   config.setValue("shake", value);
 }
 
-bool Options::effectsEnabled() const
+bool spritechat::Options::effectsEnabled() const
 {
   return config.value("effects", true).toBool();
 }
 
-void Options::setEffectsEnabled(bool value)
+void spritechat::Options::setEffectsEnabled(bool value)
 {
   config.setValue("effects", value);
 }
 
-bool Options::networkedFrameSfxEnabled() const
+bool spritechat::Options::networkedFrameSfxEnabled() const
 {
   return config.value("framenetwork", true).toBool();
 }
 
-void Options::setNetworkedFrameSfxEnabled(bool value)
+void spritechat::Options::setNetworkedFrameSfxEnabled(bool value)
 {
   config.setValue("framenetwork", value);
 }
 
-bool Options::slidesEnabled() const
+bool spritechat::Options::slidesEnabled() const
 {
   return config.value("slides", true).toBool();
 }
 
-void Options::setSlidesEnabled(bool value)
+void spritechat::Options::setSlidesEnabled(bool value)
 {
   config.setValue("slides", value);
 }
 
-bool Options::colorLogEnabled() const
+bool spritechat::Options::colorLogEnabled() const
 {
   return config.value("colorlog", true).toBool();
 }
 
-void Options::setColorLogEnabled(bool value)
+void spritechat::Options::setColorLogEnabled(bool value)
 {
   config.setValue("colorlog", value);
 }
 
-bool Options::clearSoundsDropdownOnPlayEnabled() const
+bool spritechat::Options::clearSoundsDropdownOnPlayEnabled() const
 {
   return config.value("stickysounds", true).toBool();
 }
 
-void Options::setClearSoundsDropdownOnPlayEnabled(bool value)
+void spritechat::Options::setClearSoundsDropdownOnPlayEnabled(bool value)
 {
   config.setValue("stickysounds", value);
 }
 
-bool Options::clearEffectsDropdownOnPlayEnabled() const
+bool spritechat::Options::clearEffectsDropdownOnPlayEnabled() const
 {
   return config.value("stickyeffects", true).toBool();
 }
 
-void Options::setClearEffectsDropdownOnPlayEnabled(bool value)
+void spritechat::Options::setClearEffectsDropdownOnPlayEnabled(bool value)
 {
   config.setValue("stickyeffects", value);
 }
 
-bool Options::clearPreOnPlayEnabled() const
+bool spritechat::Options::clearPreOnPlayEnabled() const
 {
   return config.value("stickypres", true).toBool();
 }
 
-void Options::setClearPreOnPlayEnabled(bool value)
+void spritechat::Options::setClearPreOnPlayEnabled(bool value)
 {
   config.setValue("stickypres", value);
 }
 
-bool Options::customChatboxEnabled() const
+bool spritechat::Options::customChatboxEnabled() const
 {
   return config.value("customchat", true).toBool();
 }
 
-void Options::setCustomChatboxEnabled(bool value)
+void spritechat::Options::setCustomChatboxEnabled(bool value)
 {
   config.setValue("customchat", value);
 }
 
-bool Options::characterStickerEnabled() const
+bool spritechat::Options::characterStickerEnabled() const
 {
   return config.value("sticker", true).toBool();
 }
 
-void Options::setCharacterStickerEnabled(bool value)
+void spritechat::Options::setCharacterStickerEnabled(bool value)
 {
   config.setValue("sticker", value);
 }
 
-bool Options::continuousPlaybackEnabled() const
+bool spritechat::Options::continuousPlaybackEnabled() const
 {
   return config.value("continuous_playback", true).toBool();
 }
 
-void Options::setContinuousPlaybackEnabled(bool value)
+void spritechat::Options::setContinuousPlaybackEnabled(bool value)
 {
   config.setValue("continuous_playback", value);
 }
 
-bool Options::stopMusicOnCategoryEnabled() const
+bool spritechat::Options::stopMusicOnCategoryEnabled() const
 {
   return config.value("category_stop", true).toBool();
 }
 
-void Options::setStopMusicOnCategoryEnabled(bool value)
+void spritechat::Options::setStopMusicOnCategoryEnabled(bool value)
 {
   config.setValue("category_stop", value);
 }
 
-bool Options::logToTextFileEnabled() const
+bool spritechat::Options::logToTextFileEnabled() const
 {
   return config.value("automatic_logging_enabled", true).toBool();
 }
 
-void Options::setLogToTextFileEnabled(bool value)
+void spritechat::Options::setLogToTextFileEnabled(bool value)
 {
   config.setValue("automatic_logging_enabled", value);
 }
 
-bool Options::logToDemoFileEnabled() const
-{
-  return config.value("demo_logging_enabled", true).toBool();
-}
-
-void Options::setLogToDemoFileEnabled(bool value)
-{
-  config.setValue("demo_logging_enabled", value);
-}
-
-QString Options::subTheme() const
+QString spritechat::Options::subTheme() const
 {
   if (settingsSubTheme() == "server" && !m_server_subtheme.isEmpty())
   {
@@ -516,107 +486,107 @@ QString Options::subTheme() const
   return settingsSubTheme();
 }
 
-QString Options::settingsSubTheme() const
+QString spritechat::Options::settingsSubTheme() const
 {
   return config.value("subtheme", "server").toString();
 }
 
-void Options::setSettingsSubTheme(QString value)
+void spritechat::Options::setSettingsSubTheme(QString value)
 {
   config.setValue("subtheme", value);
 }
 
-QString Options::serverSubTheme() const
+QString spritechat::Options::serverSubTheme() const
 {
   return m_server_subtheme;
 }
 
-void Options::setServerSubTheme(QString value)
+void spritechat::Options::setServerSubTheme(QString value)
 {
   m_server_subtheme = value;
 }
 
-bool Options::animatedThemeEnabled() const
+bool spritechat::Options::animatedThemeEnabled() const
 {
   return config.value("animated_theme", false).toBool();
 }
 
-void Options::setAnimatedThemeEnabled(bool value)
+void spritechat::Options::setAnimatedThemeEnabled(bool value)
 {
   config.setValue("animated_theme", value);
 }
 
-QStringList Options::mountPaths() const
+QStringList spritechat::Options::mountPaths() const
 {
   return config.value("mount_paths").value<QStringList>();
 }
 
-void Options::setMountPaths(QStringList value)
+void spritechat::Options::setMountPaths(QStringList value)
 {
   config.setValue("mount_paths", value);
 }
 
-bool Options::playerCountOptout() const
+bool spritechat::Options::playerCountOptout() const
 {
   return config.value("player_count_optout", false).toBool();
 }
 
-void Options::setPlayerCountOptout(bool value)
+void spritechat::Options::setPlayerCountOptout(bool value)
 {
   config.setValue("player_count_optout", value);
 }
 
-bool Options::playSelectedSFXOnIdle() const
+bool spritechat::Options::playSelectedSFXOnIdle() const
 {
   return config.value("sfx_on_idle", false).toBool();
 }
 
-void Options::setPlaySelectedSFXOnIdle(bool value)
+void spritechat::Options::setPlaySelectedSFXOnIdle(bool value)
 {
   config.setValue("sfx_on_idle", value);
 }
 
-bool Options::evidenceDoubleClickEdit() const
+bool spritechat::Options::evidenceDoubleClickEdit() const
 {
   return config.value("evidence_double_click", true).toBool();
 }
 
-void Options::setEvidenceDoubleClickEdit(bool value)
+void spritechat::Options::setEvidenceDoubleClickEdit(bool value)
 {
   config.setValue("evidence_double_click", value);
 }
 
-QString Options::alternativeMasterserver() const
+QString spritechat::Options::alternativeMasterserver() const
 {
   return config.value("master", "").toString();
 }
 
-void Options::setAlternativeMasterserver(QString value)
+void spritechat::Options::setAlternativeMasterserver(QString value)
 {
   config.setValue("master", value);
 }
 
-QString Options::language() const
+QString spritechat::Options::language() const
 {
   return config.value("language", QLocale::system().name()).toString();
 }
 
-void Options::setLanguage(QString value)
+void spritechat::Options::setLanguage(QString value)
 {
   config.setValue("language", value);
 }
 
-RESIZE_MODE Options::resizeMode() const
+spritechat::RESIZE_MODE spritechat::Options::resizeMode() const
 {
   return RESIZE_MODE(config.value("resize_mode", AUTO_RESIZE_MODE).toInt());
 }
 
-void Options::setResizeMode(RESIZE_MODE value)
+void spritechat::Options::setResizeMode(RESIZE_MODE value)
 {
   config.setValue("resize_mode", value);
 }
 
-QStringList Options::callwords() const
+QStringList spritechat::Options::callwords() const
 {
   QStringList l_callwords = config.value("callwords", QStringList{}).toStringList();
 
@@ -629,37 +599,37 @@ QStringList Options::callwords() const
   return l_callwords;
 }
 
-void Options::setCallwords(QStringList value)
+void spritechat::Options::setCallwords(QStringList value)
 {
   config.setValue("callwords", value);
 }
 
-QString Options::callwordSfx() const
+QString spritechat::Options::callwordSfx() const
 {
   return config.value("callword_sfx").toString();
 }
 
-void Options::setCallwordSfx(QString value)
+void spritechat::Options::setCallwordSfx(QString value)
 {
   config.setValue("callword_sfx", value);
 }
 
-QString Options::playerlistFormatString() const
+QString spritechat::Options::playerlistFormatString() const
 {
   return config.value("visuals/playerlist_format", "[{id}] {character} {displayname} {username}").toString();
 }
 
-void Options::setPlayerlistFormatString(QString value)
+void spritechat::Options::setPlayerlistFormatString(QString value)
 {
   config.setValue("visuals/playerlist_format", value);
 }
 
-void Options::clearConfig()
+void spritechat::Options::clearConfig()
 {
   config.clear();
 }
 
-QVector<ServerInfo> Options::favorites()
+QVector<spritechat::ServerInfo> spritechat::Options::favorites()
 {
   QVector<ServerInfo> serverlist;
 
@@ -704,7 +674,7 @@ QVector<ServerInfo> Options::favorites()
   return serverlist;
 }
 
-void Options::setFavorites(QVector<ServerInfo> value)
+void spritechat::Options::setFavorites(QVector<ServerInfo> value)
 {
   favorite.clear();
   for (int i = 0; i < value.size(); ++i)
@@ -721,14 +691,14 @@ void Options::setFavorites(QVector<ServerInfo> value)
   favorite.sync();
 }
 
-void Options::removeFavorite(int index)
+void spritechat::Options::removeFavorite(int index)
 {
   QVector<ServerInfo> l_favorites = favorites();
   l_favorites.remove(index);
   setFavorites(l_favorites);
 }
 
-void Options::addFavorite(ServerInfo server)
+void spritechat::Options::addFavorite(ServerInfo server)
 {
   int index = favorites().size();
   favorite.beginGroup(QString::number(index));
@@ -741,7 +711,7 @@ void Options::addFavorite(ServerInfo server)
   favorite.sync();
 }
 
-void Options::updateFavorite(ServerInfo server, int index)
+void spritechat::Options::updateFavorite(ServerInfo server, int index)
 {
   favorite.beginGroup(QString::number(index));
   favorite.setValue("name", server.name);
@@ -753,7 +723,7 @@ void Options::updateFavorite(ServerInfo server, int index)
   favorite.sync();
 }
 
-QString Options::getUIAsset(QString f_asset_name)
+QString spritechat::Options::getUIAsset(QString f_asset_name)
 {
   QStringList l_paths{":/base/themes/" + Options::getInstance().theme() + "/" + f_asset_name};
 
@@ -780,12 +750,12 @@ QString Options::getUIAsset(QString f_asset_name)
   return QString(":/data/ui/" + f_asset_name);
 }
 
-void Options::setWindowPosition(QString widget, QPoint position)
+void spritechat::Options::setWindowPosition(QString widget, QPoint position)
 {
   config.setValue("windows/position_" + widget, position);
 }
 
-std::optional<QPoint> Options::windowPosition(QString widget)
+std::optional<QPoint> spritechat::Options::windowPosition(QString widget)
 {
   QPoint point = config.value("windows/position_" + widget, QPoint()).toPoint();
   if (point.isNull())
@@ -795,12 +765,12 @@ std::optional<QPoint> Options::windowPosition(QString widget)
   return std::optional<QPoint>(point);
 }
 
-bool Options::restoreWindowPositionEnabled() const
+bool spritechat::Options::restoreWindowPositionEnabled() const
 {
   return config.value("windows/restore", true).toBool();
 }
 
-void Options::setRestoreWindowPositionEnabled(bool state)
+void spritechat::Options::setRestoreWindowPositionEnabled(bool state)
 {
   config.setValue("windows/restore", state);
 }

@@ -1,6 +1,6 @@
 #include "scrolltext.h"
 
-ScrollText::ScrollText(QWidget *parent)
+spritechat::ScrollText::ScrollText(QWidget *parent)
     : QWidget(parent)
     , scrollPos(0)
 {
@@ -15,31 +15,31 @@ ScrollText::ScrollText(QWidget *parent)
   timer.setInterval(50);
 }
 
-QString ScrollText::text() const
+QString spritechat::ScrollText::text() const
 {
   return m_text;
 }
 
-void ScrollText::setText(QString text)
+void spritechat::ScrollText::setText(QString text)
 {
   m_text = text;
   updateText();
   update();
 }
 
-QString ScrollText::separator() const
+QString spritechat::ScrollText::separator() const
 {
   return _separator;
 }
 
-void ScrollText::setSeparator(QString separator)
+void spritechat::ScrollText::setSeparator(QString separator)
 {
   _separator = separator;
   updateText();
   update();
 }
 
-void ScrollText::updateText()
+void spritechat::ScrollText::updateText()
 {
   timer.stop();
 
@@ -61,7 +61,7 @@ void ScrollText::updateText()
   wholeTextSize = QSize(fontMetrics().horizontalAdvance(staticText.text()), fontMetrics().height());
 }
 
-void ScrollText::paintEvent(QPaintEvent *)
+void spritechat::ScrollText::paintEvent(QPaintEvent *)
 {
   QPainter p(this);
 
@@ -101,7 +101,7 @@ void ScrollText::paintEvent(QPaintEvent *)
   }
 }
 
-void ScrollText::resizeEvent(QResizeEvent *)
+void spritechat::ScrollText::resizeEvent(QResizeEvent *)
 {
   // When the widget is resized, we need to update the alpha channel.
 
@@ -140,7 +140,7 @@ void ScrollText::resizeEvent(QResizeEvent *)
   }
 }
 
-void ScrollText::timer_timeout()
+void spritechat::ScrollText::timer_timeout()
 {
   scrollPos = (scrollPos + 2) % wholeTextSize.width();
   update();

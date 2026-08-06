@@ -9,6 +9,8 @@
 #include <QSpinBox>
 #include <QTimer>
 
+namespace spritechat
+{
 class NetworkManager;
 
 class DirectConnectDialog : public QDialog
@@ -39,3 +41,4 @@ private Q_SLOTS:
   void onServerConnected();
   void onConnectTimeout();
 };
+} // namespace spritechat

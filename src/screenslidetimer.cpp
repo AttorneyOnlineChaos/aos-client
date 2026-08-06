@@ -2,9 +2,7 @@
 
 #include <QDebug>
 
-namespace kal
-{
-ScreenSlideTimer::ScreenSlideTimer(QObject *parent)
+spritechat::ScreenSlideTimer::ScreenSlideTimer(QObject *parent)
     : QObject(parent)
 {
   m_pause = new QTimer(this);
@@ -17,14 +15,14 @@ ScreenSlideTimer::ScreenSlideTimer(QObject *parent)
   connect(m_group, &QParallelAnimationGroup::finished, this, &ScreenSlideTimer::startNextState);
 }
 
-ScreenSlideTimer::~ScreenSlideTimer()
+spritechat::ScreenSlideTimer::~ScreenSlideTimer()
 {
   m_group->disconnect(this);
   m_pause->disconnect(this);
   stop();
 }
 
-void ScreenSlideTimer::addAnimation(QAbstractAnimation *animation)
+void spritechat::ScreenSlideTimer::addAnimation(QAbstractAnimation *animation)
 {
   if (m_running)
   {
@@ -34,7 +32,7 @@ void ScreenSlideTimer::addAnimation(QAbstractAnimation *animation)
   m_group->addAnimation(animation);
 }
 
-void ScreenSlideTimer::start()
+void spritechat::ScreenSlideTimer::start()
 {
   if (m_running)
   {
@@ -45,7 +43,7 @@ void ScreenSlideTimer::start()
   startNextState();
 }
 
-void ScreenSlideTimer::stop()
+void spritechat::ScreenSlideTimer::stop()
 {
   if (m_running)
   {
@@ -57,7 +55,7 @@ void ScreenSlideTimer::stop()
   }
 }
 
-void ScreenSlideTimer::startNextState()
+void spritechat::ScreenSlideTimer::startNextState()
 {
   switch (m_state)
   {
@@ -83,4 +81,3 @@ void ScreenSlideTimer::startNextState()
     break;
   }
 }
-} // namespace kal

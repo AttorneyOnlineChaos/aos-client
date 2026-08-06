@@ -2,8 +2,6 @@
 
 #include "aopacket.h"
 #include "datatypes.h"
-#include "demoserver.h"
-#include "discord_rich_presence.h"
 #include "serverdata.h"
 #include "widgets/aooptionsdialog.h"
 
@@ -13,7 +11,6 @@
 #include <QCryptographicHash>
 #include <QDebug>
 #include <QDir>
-#include <QElapsedTimer>
 #include <QFile>
 #include <QObject>
 #include <QRect>
@@ -25,6 +22,8 @@
 #include <QTime>
 #include <QVector>
 
+namespace spritechat
+{
 class NetworkManager;
 class Lobby;
 class Courtroom;
@@ -59,7 +58,6 @@ public:
   NetworkManager *net_manager;
   Lobby *w_lobby = nullptr;
   Courtroom *w_courtroom = nullptr;
-  AttorneyOnline::Discord *discord;
 
   QFont default_font;
 
@@ -70,11 +68,6 @@ public:
   bool is_courtroom_constructed();
   void construct_courtroom();
   void destruct_courtroom();
-
-  bool is_demo_constructed();
-  void construct_demo();
-  void destruct_demo();
-  void reconstruct_demo();
 
   void server_packet_received(AOPacket p_packet);
 
@@ -87,7 +80,7 @@ public:
 
   /// Stores everything related to the server the client is connected to, if
   /// any.
-  server::ServerData m_serverdata;
+  ServerData m_serverdata;
 
   ///////////////loading info///////////////////
 
@@ -157,22 +150,6 @@ public:
   // Append text to the end of the file. make_dir would auto-create the
   // directory if it doesn't exist.
   bool append_to_file(QString p_text, QString p_file, bool make_dir = false);
-
-  // Append to the currently open demo file if there is one
-  void append_to_demofile(QString packet_string);
-
-  /**
-   * @brief Reads the clients log folder and locates potential demo files to populate the demoserver list.
-   *
-   * @return A seperated list of servernames and demo logfile filenames.
-   *
-   * @details This is to remove the need of delimiters or deal with potential
-   * harmfully encoding or plattform differences. We always get a combo of servername and filename.
-   *
-   * Do note this function assumes all demo files have the .demo extension.
-   *
-   */
-  QMultiMap<QString, QString> load_demo_logs_list() const;
 
   // Returns the value of p_identifier in the design.ini file in p_design_path
   QString read_design_ini(QString p_identifier, VPath p_design_path);
@@ -340,9 +317,6 @@ public:
   static void CALLBACK BASSreset(HSTREAM handle, DWORD channel, DWORD data, void *user);
   static void doBASSreset();
 
-  QElapsedTimer demo_timer;
-  DemoServer *demo_server = nullptr;
-
 private:
   QVector<ServerInfo> server_list;
   QHash<size_t, QString> asset_lookup_cache;
@@ -357,3 +331,4 @@ public Q_SLOTS:
 Q_SIGNALS:
   void qt_log_message(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 };
+} // namespace spritechat

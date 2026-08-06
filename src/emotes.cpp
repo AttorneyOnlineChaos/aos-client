@@ -3,7 +3,7 @@
 #include "aoemotebutton.h"
 #include "options.h"
 
-void Courtroom::initialize_emotes()
+void spritechat::Courtroom::initialize_emotes()
 {
   ui_emotes = new QWidget(this);
   ui_emotes->setObjectName("ui_emotes");
@@ -27,16 +27,16 @@ void Courtroom::initialize_emotes()
   connect(ui_emote_left, &AOButton::clicked, this, &Courtroom::on_emote_left_clicked);
   connect(ui_emote_right, &AOButton::clicked, this, &Courtroom::on_emote_right_clicked);
 
-  connect(ui_emote_dropdown, QOverload<int>::of(&QComboBox::activated), this, &Courtroom::on_emote_dropdown_changed);
+  connect(ui_emote_dropdown, &QComboBox::activated, this, &Courtroom::on_emote_dropdown_changed);
   connect(ui_emote_dropdown, &AOEmoteButton::customContextMenuRequested, this, &Courtroom::show_emote_menu);
 
-  connect(ui_pre, QOverload<int>::of(&QCheckBox::stateChanged), this, &Courtroom::update_emote_preview);
+  connect(ui_pre, &QCheckBox::stateChanged, this, &Courtroom::update_emote_preview);
   connect(ui_flip, &AOButton::clicked, this, &Courtroom::update_emote_preview);
-  connect(ui_pair_offset_spinbox, QOverload<int>::of(&QSpinBox::valueChanged), this, &Courtroom::update_emote_preview);
-  connect(ui_pair_vert_offset_spinbox, QOverload<int>::of(&QSpinBox::valueChanged), this, &Courtroom::update_emote_preview);
+  connect(ui_pair_offset_spinbox, &QSpinBox::valueChanged, this, &Courtroom::update_emote_preview);
+  connect(ui_pair_vert_offset_spinbox, &QSpinBox::valueChanged, this, &Courtroom::update_emote_preview);
 }
 
-void Courtroom::refresh_emotes()
+void spritechat::Courtroom::refresh_emotes()
 {
   // Should properly refresh the emote list
   qDeleteAll(ui_emote_list.begin(), ui_emote_list.end());
@@ -98,7 +98,7 @@ void Courtroom::refresh_emotes()
   }
 }
 
-void Courtroom::set_emote_page()
+void spritechat::Courtroom::set_emote_page()
 {
   if (m_cid == -1)
   {
@@ -165,7 +165,7 @@ void Courtroom::set_emote_page()
   }
 }
 
-void Courtroom::set_emote_dropdown()
+void spritechat::Courtroom::set_emote_dropdown()
 {
   ui_emote_dropdown->clear();
 
@@ -183,7 +183,7 @@ void Courtroom::set_emote_dropdown()
   }
 }
 
-void Courtroom::select_emote(int p_id)
+void spritechat::Courtroom::select_emote(int p_id)
 {
   int min = current_emote_page * max_emotes_on_page;
   int max = (max_emotes_on_page - 1) + current_emote_page * max_emotes_on_page;
@@ -225,7 +225,7 @@ void Courtroom::select_emote(int p_id)
   ui_ic_chat_message->setFocus();
 }
 
-void Courtroom::update_emote_preview()
+void spritechat::Courtroom::update_emote_preview()
 {
   if (!emote_preview->isVisible())
   {
@@ -235,20 +235,20 @@ void Courtroom::update_emote_preview()
   QString pre = ao_app->get_pre_emote(current_char, current_emote);
   if (ui_pre->isChecked() && !pre.isEmpty() && pre != "-")
   {
-    preview_emote(pre, kal::CharacterAnimationLayer::PreEmote);
+    preview_emote(pre, CharacterAnimationLayer::PreEmote);
   }
   else
   {
-    preview_emote(ao_app->get_emote(current_char, current_emote), kal::CharacterAnimationLayer::IdleEmote);
+    preview_emote(ao_app->get_emote(current_char, current_emote), CharacterAnimationLayer::IdleEmote);
   }
 }
 
-void Courtroom::on_emote_clicked(int p_id)
+void spritechat::Courtroom::on_emote_clicked(int p_id)
 {
   select_emote(p_id + max_emotes_on_page * current_emote_page);
 }
 
-void Courtroom::show_emote_menu(const QPoint &pos)
+void spritechat::Courtroom::show_emote_menu(const QPoint &pos)
 {
   QWidget *button = qobject_cast<QWidget *>(sender());
   int id = current_emote;
@@ -268,25 +268,25 @@ void Courtroom::show_emote_menu(const QPoint &pos)
   QString f_pre = ao_app->get_pre_emote(current_char, emote_num);
   if (!f_pre.isEmpty() && f_pre != "-")
   {
-    emote_menu->addAction("Preview preanimation: " + f_pre, this, [this, f_pre] { preview_emote(f_pre, kal::CharacterAnimationLayer::PreEmote); });
+    emote_menu->addAction("Preview preanimation: " + f_pre, this, [this, f_pre] { preview_emote(f_pre, CharacterAnimationLayer::PreEmote); });
   }
 
   QString f_emote = ao_app->get_emote(current_char, emote_num);
   if (!f_emote.isEmpty())
   {
-    emote_menu->addAction("Preview idle: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, kal::CharacterAnimationLayer::IdleEmote); });
-    emote_menu->addAction("Preview talk: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, kal::CharacterAnimationLayer::TalkEmote); });
+    emote_menu->addAction("Preview idle: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, CharacterAnimationLayer::IdleEmote); });
+    emote_menu->addAction("Preview talk: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, CharacterAnimationLayer::TalkEmote); });
     QStringList c_paths = {ao_app->get_image_suffix(ao_app->get_character_path(current_char, "(c)" + f_emote)), ao_app->get_image_suffix(ao_app->get_character_path(current_char, "(c)/" + f_emote))};
     // if there is a (c) animation
     if (file_exists(ao_app->find_image(c_paths)))
     {
-      emote_menu->addAction("Preview postanimation: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, kal::CharacterAnimationLayer::PostEmote); });
+      emote_menu->addAction("Preview postanimation: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, CharacterAnimationLayer::PostEmote); });
     }
   }
   emote_menu->popup(button->mapToGlobal(pos));
 }
 
-void Courtroom::preview_emote(QString f_emote, kal::CharacterAnimationLayer::EmoteType emoteType)
+void spritechat::Courtroom::preview_emote(QString f_emote, CharacterAnimationLayer::EmoteType emoteType)
 {
   emote_preview->show();
   emote_preview->raise();
@@ -294,7 +294,7 @@ void Courtroom::preview_emote(QString f_emote, kal::CharacterAnimationLayer::Emo
   emote_preview->display(current_char, f_emote, emoteType, ui_flip->isChecked(), ui_pair_offset_spinbox->value(), -ui_pair_vert_offset_spinbox->value());
 }
 
-void Courtroom::on_emote_left_clicked()
+void spritechat::Courtroom::on_emote_left_clicked()
 {
   --current_emote_page;
 
@@ -303,7 +303,7 @@ void Courtroom::on_emote_left_clicked()
   ui_ic_chat_message->setFocus();
 }
 
-void Courtroom::on_emote_right_clicked()
+void spritechat::Courtroom::on_emote_right_clicked()
 {
   ++current_emote_page;
 
@@ -312,7 +312,7 @@ void Courtroom::on_emote_right_clicked()
   ui_ic_chat_message->setFocus();
 }
 
-void Courtroom::on_emote_dropdown_changed(int p_index)
+void spritechat::Courtroom::on_emote_dropdown_changed(int p_index)
 {
   select_emote(p_index);
 }

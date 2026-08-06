@@ -1,6 +1,6 @@
 #include "aoemotepreview.h"
 
-AOEmotePreview::AOEmotePreview(AOApplication *ao_app, QWidget *parent)
+spritechat::AOEmotePreview::AOEmotePreview(AOApplication *ao_app, QWidget *parent)
     : QWidget(parent)
     , ao_app(ao_app)
 {
@@ -8,13 +8,13 @@ AOEmotePreview::AOEmotePreview(AOApplication *ao_app, QWidget *parent)
   setWindowFlag(Qt::WindowMinMaxButtonsHint, false);
 
   ui_viewport = new QWidget(this);
-  ui_vp_player_char = new kal::CharacterAnimationLayer(ao_app, ui_viewport);
+  ui_vp_player_char = new CharacterAnimationLayer(ao_app, ui_viewport);
   ui_vp_player_char->setObjectName("ui_vp_player_char");
   ui_size_label = new QLabel(this);
   ui_size_label->setObjectName("ui_size_label");
 }
 
-void AOEmotePreview::updateViewportGeometry()
+void spritechat::AOEmotePreview::updateViewportGeometry()
 {
   ui_viewport->resize(size());
 
@@ -24,7 +24,7 @@ void AOEmotePreview::updateViewportGeometry()
   ui_size_label->setText(QString::number(ui_viewport->width()) + "x" + QString::number(ui_viewport->height()));
 }
 
-void AOEmotePreview::display(QString character, QString emote, kal::CharacterAnimationLayer::EmoteType emoteType, bool flipped, int xOffset, int yOffset)
+void spritechat::AOEmotePreview::display(QString character, QString emote, CharacterAnimationLayer::EmoteType emoteType, bool flipped, int xOffset, int yOffset)
 {
   m_character = character;
   m_emote = emote;
@@ -37,7 +37,7 @@ void AOEmotePreview::display(QString character, QString emote, kal::CharacterAni
   setWindowTitle(character + ": " + emote);
 }
 
-void AOEmotePreview::resizeEvent(QResizeEvent *event)
+void spritechat::AOEmotePreview::resizeEvent(QResizeEvent *event)
 {
   QWidget::resizeEvent(event);
   updateViewportGeometry();

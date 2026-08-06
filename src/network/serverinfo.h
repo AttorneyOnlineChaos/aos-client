@@ -2,6 +2,8 @@
 
 #include <QString>
 
+namespace spritechat
+{
 class ServerInfo
 {
 public:
@@ -13,3 +15,4 @@ public:
 
   QString toString() const;
 };
+} // namespace spritechat

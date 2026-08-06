@@ -3,7 +3,7 @@
 #include <QSettings>
 #include <QString>
 
-namespace AOUtils
+namespace spritechat
 {
 /**
  * @brief Migrates the effects from the old format to version 2.
@@ -15,4 +15,4 @@ void migrateEffects(QSettings &p_fileName);
  * @brief Converts plain text to HTML and turns any URLs into links
  */
 QString convert_to_html(const QString &p_text);
-}; // namespace AOUtils
+} // namespace spritechat

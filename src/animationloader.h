@@ -10,7 +10,7 @@
 
 #include <atomic>
 
-namespace kal
+namespace spritechat
 {
 class AnimationFrame
 {
@@ -52,4 +52,4 @@ private:
 
   void populateVector(QImageReader *reader);
 };
-} // namespace kal
+} // namespace spritechat

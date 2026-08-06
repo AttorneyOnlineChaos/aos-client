@@ -4,7 +4,7 @@
 #include <QParallelAnimationGroup>
 #include <QTimer>
 
-namespace kal
+namespace spritechat
 {
 class ScreenSlideTimer : public QObject
 {
@@ -43,4 +43,4 @@ private:
 private Q_SLOTS:
   void startNextState();
 };
-} // namespace kal
+} // namespace spritechat
