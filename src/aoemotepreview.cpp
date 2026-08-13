@@ -24,7 +24,7 @@ void spritechat::AOEmotePreview::updateViewportGeometry()
   ui_size_label->setText(QString::number(ui_viewport->width()) + "x" + QString::number(ui_viewport->height()));
 }
 
-void spritechat::AOEmotePreview::display(QString character, QString emote, CharacterAnimationLayer::EmoteType emoteType, bool flipped, int xOffset, int yOffset)
+void spritechat::AOEmotePreview::display(const QString &character, const QString &emote, CharacterAnimationLayer::EmoteType emoteType, bool flipped, int xOffset, int yOffset)
 {
   m_character = character;
   m_emote = emote;

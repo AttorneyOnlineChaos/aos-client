@@ -1,91 +1,50 @@
 #include "playerlistwidget.h"
 
 #include "aoapplication.h"
+#include "debug_functions.h"
 #include "moderation_functions.h"
+#include "player_registry.h"
+#include "protocol/packets/moderation_packets.h"
 #include "widgets/moderator_dialog.h"
 
 #include <QListWidgetItem>
 #include <QMenu>
 
-spritechat::PlayerListWidget::PlayerListWidget(AOApplication *ao_app, QWidget *parent)
+#include <optional>
+
+spritechat::PlayerListWidget::PlayerListWidget(AOApplication *ao_app, PlayerRegistry &player_registry, QWidget *parent)
     : QListWidget(parent)
     , ao_app(ao_app)
+    , m_registry(player_registry)
 {
   setContextMenuPolicy(Qt::CustomContextMenu);
+
+  connect(&m_registry, &PlayerRegistry::added, this, &PlayerListWidget::addPlayer);
+  connect(&m_registry, &PlayerRegistry::removed, this, &PlayerListWidget::removePlayer);
+  connect(&m_registry, &PlayerRegistry::updated, this, &PlayerListWidget::refreshPlayer);
+  connect(&m_registry, &PlayerRegistry::cleared, this, &PlayerListWidget::clearPlayers);
 
   connect(this, &PlayerListWidget::customContextMenuRequested, this, &PlayerListWidget::onCustomContextMenuRequested);
 }
 
-spritechat::PlayerListWidget::~PlayerListWidget()
-{}
-
-void spritechat::PlayerListWidget::registerPlayer(const PlayerRegister &update)
-{
-  switch (update.type)
-  {
-  default:
-    Q_UNREACHABLE();
-    break;
-
-  case PlayerRegister::ADD_PLAYER:
-    addPlayer(update.id);
-    break;
-
-  case PlayerRegister::REMOVE_PLAYER:
-    removePlayer(update.id);
-    break;
-  }
-}
-
-void spritechat::PlayerListWidget::updatePlayer(const PlayerUpdate &update)
-{
-  PlayerData &player = m_player_map[update.id];
-
-  bool update_icon = false;
-  switch (update.type)
-  {
-  default:
-    Q_UNREACHABLE();
-    break;
-
-  case PlayerUpdate::NAME:
-    player.name = update.data;
-    break;
-
-  case PlayerUpdate::CHARACTER:
-    player.character = update.data;
-    update_icon = true;
-    break;
-
-  case PlayerUpdate::CHARACTER_NAME:
-    player.character_name = update.data;
-    break;
-
-  case PlayerUpdate::AREA_ID:
-    player.area_id = update.data.toInt();
-    break;
-  }
-  updatePlayer(player.id, update_icon);
-
-  filterPlayerList();
-}
-
 void spritechat::PlayerListWidget::reloadPlayers()
 {
-  for (const PlayerData &player : std::as_const(m_player_map))
+  for (auto it = m_item_map.constBegin(); it != m_item_map.constEnd(); ++it)
   {
-    updatePlayer(player.id, false);
+    refreshPlayer(it.key());
   }
+}
+
+void spritechat::PlayerListWidget::setArea(theory::AreaId area)
+{
+  m_area = area;
+  filterPlayerList();
 }
 
 void spritechat::PlayerListWidget::setAuthenticated(bool f_state)
 {
   m_is_authenticated = f_state;
-  for (const PlayerData &data : std::as_const(m_player_map))
-  {
-    updatePlayer(data.id, false);
-    filterPlayerList();
-  }
+  filterPlayerList();
 }
 
 void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &pos)
@@ -95,114 +54,129 @@ void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &po
   {
     return;
   }
-  int id = item->data(Qt::UserRole).toInt();
+  const theory::ClientId id = item->data(Qt::UserRole).toInt();
   QString name = item->text();
 
   QMenu *menu = new QMenu(this);
   menu->setAttribute(Qt::WA_DeleteOnClose);
 
-  QAction *report_player_action = menu->addAction("Report Player");
-  connect(report_player_action, &QAction::triggered, this, [this, id, name] {
+  QAction *report = menu->addAction("Report Player");
+  connect(report, &QAction::triggered, this, [this, id, name] {
     auto maybe_reason = call_moderator_support(name);
-    if (maybe_reason.has_value())
+    if (maybe_reason)
     {
-      ao_app->send_server_packet(AOPacket("ZZ", {maybe_reason.value(), QString::number(id)}));
+      theory::ModCallPacket packet;
+      packet.reason = maybe_reason.value();
+      packet.targetClientId = id;
+      ao_app->shipPacket(packet);
     }
   });
 
   if (m_is_authenticated)
   {
-    QAction *kick_player_action = menu->addAction("Kick");
-    connect(kick_player_action, &QAction::triggered, this, [this, id, name] {
-      ModeratorDialog *dialog = new ModeratorDialog(id, false, ao_app);
-      dialog->setWindowTitle(tr("Kick %1").arg(name));
-      connect(this, &PlayerListWidget::destroyed, dialog, &ModeratorDialog::deleteLater);
-      active_moderator_menu = {id, dialog};
-      dialog->show();
+    QAction *kick = menu->addAction("Kick");
+    connect(kick, &QAction::triggered, this, [this, id, name] {
+      m_dialog = theory::makeUnique<ModeratorDialog>(id, false, ao_app);
+      m_dialog->setWindowTitle(tr("Kick %1").arg(name));
+      m_dialog->show();
     });
 
-    QAction *ban_player_action = menu->addAction("Ban");
-    connect(ban_player_action, &QAction::triggered, this, [this, id, name] {
-      ModeratorDialog *dialog = new ModeratorDialog(id, true, ao_app);
-      dialog->setWindowTitle(tr("Ban %1").arg(name));
-      connect(this, &PlayerListWidget::destroyed, dialog, &ModeratorDialog::deleteLater);
-      active_moderator_menu = {id, dialog};
-      dialog->show();
+    QAction *ban = menu->addAction("Ban");
+    connect(ban, &QAction::triggered, this, [this, id, name] {
+      m_dialog = theory::makeUnique<ModeratorDialog>(id, true, ao_app);
+      m_dialog->setWindowTitle(tr("Ban %1").arg(name));
+      m_dialog->show();
     });
   }
 
   menu->popup(mapToGlobal(pos));
 }
 
-void spritechat::PlayerListWidget::addPlayer(int playerId)
+void spritechat::PlayerListWidget::addPlayer(theory::ClientId id)
 {
-  m_player_map.insert(playerId, PlayerData{.id = playerId});
   QListWidgetItem *item = new QListWidgetItem(this);
-  item->setData(Qt::UserRole, playerId);
-  m_item_map.insert(playerId, item);
-  updatePlayer(playerId, false);
+  item->setData(Qt::UserRole, id);
+  m_item_map.insert(id, item);
+  refreshPlayer(id);
 }
 
-void spritechat::PlayerListWidget::removePlayer(int playerId)
+void spritechat::PlayerListWidget::removePlayer(theory::ClientId id)
 {
-  if (active_moderator_menu.first == playerId && active_moderator_menu.second)
+  if (m_dialog && m_dialog->clientId() == id)
   {
-    delete active_moderator_menu.second;
-    Q_EMIT notify("Closed Moderation Dialog : User left the server.");
+    m_dialog.reset();
+    call_warning("Closed Moderation Dialog : User left the server.");
   }
 
-  delete takeItem(row(m_item_map.take(playerId)));
-  m_player_map.remove(playerId);
+  delete takeItem(row(m_item_map.take(id)));
+}
+
+void spritechat::PlayerListWidget::refreshPlayer(theory::ClientId id)
+{
+  QListWidgetItem *item = m_item_map.value(id);
+  if (!item)
+  {
+    return;
+  }
+
+  const auto maybe_player = m_registry.player(id);
+  if (!maybe_player)
+  {
+    return;
+  }
+  const PlayerInfo player = maybe_player.value();
+
+  item->setText(formatLabel(player));
+
+  if (player.character.isEmpty())
+  {
+    item->setToolTip(QString());
+    item->setIcon(QIcon());
+  }
+  else
+  {
+    QString tooltip = player.character;
+    if (player.characterName)
+    {
+      tooltip = QObject::tr("%1 aka %2").arg(player.character, player.characterName.value());
+    }
+    item->setToolTip(tooltip);
+    item->setIcon(QIcon(ao_app->get_image_suffix(ao_app->get_character_path(player.character, "char_icon"), true)));
+  }
+
+  filterPlayerList();
+}
+
+void spritechat::PlayerListWidget::clearPlayers()
+{
+  clear();
+  m_item_map.clear();
 }
 
 void spritechat::PlayerListWidget::filterPlayerList()
 {
-  int area_id = m_player_map.value(ao_app->client_id).area_id;
-  for (QListWidgetItem *item : std::as_const(m_item_map))
+  for (auto it = m_item_map.constBegin(); it != m_item_map.constEnd(); ++it)
   {
-    if (!item)
+    const auto player = m_registry.player(it.key());
+    const theory::AreaId player_area = player ? player->areaId : theory::NoAreaId;
+    QListWidgetItem *item = it.value();
+    item->setHidden(player_area != m_area && !m_is_authenticated);
+  }
+}
+
+QString spritechat::PlayerListWidget::formatLabel(const PlayerInfo &data)
+{
+  auto statusLabel = [](theory::PlayerStatus status) -> QString {
+    switch (status)
     {
-      qWarning() << "Trying to filter item that does not exist. This indicates a broken server-implementation.";
-      break;
+    default:
+    case theory::PlayerStatus::Online:
+      return QString();
+    case theory::PlayerStatus::Away:
+      return QObject::tr("Away");
     }
-    item->setHidden(m_player_map[item->data(Qt::UserRole).toInt()].area_id != area_id && !m_is_authenticated);
-  }
-}
+  };
 
-void spritechat::PlayerListWidget::updatePlayer(int playerId, bool updateIcon)
-{
-  PlayerData &data = m_player_map[playerId];
-  QListWidgetItem *item = m_item_map[playerId];
-
-  if (!item)
-  {
-    qWarning() << "No player at ID" << playerId << ". This might indicate a broker server implementation.";
-    return;
-  }
-
-  item->setText(formatLabel(data));
-  if (data.character.isEmpty())
-  {
-    item->setToolTip(QString());
-    return;
-  }
-
-  QString tooltip = data.character;
-  if (!data.character_name.isEmpty())
-  {
-    tooltip = QObject::tr("%1 aka %2").arg(data.character, data.character_name);
-  }
-
-  item->setToolTip(tooltip);
-
-  if (updateIcon)
-  {
-    item->setIcon(QIcon(ao_app->get_image_suffix(ao_app->get_character_path(data.character, "char_icon"), true)));
-  }
-}
-
-QString spritechat::PlayerListWidget::formatLabel(const PlayerData &data)
-{
   QString format = Options::getInstance().playerlistFormatString();
-  return format.replace("{id}", QString::number(data.id)).replace("{character}", data.character).replace("{displayname}", data.character_name.isEmpty() ? "No Data" : data.character_name).replace("{username}", data.name).simplified();
+  return format.replace("{id}", QString::number(data.id)).replace("{character}", data.character).replace("{displayname}", data.characterName.value_or(QStringLiteral("No Data"))).replace("{username}", data.name).replace("{status}", statusLabel(data.status)).simplified();
 }

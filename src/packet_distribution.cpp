@@ -1,657 +1,411 @@
 #include "aoapplication.h"
 
+#include "area_registry.h"
+#include "core/logging.h"
 #include "courtroom.h"
 #include "debug_functions.h"
-#include "hardware_functions.h"
-#include "lobby.h"
-#include "networkmanager.h"
+#include "network_manager.h"
 #include "options.h"
+#include "player_registry.h"
+#include "spritechat_log.h"
 
-void spritechat::AOApplication::server_packet_received(AOPacket packet)
+void spritechat::AOApplication::process_pending_packets()
 {
-  QString header = packet.header();
-  QStringList content = packet.content();
-
-#ifdef DEBUG_NETWORK
-  if (header != "checkconnection")
+  while (net_manager->hasPendingPacket())
   {
-    qDebug() << "R:" << f_packet;
-  }
-#endif
-
-  if (header == "decryptor")
-  {
-    if (content.size() == 0)
+    theory::PacketPointer packet = net_manager->nextPacket();
+    if (!packet)
     {
       return;
     }
 
-    // default(legacy) values
-    m_serverdata.set_features(QStringList());
-
-    QString f_hdid;
-    f_hdid = get_hdid();
-
-    QStringList f_contents = {f_hdid};
-    AOPacket hi_packet("HI", f_contents);
-    send_server_packet(hi_packet);
-  }
-  else if (header == "ID")
-  {
-    if (content.size() < 2)
+    if (!m_router.route(*packet))
     {
-      return;
+      zWarning(log::protocol) << QStringLiteral("failed to route packet: %1").arg(packet->header());
     }
-
-    client_id = content.at(0).toInt();
-    m_serverdata.set_server_software(content.at(1));
-
-    Q_EMIT net_manager->server_connected(true);
-
-    QStringList f_contents = {"AO2", get_version_string()};
-    send_server_packet(AOPacket("ID", f_contents));
-  }
-  else if (header == "CT")
-  {
-    if (!is_courtroom_constructed() || content.size() < 2)
-    {
-      return;
-    }
-
-    if (content.size() == 3)
-    {
-      w_courtroom->append_server_chatmessage(content.at(0), content.at(1), content.at(2));
-    }
-    else
-    {
-      w_courtroom->append_server_chatmessage(content.at(0), content.at(1), "0");
-    }
-  }
-  else if (header == "FL")
-  {
-    m_serverdata.set_features(content);
-    w_courtroom->set_widgets();
-  }
-  else if (header == "PN")
-  {
-    if (!is_lobby_constructed() || content.size() < 2)
-    {
-      return;
-    }
-
-    w_lobby->set_player_count(content.at(0).toInt(), content.at(1).toInt());
-
-    if (content.size() >= 3)
-    {
-      w_lobby->set_server_description(content.at(2));
-    }
-  }
-  else if (header == "SI")
-  {
-    if (!is_lobby_constructed() || content.size() != 3)
-    {
-      return;
-    }
-
-    generated_chars = 0;
-
-    int selected_server = w_lobby->get_selected_server();
-    QString server_address;
-    switch (w_lobby->pageSelected())
-    {
-    case 0:
-      if (selected_server >= 0 && selected_server < server_list.size())
-      {
-        auto info = server_list.at(selected_server);
-        server_name = info.name;
-        server_address = QString("%1:%2").arg(info.address, QString::number(info.port));
-        window_title = server_name;
-      }
-      break;
-
-    case 1:
-    {
-      QVector<ServerInfo> favorite_list = Options::getInstance().favorites();
-      if (selected_server >= 0 && selected_server < favorite_list.size())
-      {
-        auto info = favorite_list.at(selected_server);
-        server_name = info.name;
-        server_address = QString("%1:%2").arg(info.address, QString::number(info.port));
-        window_title = server_name;
-      }
-    }
-    break;
-    default:
-      break;
-    }
-
-    if (is_courtroom_constructed())
-    {
-      w_courtroom->set_window_title(window_title);
-    }
-
-    send_server_packet(AOPacket("RC"));
-
-    // Remove any characters not accepted in folder names for the server_name
-    // here
-
-    QString server_name_stripped = server_name;
-    static QRegularExpression illegal_filename_chars("[\\\\/:*?\"<>|\']");
-    this->log_filename = QDateTime::currentDateTime().toUTC().toString("'logs/" + server_name_stripped.remove(illegal_filename_chars) + "/'yyyy-MM-dd hh-mm-ss t'.log'");
-    this->write_to_file("Joined server " + server_name_stripped + " hosted on address " + server_address + " on " + QDateTime::currentDateTime().toUTC().toString(), log_filename, true);
-  }
-  else if (header == "CharsCheck")
-  {
-    if (!is_courtroom_constructed())
-    {
-      return;
-    }
-
-    for (int n_char = 0; n_char < content.size(); ++n_char)
-    {
-      if (content.at(n_char) == "-1")
-      {
-        w_courtroom->set_taken(n_char, true);
-      }
-      else
-      {
-        w_courtroom->set_taken(n_char, false);
-      }
-    }
-  }
-
-  else if (header == "SC")
-  {
-    if (!is_courtroom_constructed())
-    {
-      return;
-    }
-    w_courtroom->clear_chars();
-    for (int n_element = 0; n_element < content.size(); ++n_element)
-    {
-      QStringList sub_elements = content.at(n_element).split("&");
-      for (QString &sub_element : sub_elements)
-      {
-        sub_element = AOPacket::decode(sub_element);
-      }
-
-      CharacterSlot f_char;
-      f_char.name = sub_elements.at(0);
-      if (sub_elements.size() >= 2)
-      {
-        f_char.description = sub_elements.at(1);
-      }
-
-      // temporary. the CharsCheck packet sets this properly
-      f_char.taken = false;
-
-      w_courtroom->append_char(f_char);
-    }
-
-    if (!courtroom_loaded)
-    {
-      send_server_packet(AOPacket("RM"));
-    }
-    else
-    {
-      w_courtroom->character_loading_finished();
-    }
-  }
-  else if (header == "SM")
-  {
-    if (!is_courtroom_constructed() || courtroom_loaded)
-    {
-      return;
-    }
-
-    bool musics_time = false;
-    int areas = 0;
-
-    for (int n_element = 0; n_element < content.size(); ++n_element)
-    {
-      if (musics_time)
-      {
-        w_courtroom->append_music(content.at(n_element));
-      }
-      else
-      {
-        if (content.at(n_element).endsWith(".wav") || content.at(n_element).endsWith(".mp3") || content.at(n_element).endsWith(".mp4") || content.at(n_element).endsWith(".ogg") || content.at(n_element).endsWith(".opus"))
-        {
-          musics_time = true;
-          w_courtroom->fix_last_area();
-          w_courtroom->append_music(content.at(n_element));
-          areas--;
-        }
-        else
-        {
-          w_courtroom->append_area(content.at(n_element));
-          areas++;
-        }
-      }
-    }
-
-    for (int area_n = 0; area_n < areas; area_n++)
-    {
-      w_courtroom->arup_append(0, "Unknown", "Unknown", "Unknown");
-    }
-
-    send_server_packet(AOPacket("RD"));
-
-    // TODO : Implement username messaging and requirement server-side properly.
-    send_server_packet(AOPacket("CT", {Options::getInstance().username(), ""}));
-  }
-  else if (header == "FM") // Fetch music ONLY
-  {
-    if (!is_courtroom_constructed())
-    {
-      return;
-    }
-
-    w_courtroom->clear_music();
-
-    for (int n_element = 0; n_element < content.size(); ++n_element)
-    {
-      w_courtroom->append_music(content.at(n_element));
-    }
-
-    w_courtroom->list_music();
-  }
-  else if (header == "FA") // Fetch areas ONLY
-  {
-    if (!is_courtroom_constructed())
-    {
-      return;
-    }
-
-    w_courtroom->clear_areas();
-    w_courtroom->arup_clear();
-
-    for (int n_element = 0; n_element < content.size(); ++n_element)
-    {
-      w_courtroom->append_area(content.at(n_element));
-      w_courtroom->arup_append(0, "Unknown", "Unknown", "Unknown");
-    }
-
-    w_courtroom->list_areas();
-  }
-  else if (header == "DONE")
-  {
-    if (!is_courtroom_constructed())
-    {
-      return;
-    }
-
-    w_courtroom->character_loading_finished();
-    w_courtroom->done_received();
-
-    courtroom_loaded = true;
-
-    destruct_lobby();
-  }
-  else if (header == "BN")
-  {
-    if (!is_courtroom_constructed() || content.isEmpty())
-    {
-      return;
-    }
-
-    if (content.size() >= 2)
-    {
-      // We have a pos included in the background packet!
-      if (!content.at(1).isEmpty())
-      {
-        // Not touching it when its empty.
-        w_courtroom->set_side(content.at(1));
-      }
-    }
-    w_courtroom->set_background(content.at(0), content.size() >= 2);
-  }
-  else if (header == "SP")
-  {
-    if (!is_courtroom_constructed() || content.isEmpty())
-    {
-      return;
-    }
-
-    // We were sent a "set position" packet
-    w_courtroom->set_side(content.at(0));
-  }
-  else if (header == "SD") // Send pos dropdown
-  {
-    if (!is_courtroom_constructed() || content.isEmpty())
-    {
-      return;
-    }
-
-    w_courtroom->set_pos_dropdown(content.at(0).split("*"));
-  }
-  // server accepting char request(CC) packet
-  else if (header == "PV")
-  {
-    if (!is_courtroom_constructed() || content.size() < 3)
-    {
-      return;
-    }
-    // For some reason, args 0 and 1 are not used (from tsu3 they're client ID and a string "CID")
-    w_courtroom->enter_courtroom();
-    w_courtroom->set_courtroom_size();
-    w_courtroom->update_character(content.at(2).toInt());
-  }
-  else if (header == "MS")
-  {
-    if (is_courtroom_constructed() && courtroom_loaded)
-    {
-      w_courtroom->chatmessage_enqueue(packet.content());
-    }
-  }
-  else if (header == "MC")
-  {
-    if (is_courtroom_constructed() && courtroom_loaded)
-    {
-      w_courtroom->handle_song(&packet.content());
-    }
-  }
-  else if (header == "RT")
-  {
-    if (content.isEmpty())
-    {
-      return;
-    }
-    if (is_courtroom_constructed())
-    {
-      if (content.size() == 1)
-      {
-        w_courtroom->handle_wtce(content.at(0), 0);
-      }
-      else if (content.size() >= 2)
-      {
-        w_courtroom->handle_wtce(content.at(0), content.at(1).toInt());
-      }
-    }
-  }
-  else if (header == "HP")
-  {
-    if (is_courtroom_constructed() && content.size() >= 2)
-    {
-      w_courtroom->set_hp_bar(content.at(0).toInt(), content.at(1).toInt());
-    }
-  }
-  else if (header == "LE")
-  {
-    if (is_courtroom_constructed())
-    {
-      QVector<EvidenceItem> f_evi_list;
-
-      for (const QString &f_string : packet.content())
-      {
-        QStringList sub_contents = f_string.split("&");
-        if (sub_contents.size() < 3)
-        {
-          continue;
-        }
-
-        // decoding has to be done here instead of on reception
-        // because this packet uses & as a delimiter for some reason
-        for (QString &data : sub_contents)
-        {
-          data = AOPacket::decode(data);
-        }
-
-        EvidenceItem f_evi;
-        f_evi.name = sub_contents.at(0);
-        f_evi.description = sub_contents.at(1);
-        f_evi.image = sub_contents.at(2);
-
-        f_evi_list.append(f_evi);
-      }
-
-      w_courtroom->set_evidence_list(f_evi_list);
-    }
-  }
-  else if (header == "ARUP")
-  {
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      int arup_type = content.at(0).toInt();
-      for (int n_element = 1; n_element < content.size(); n_element++)
-      {
-        w_courtroom->arup_modify(arup_type, n_element - 1, content.at(n_element));
-      }
-      w_courtroom->list_areas();
-    }
-  }
-  else if (header == "IL")
-  {
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      w_courtroom->set_ip_list(content.at(0));
-    }
-  }
-  else if (header == "MU")
-  {
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      w_courtroom->set_mute(true, content.at(0).toInt());
-    }
-  }
-  else if (header == "UM")
-  {
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      w_courtroom->set_mute(false, content.at(0).toInt());
-    }
-  }
-  else if (header == "BB")
-  {
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      call_notice(content.at(0));
-    }
-  }
-  else if (header == "KK")
-  {
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      call_notice(tr("You have been kicked from the server.\nReason: %1").arg(content.at(0)));
-      construct_lobby();
-      destruct_courtroom();
-    }
-  }
-  else if (header == "KB")
-  {
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      call_notice(tr("You have been banned from the server.\nReason: %1").arg(content.at(0)));
-      construct_lobby();
-      destruct_courtroom();
-    }
-  }
-  else if (header == "BD")
-  {
-    if (content.isEmpty())
-    {
-      return;
-    }
-    call_notice(tr("You are banned on this server.\nReason: %1").arg(content.at(0)));
-  }
-  else if (header == "ZZ")
-  {
-    if (content.size() < 1)
-    {
-      return;
-    }
-
-    if (is_courtroom_constructed() && !content.isEmpty())
-    {
-      w_courtroom->mod_called(content.at(0));
-    }
-  }
-  else if (header == "TI")
-  { // Timer packet
-    if (!is_courtroom_constructed() || content.size() < 2)
-    {
-      return;
-    }
-
-    // Timer ID is reserved as argument 0
-    int id = content.at(0).toInt();
-
-    // Type 0 = start/resume/sync timer at time
-    // Type 1 = pause timer at time
-    // Type 2 = show timer
-    // Type 3 = hide timer
-    int type = content.at(1).toInt();
-
-    if (type == 0 || type == 1)
-    {
-      if (content.size() < 3)
-      {
-        return;
-      }
-
-      // The time as displayed on the clock, in milliseconds.
-      // If the number received is negative, stop the timer.
-      qint64 timer_value = content.at(2).toLongLong();
-      if (timer_value > 0)
-      {
-        if (type == 0)
-        {
-          timer_value -= latency / 2;
-          w_courtroom->start_clock(id, timer_value);
-        }
-        else
-        {
-          w_courtroom->pause_clock(id);
-          w_courtroom->set_clock(id, timer_value);
-        }
-      }
-      else
-      {
-        w_courtroom->stop_clock(id);
-      }
-    }
-    else if (type == 2)
-    {
-      w_courtroom->set_clock_visibility(id, true);
-    }
-    else if (type == 3)
-    {
-      w_courtroom->set_clock_visibility(id, false);
-    }
-  }
-  else if (header == "CHECK")
-  {
-    if (!is_courtroom_constructed())
-    {
-      return;
-    }
-
-    qint64 ping_time = w_courtroom->pong();
-    qDebug() << "ping:" << ping_time;
-    if (ping_time != -1)
-    {
-      latency = ping_time;
-    }
-  }
-  // Subtheme packet
-  else if (header == "ST")
-  {
-    if (!is_courtroom_constructed() || content.isEmpty())
-    {
-      return;
-    }
-    // Subtheme reserved as argument 0
-    subtheme = content.at(0);
-
-    // Check if we have subthemes set to "server"
-    if (Options::getInstance().settingsSubTheme().toLower() != "server")
-    {
-      // We don't. Simply acknowledge the subtheme sent by the server, but don't do anything else.
-      return;
-    }
-
-    // Reload theme request
-    if (content.size() > 1 && content.at(1) == "1")
-    {
-      Options::getInstance().setServerSubTheme(subtheme);
-      w_courtroom->on_reload_theme_clicked();
-    }
-  }
-  // Auth packet
-  else if (header == "AUTH")
-  {
-    if (!is_courtroom_constructed() || !m_serverdata.get_feature(BASE_FEATURE_SET::AUTH_PACKET) || content.isEmpty())
-    {
-      return;
-    }
-    bool ok;
-    int authenticated = content.at(0).toInt(&ok);
-    if (!ok)
-    {
-      qWarning() << "Malformed AUTH packet! Contents:" << content.at(0);
-    }
-
-    w_courtroom->on_authentication_state_received(authenticated);
-  }
-  else if (header == "JD")
-  {
-    if (!is_courtroom_constructed() || content.isEmpty())
-    {
-      return;
-    }
-    bool ok;
-    Courtroom::JudgeState state = static_cast<Courtroom::JudgeState>(content.at(0).toInt(&ok));
-    if (!ok)
-    {
-      return; // ignore malformed packet
-    }
-    w_courtroom->set_judge_state(state);
-    if (w_courtroom->get_judge_state() != Courtroom::POS_DEPENDENT)
-    { // If we receive JD -1, it means the server asks us to fall back to client-side judge buttons behavior
-      w_courtroom->show_judge_controls(w_courtroom->get_judge_state() == Courtroom::SHOW_CONTROLS);
-    }
-    else
-    {
-      w_courtroom->set_judge_buttons(); // client-side judge behavior
-    }
-  }
-
-  // AssetURL Packet
-  else if (header == "ASS")
-  {
-    if (content.size() > 1 || content.isEmpty())
-    { // This can never be more than one link.
-      return;
-    }
-
-    m_serverdata.set_asset_url(content.at(0));
-  }
-  else if (header == "PR")
-  {
-    if (content.size() < 2 || !is_courtroom_constructed())
-    {
-      return;
-    }
-
-    PlayerRegister update{content.at(0).toInt(), PlayerRegister::REGISTER_TYPE(content.at(1).toInt())};
-    w_courtroom->playerList()->registerPlayer(update);
-  }
-  else if (header == "PU")
-  {
-    if (content.size() < 3 || !is_courtroom_constructed())
-    {
-      return;
-    }
-
-    PlayerUpdate update{content.at(0).toInt(), PlayerUpdate::DATA_TYPE(content.at(1).toInt()), content.at(2)};
-    w_courtroom->playerList()->updatePlayer(update);
   }
 }
 
-void spritechat::AOApplication::send_server_packet(AOPacket p_packet)
+void spritechat::AOApplication::shipPacket(const theory::Packet &packet)
 {
-#ifdef DEBUG_NETWORK
-  qDebug() << "S:" << p_packet.to_string();
-#endif
-  net_manager->ship_server_packet(p_packet);
+  net_manager->shipPacket(packet);
+}
+
+void spritechat::AOApplication::register_packet_routes()
+{
+  m_router.registerRoute<theory::SessionGrantPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::WelcomePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::CharacterListPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::MusicListPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::AreaListPacket>(&AOApplication::process, this);
+
+  m_router.registerRoute<theory::CharacterAcceptedPacket>(&AOApplication::process, this);
+
+  m_router.registerRoute<theory::BackgroundPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::SetPositionPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::AreaUpdatePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::SubthemePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::TimerPacket>(&AOApplication::process, this);
+
+  m_router.registerRoute<theory::IcMessagePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::OocMessagePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::MusicChangedPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::ServerMessagePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::PenaltyPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::SplashPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::EvidenceListPacket>(&AOApplication::process, this);
+
+  m_router.registerRoute<theory::PlayerRosterPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::PlayerUpdatePacket>(&AOApplication::process, this);
+
+  m_router.registerRoute<theory::ModCallNoticePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::AuthStatePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::ErrorPacket>(&AOApplication::process, this);
+}
+
+void spritechat::AOApplication::process(const theory::SessionGrantPacket &packet)
+{
+  m_tokens.insert(last_server.join_url(), packet.sessionToken);
+}
+
+void spritechat::AOApplication::process(const theory::WelcomePacket &packet)
+{
+  m_session_active = true;
+
+  client_id = packet.clientId;
+
+  if (w_courtroom->get_character_id() < 0)
+  {
+    w_courtroom->enter_char_select();
+  }
+  w_courtroom->show();
+
+  destruct_lobby();
+}
+
+void spritechat::AOApplication::process(const theory::CharacterListPacket &packet)
+{
+  w_courtroom->clear_chars();
+  for (const QString &character : packet.characters)
+  {
+    w_courtroom->append_char(character);
+  }
+
+  w_courtroom->character_loading_finished();
+  w_courtroom->refresh_taken_chars();
+}
+
+void spritechat::AOApplication::process(const theory::MusicListPacket &packet)
+{
+  w_courtroom->set_music(packet.playlists);
+  w_courtroom->list_music();
+}
+
+void spritechat::AOApplication::process(const theory::AreaListPacket &packet)
+{
+  m_area_registry.clear();
+
+  theory::AreaId id = 0;
+  for (const QString &area : packet.areas)
+  {
+    m_area_registry.add(id);
+    m_area_registry.update(id, AreaInfo{.id = id, .name = area});
+    ++id;
+  }
+
+  w_courtroom->list_areas();
+}
+
+void spritechat::AOApplication::process(const theory::CharacterAcceptedPacket &packet)
+{
+  if (packet.characterId < 0)
+  {
+    if (w_courtroom->get_character_id() >= 0)
+    {
+      w_courtroom->enter_char_select();
+    }
+    return;
+  }
+
+  w_courtroom->enter_courtroom();
+  w_courtroom->set_courtroom_size();
+  w_courtroom->update_character(packet.characterId);
+}
+
+void spritechat::AOApplication::process(const theory::BackgroundPacket &packet)
+{
+  if (packet.side)
+  {
+    w_courtroom->set_side(packet.side.value());
+  }
+  w_courtroom->set_background(packet.background, packet.display);
+}
+
+void spritechat::AOApplication::process(const theory::SetPositionPacket &packet)
+{
+  w_courtroom->set_side(packet.position.value_or(w_courtroom->default_side()));
+}
+
+void spritechat::AOApplication::process(const theory::AreaUpdatePacket &packet)
+{
+  const auto maybe_area = m_area_registry.area(packet.areaId);
+  if (!maybe_area)
+  {
+    return;
+  }
+  AreaInfo area = maybe_area.value();
+
+  std::optional<theory::JsonCodecError> error;
+  switch (packet.property)
+  {
+  default:
+    return;
+
+  case theory::AreaUpdatePacket::Property::Status:
+    error = theory::decodeJson(packet.data, area.status);
+    break;
+
+  case theory::AreaUpdatePacket::Property::Ownership:
+    error = theory::decodeJson(packet.data, area.owners);
+    break;
+
+  case theory::AreaUpdatePacket::Property::Locked:
+    error = theory::decodeJson(packet.data, area.lock);
+    break;
+  }
+
+  if (error)
+  {
+    return;
+  }
+
+  m_area_registry.update(packet.areaId, area);
+}
+
+void spritechat::AOApplication::process(const theory::SubthemePacket &packet)
+{
+  subtheme = packet.subtheme;
+
+  if (Options::getInstance().settingsSubTheme().toLower() != "server")
+  {
+    return;
+  }
+
+  Options::getInstance().setServerSubTheme(subtheme);
+  w_courtroom->on_reload_theme_clicked();
+}
+
+spritechat::Timer *spritechat::AOApplication::timer(theory::TimerId id) const
+{
+  if (id < 0 || id >= m_timers.size())
+  {
+    return nullptr;
+  }
+  return m_timers.at(id);
+}
+
+void spritechat::AOApplication::process(const theory::TimerPacket &packet)
+{
+  Timer *l_timer = timer(packet.timerId);
+  if (l_timer == nullptr)
+  {
+    return;
+  }
+
+  std::optional<theory::JsonCodecError> error;
+  switch (packet.property)
+  {
+  default:
+    return;
+
+  case theory::TimerPacket::State:
+    {
+      const auto l_state = theory::decodeJson<theory::TimerState>(packet.data, error);
+      if (error)
+      {
+        return;
+      }
+      l_timer->setState(l_state);
+      break;
+    }
+
+  case theory::TimerPacket::Tick:
+    {
+      const qint64 l_remaining = theory::decodeJson<qint64>(packet.data, error);
+      if (error)
+      {
+        return;
+      }
+      l_timer->setRemaining(l_remaining);
+      break;
+    }
+
+  case theory::TimerPacket::Visibility:
+    {
+      const bool l_visible = theory::decodeJson<bool>(packet.data, error);
+      if (error)
+      {
+        return;
+      }
+      l_timer->setVisible(l_visible);
+      break;
+    }
+  }
+}
+
+void spritechat::AOApplication::process(const theory::IcMessagePacket &packet)
+{
+  w_courtroom->unpack_chatmessage(packet);
+}
+
+void spritechat::AOApplication::process(const theory::OocMessagePacket &packet)
+{
+  w_courtroom->append_server_chatmessage(packet.name, packet.message, QStringLiteral("0"));
+}
+
+void spritechat::AOApplication::process(const theory::ServerMessagePacket &packet)
+{
+  w_courtroom->append_server_chatmessage(tr("SERVER"), packet.message, QStringLiteral("1"));
+  if (packet.level >= theory::ServerMessagePacket::Level::Notice)
+  {
+    call_notice(packet.message);
+  }
+}
+
+void spritechat::AOApplication::process(const theory::MusicChangedPacket &packet)
+{
+  w_courtroom->handle_song(packet);
+}
+
+void spritechat::AOApplication::process(const theory::PenaltyPacket &packet)
+{
+  w_courtroom->set_hp_bar(packet.bar, packet.value);
+}
+
+void spritechat::AOApplication::process(const theory::SplashPacket &packet)
+{
+  w_courtroom->handle_wtce(packet);
+}
+
+void spritechat::AOApplication::process(const theory::EvidenceListPacket &packet)
+{
+  QList<theory::EvidenceItem> evidence = packet.items;
+  w_courtroom->set_evidence_list(evidence);
+}
+
+void spritechat::AOApplication::process(const theory::PlayerRosterPacket &packet)
+{
+  switch (packet.action)
+  {
+  default:
+    return;
+
+  case theory::PlayerRosterPacket::Action::Add:
+    m_player_registry.add(packet.clientId);
+    break;
+
+  case theory::PlayerRosterPacket::Action::Remove:
+    m_player_registry.remove(packet.clientId);
+    break;
+  }
+}
+
+void spritechat::AOApplication::process(const theory::PlayerUpdatePacket &packet)
+{
+  const auto maybe_player = m_player_registry.player(packet.clientId);
+  if (!maybe_player)
+  {
+    return;
+  }
+  PlayerInfo player = maybe_player.value();
+
+  std::optional<theory::JsonCodecError> error;
+  switch (packet.property)
+  {
+  default:
+    return;
+
+  case theory::PlayerUpdatePacket::Property::Name:
+    error = theory::decodeJson(packet.data, player.name);
+    break;
+
+  case theory::PlayerUpdatePacket::Property::Character:
+    error = theory::decodeJson(packet.data, player.character);
+    break;
+
+  case theory::PlayerUpdatePacket::Property::CharacterName:
+    error = theory::decodeJson(packet.data, player.characterName);
+    break;
+
+  case theory::PlayerUpdatePacket::Property::AreaId:
+    error = theory::decodeJson(packet.data, player.areaId);
+    break;
+
+  case theory::PlayerUpdatePacket::Property::Status:
+    error = theory::decodeJson(packet.data, player.status);
+    break;
+  }
+
+  if (error)
+  {
+    return;
+  }
+
+  m_player_registry.update(packet.clientId, player);
+}
+
+void spritechat::AOApplication::process(const theory::ModCallNoticePacket &packet)
+{
+  QString notice = tr("!!!MODCALL!!!\nArea: %1\nCaller: [%2]%3\n").arg(packet.area, QString::number(packet.callerClientId), packet.callerName);
+  if (!packet.targetName.isEmpty())
+  {
+    notice.append(tr("Regarding: %1\n").arg(packet.targetName));
+  }
+  notice.append(tr("Reason: %1").arg(packet.reason));
+
+  w_courtroom->mod_called(notice);
+}
+
+void spritechat::AOApplication::process(const theory::AuthStatePacket &packet)
+{
+  switch (packet.state)
+  {
+  default:
+  case theory::AuthStatePacket::State::LoggedOut:
+    w_courtroom->on_authentication_state_received(-1);
+    break;
+
+  case theory::AuthStatePacket::State::LoginFailed:
+    w_courtroom->on_authentication_state_received(0);
+    break;
+
+  case theory::AuthStatePacket::State::LoggedIn:
+    w_courtroom->on_authentication_state_received(1);
+    break;
+  }
+}
+
+void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
+{
+  switch (packet.code)
+  {
+  default:
+  case theory::ErrorPacket::ProtocolError:
+    call_warning(tr("You have been dropped from the server.\n\nReason: %1").arg(packet.what));
+    break;
+
+  case theory::ErrorPacket::Banned:
+    call_warning(tr("You have been banned from the server.\n\nReason: %1").arg(packet.what));
+    break;
+
+  case theory::ErrorPacket::ServerFull:
+    call_warning(tr("The server is full.\n\nReason: %1").arg(packet.what));
+    break;
+
+  case theory::ErrorPacket::SessionTransfered:
+    call_warning(tr("Your session has been resumed from another connection.\n\nReason: %1").arg(packet.what));
+    break;
+  }
+
+  finish_session();
 }

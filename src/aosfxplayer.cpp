@@ -1,6 +1,8 @@
 #include "aosfxplayer.h"
 
+#include "core/logging.h"
 #include "file_functions.h"
+#include "spritechat_log.h"
 
 spritechat::AOSfxPlayer::AOSfxPlayer(AOApplication *ao_app)
     : ao_app(ao_app)
@@ -17,7 +19,7 @@ void spritechat::AOSfxPlayer::setVolume(int value)
   updateInternalVolume();
 }
 
-void spritechat::AOSfxPlayer::play(QString path)
+void spritechat::AOSfxPlayer::play(const QString &path)
 {
   for (int i = 0; i < STREAM_COUNT; ++i)
   {
@@ -48,19 +50,19 @@ void spritechat::AOSfxPlayer::play(QString path)
   BASS_ChannelSetSync(m_stream[m_current_stream_id], BASS_SYNC_DEV_FAIL, 0, ao_app->BASSreset, 0);
 }
 
-void spritechat::AOSfxPlayer::findAndPlaySfx(QString sfx)
+void spritechat::AOSfxPlayer::findAndPlaySfx(const QString &sfx)
 {
   // TODO replace this with proper pathing tools
   findAndPlayCharacterShout(sfx, QString(), QString());
 }
 
-void spritechat::AOSfxPlayer::findAndPlayCharacterSfx(QString sfx, QString character)
+void spritechat::AOSfxPlayer::findAndPlayCharacterSfx(const QString &sfx, const QString &character)
 {
   // TODO replace this with proper pathing tools
   findAndPlayCharacterShout(sfx, character, QString());
 }
 
-void spritechat::AOSfxPlayer::findAndPlayCharacterShout(QString shout, QString character, QString group)
+void spritechat::AOSfxPlayer::findAndPlayCharacterShout(const QString &shout, const QString &character, const QString &group)
 {
   QString file_path = ao_app->get_sfx(shout, group, character);
   if (file_exists(file_path))
@@ -93,7 +95,7 @@ void spritechat::AOSfxPlayer::stop(int streamId)
   streamId = maybeFetchCurrentStreamId(streamId);
   if (!ensureValidStreamId(streamId))
   {
-    qWarning().noquote() << QObject::tr("Failed to stop stream; invalid stream ID '%1'").arg(streamId);
+    zWarning(log::audio) << QObject::tr("Failed to stop stream; invalid stream ID '%1'").arg(streamId);
     return;
   }
 
@@ -121,7 +123,7 @@ void spritechat::AOSfxPlayer::setLooping(bool toggle, int streamId)
   streamId = maybeFetchCurrentStreamId(streamId);
   if (!ensureValidStreamId(streamId))
   {
-    qWarning().noquote() << QObject::tr("Failed to setup stream loop; invalid stream ID '%1'").arg(streamId);
+    zWarning(log::audio) << QObject::tr("Failed to setup stream loop; invalid stream ID '%1'").arg(streamId);
     return;
   }
 

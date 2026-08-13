@@ -17,7 +17,7 @@ class AOEvidenceDisplay : public QLabel
 public:
   AOEvidenceDisplay(AOApplication *p_ao_app, QWidget *p_parent = nullptr);
 
-  void show_evidence(int p_index, QString p_evidence_image, bool is_left_side, int p_volume);
+  void show_evidence(int p_index, const QString &p_evidence_image, bool is_left_side, int p_volume);
   void reset();
   void combo_resize(int w, int h);
   void setLastEvidenceIndex(int f_index);

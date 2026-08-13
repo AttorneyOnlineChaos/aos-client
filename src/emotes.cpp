@@ -100,7 +100,7 @@ void spritechat::Courtroom::refresh_emotes()
 
 void spritechat::Courtroom::set_emote_page()
 {
-  if (m_cid == -1)
+  if (m_cid == theory::NoCharacterId)
   {
     return;
   }
@@ -286,7 +286,7 @@ void spritechat::Courtroom::show_emote_menu(const QPoint &pos)
   emote_menu->popup(button->mapToGlobal(pos));
 }
 
-void spritechat::Courtroom::preview_emote(QString f_emote, CharacterAnimationLayer::EmoteType emoteType)
+void spritechat::Courtroom::preview_emote(const QString &f_emote, CharacterAnimationLayer::EmoteType emoteType)
 {
   emote_preview->show();
   emote_preview->raise();

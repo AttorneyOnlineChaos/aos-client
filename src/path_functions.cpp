@@ -1,7 +1,9 @@
-#include "aoapplication.h"
-#include "courtroom.h"
+#include "asset_lookup.h"
+
+#include "core/logging.h"
 #include "file_functions.h"
 #include "options.h"
+#include "spritechat_log.h"
 
 #include <QDir>
 #include <QRegularExpression>
@@ -31,7 +33,12 @@ static bool is_power_2(unsigned int n)
   return r == 1;
 }
 
-spritechat::VPath spritechat::AOApplication::get_theme_path(QString p_file, QString p_theme)
+spritechat::AssetLookup::AssetLookup()
+{
+  asset_lookup_cache.reserve(2048);
+}
+
+spritechat::VPath spritechat::AssetLookup::get_theme_path(const QString &p_file, QString p_theme)
 {
   if (p_theme == "")
   {
@@ -40,22 +47,22 @@ spritechat::VPath spritechat::AOApplication::get_theme_path(QString p_file, QStr
   return VPath("themes/" + p_theme + "/" + p_file);
 }
 
-spritechat::VPath spritechat::AOApplication::get_character_path(QString p_char, QString p_file)
+spritechat::VPath spritechat::AssetLookup::get_character_path(const QString &p_char, const QString &p_file)
 {
   return VPath("characters/" + p_char + "/" + p_file);
 }
 
-spritechat::VPath spritechat::AOApplication::get_misc_path(QString p_misc, QString p_file)
+spritechat::VPath spritechat::AssetLookup::get_misc_path(const QString &p_misc, const QString &p_file)
 {
   return VPath("misc/" + p_misc + "/" + p_file);
 }
 
-spritechat::VPath spritechat::AOApplication::get_sounds_path(QString p_file)
+spritechat::VPath spritechat::AssetLookup::get_sounds_path(const QString &p_file)
 {
   return VPath("sounds/general/" + p_file);
 }
 
-spritechat::VPath spritechat::AOApplication::get_music_path(QString p_song)
+spritechat::VPath spritechat::AssetLookup::get_music_path(const QString &p_song)
 {
   if (p_song.startsWith("http"))
   {
@@ -64,21 +71,26 @@ spritechat::VPath spritechat::AOApplication::get_music_path(QString p_song)
   return VPath("sounds/music/" + p_song);
 }
 
-spritechat::VPath spritechat::AOApplication::get_background_path(QString p_file)
+spritechat::VPath spritechat::AssetLookup::get_background_path(const QString &p_file)
 {
-  if (is_courtroom_constructed())
+  if (!_currentBackground.isEmpty())
   {
-    return VPath("background/" + w_courtroom->get_current_background() + "/" + p_file);
+    return VPath("background/" + _currentBackground + "/" + p_file);
   }
   return get_default_background_path(p_file);
 }
 
-spritechat::VPath spritechat::AOApplication::get_default_background_path(QString p_file)
+void spritechat::AssetLookup::setCurrentBackground(const QString &background)
+{
+  _currentBackground = background;
+}
+
+spritechat::VPath spritechat::AssetLookup::get_default_background_path(const QString &p_file)
 {
   return VPath("background/default/" + p_file);
 }
 
-spritechat::BackgroundPosition spritechat::AOApplication::get_pos_path(const QString &pos)
+spritechat::BackgroundPosition spritechat::AssetLookup::get_pos_path(const QString &pos)
 {
   // witness is default if pos is invalid
   QString f_pos = pos;
@@ -167,14 +179,14 @@ spritechat::BackgroundPosition spritechat::AOApplication::get_pos_path(const QSt
   return {f_background, f_desk_image, origin};
 }
 
-spritechat::VPath spritechat::AOApplication::get_evidence_path(QString p_file)
+spritechat::VPath spritechat::AssetLookup::get_evidence_path(const QString &p_file)
 {
   return VPath("evidence/" + p_file);
 }
 
-QVector<spritechat::VPath> spritechat::AOApplication::get_asset_paths(QString p_element, QString p_theme, QString p_subtheme, QString p_default_theme, QString p_misc, QString p_character, QString p_placeholder)
+QList<spritechat::VPath> spritechat::AssetLookup::get_asset_paths(const QString &p_element, const QString &p_theme, const QString &p_subtheme, const QString &p_default_theme, const QString &p_misc, const QString &p_character, const QString &p_placeholder)
 {
-  QVector<VPath> pathlist;
+  QList<VPath> pathlist;
   if (p_character != "")
   {
     pathlist += get_character_path(p_character, p_element); // Character folder
@@ -215,7 +227,7 @@ QVector<spritechat::VPath> spritechat::AOApplication::get_asset_paths(QString p_
   return pathlist;
 }
 
-QString spritechat::AOApplication::get_asset_path(QVector<VPath> pathlist)
+QString spritechat::AssetLookup::get_asset_path(const QList<VPath> &pathlist)
 {
   for (const VPath &p : pathlist)
   {
@@ -228,7 +240,7 @@ QString spritechat::AOApplication::get_asset_path(QVector<VPath> pathlist)
   return QString();
 }
 
-QString spritechat::AOApplication::get_image_path(QVector<VPath> pathlist, int &index, bool static_image)
+QString spritechat::AssetLookup::get_image_path(const QList<VPath> &pathlist, int &index, bool static_image)
 {
   for (int i = 0; i < pathlist.size(); i++)
   {
@@ -243,13 +255,13 @@ QString spritechat::AOApplication::get_image_path(QVector<VPath> pathlist, int &
   return QString();
 }
 
-QString spritechat::AOApplication::get_image_path(QVector<VPath> pathlist, bool static_image)
+QString spritechat::AssetLookup::get_image_path(const QList<VPath> &pathlist, bool static_image)
 {
   int dummy;
   return get_image_path(pathlist, dummy, static_image);
 }
 
-QString spritechat::AOApplication::get_sfx_path(QVector<VPath> pathlist)
+QString spritechat::AssetLookup::get_sfx_path(const QList<VPath> &pathlist)
 {
   for (const VPath &p : pathlist)
   {
@@ -262,7 +274,7 @@ QString spritechat::AOApplication::get_sfx_path(QVector<VPath> pathlist)
   return QString();
 }
 
-QString spritechat::AOApplication::get_config_value(QString p_identifier, QString p_config, QString p_theme, QString p_subtheme, QString p_default_theme, QString p_misc)
+QString spritechat::AssetLookup::get_config_value(const QString &p_identifier, const QString &p_config, const QString &p_theme, const QString &p_subtheme, const QString &p_default_theme, const QString &p_misc)
 {
   QString path;
   //    qDebug() << "got request for" << p_identifier << "in" << p_config;
@@ -287,29 +299,29 @@ QString spritechat::AOApplication::get_config_value(QString p_identifier, QStrin
   return "";
 }
 
-QString spritechat::AOApplication::get_asset(QString p_element, QString p_theme, QString p_subtheme, QString p_default_theme, QString p_misc, QString p_character, QString p_placeholder)
+QString spritechat::AssetLookup::get_asset(const QString &p_element, const QString &p_theme, const QString &p_subtheme, const QString &p_default_theme, const QString &p_misc, const QString &p_character, const QString &p_placeholder)
 {
   QString ret = get_asset_path(get_asset_paths(p_element, p_theme, p_subtheme, p_default_theme, p_misc, p_character, p_placeholder));
   if (ret.isEmpty())
   {
-    qWarning().nospace() << "could not find asset " << p_element << " (theme = " << p_theme << ", misc = " << p_misc << ", char = " << p_character << ")";
+    zWarning(log::asset) << "could not find asset" << p_element << "- theme:" << p_theme << "misc:" << p_misc << "char:" << p_character;
   }
   return ret;
 }
 
-QString spritechat::AOApplication::get_image(QString p_element, QString p_theme, QString p_subtheme, QString p_default_theme, QString p_misc, QString p_character, QString p_placeholder, bool static_image)
+QString spritechat::AssetLookup::get_image(const QString &p_element, const QString &p_theme, const QString &p_subtheme, const QString &p_default_theme, const QString &p_misc, const QString &p_character, const QString &p_placeholder, bool static_image)
 {
   QString ret = get_image_path(get_asset_paths(p_element, p_theme, p_subtheme, p_default_theme, p_misc, p_character, p_placeholder), static_image);
   if (ret.isEmpty())
   {
-    qWarning().nospace() << "could not find image " << p_element << " (theme = " << p_theme << ", misc = " << p_misc << ", char = " << p_character << ", static = " << static_image << ")";
+    zWarning(log::asset) << "could not find image" << p_element << "- theme:" << p_theme << "misc:" << p_misc << "char:" << p_character << "static:" << static_image;
   }
   return ret;
 }
 
-QString spritechat::AOApplication::get_sfx(QString p_sfx, QString p_misc, QString p_character)
+QString spritechat::AssetLookup::get_sfx(const QString &p_sfx, const QString &p_misc, const QString &p_character)
 {
-  QVector<VPath> pathlist;
+  QList<VPath> pathlist;
   // Sounds subfolder is prioritized for organization sake
   pathlist += get_asset_paths("sounds/" + p_sfx, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_misc, p_character);
   // If sound subfolder not found, search just for SFX
@@ -319,12 +331,12 @@ QString spritechat::AOApplication::get_sfx(QString p_sfx, QString p_misc, QStrin
   QString ret = get_sfx_path(pathlist);
   if (ret.isEmpty())
   {
-    qWarning().nospace() << "could not find sfx " << p_sfx << " (char = " << p_character << ", misc = " << p_misc << ")";
+    zWarning(log::asset) << "could not find sfx" << p_sfx << "- char:" << p_character << "misc:" << p_misc;
   }
   return ret;
 }
 
-QString spritechat::AOApplication::get_case_sensitive_path(QString p_file)
+QString spritechat::AssetLookup::get_case_sensitive_path(const QString &p_file)
 {
 #ifndef CASE_SENSITIVE_FILESYSTEM
   return p_file;
@@ -368,7 +380,7 @@ QString spritechat::AOApplication::get_case_sensitive_path(QString p_file)
   return file_parent_dir + "/" + file_basename;
 }
 
-QString spritechat::AOApplication::get_real_path(const VPath &vpath, const QStringList &suffixes)
+QString spritechat::AssetLookup::get_real_path(const VPath &vpath, const QStringList &suffixes)
 {
   // Try cache first
   QString phys_path = asset_lookup_cache.value(qHash(vpath));
@@ -404,7 +416,7 @@ QString spritechat::AOApplication::get_real_path(const VPath &vpath, const QStri
       QString path = baseDir.absoluteFilePath(vpath.toQString() + suffix);
       if (!path.startsWith(baseDir.absolutePath()))
       {
-        qWarning() << "invalid path" << path << "(path is outside vfs)";
+        zWarning(log::asset) << "invalid path" << path << "(path is outside vfs)";
         break;
       }
       path = get_case_sensitive_path(path);
@@ -414,7 +426,7 @@ QString spritechat::AOApplication::get_real_path(const VPath &vpath, const QStri
         unsigned int cache_size = asset_lookup_cache.size();
         if (is_power_2(cache_size))
         {
-          qDebug() << "lookup cache has reached" << cache_size << "entries";
+          zDebug(log::asset) << "lookup cache has reached" << cache_size << "entries";
         }
         return path;
       }

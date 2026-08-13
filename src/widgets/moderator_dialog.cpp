@@ -1,8 +1,9 @@
 #include "moderator_dialog.h"
 
+#include "ao_widget_lookup.h"
 #include "aoapplication.h"
-#include "gui_utils.h"
 #include "options.h"
+#include "protocol/packets/moderation_packets.h"
 
 #include <QDebug>
 #include <QFile>
@@ -32,14 +33,16 @@ spritechat::ModeratorDialog::ModeratorDialog(int clientId, bool ban, AOApplicati
   auto layout = new QVBoxLayout(this);
   layout->addWidget(ui_widget);
 
-  FROM_UI(QComboBox, action);
-  FROM_UI(QSpinBox, duration_mm);
-  FROM_UI(QSpinBox, duration_hh);
-  FROM_UI(QSpinBox, duration_dd);
-  FROM_UI(QLabel, duration_label);
-  FROM_UI(QCheckBox, permanent);
-  FROM_UI(QTextEdit, details);
-  FROM_UI(QDialogButtonBox, button_box);
+  AOWidgetLookup l_ui{this};
+
+  l_ui.find(ui_action, "action");
+  l_ui.find(ui_duration_mm, "duration_mm");
+  l_ui.find(ui_duration_hh, "duration_hh");
+  l_ui.find(ui_duration_dd, "duration_dd");
+  l_ui.find(ui_duration_label, "duration_label");
+  l_ui.find(ui_permanent, "permanent");
+  l_ui.find(ui_details, "details");
+  l_ui.find(ui_button_box, "button_box");
 
   if (m_ban)
   {
@@ -83,29 +86,30 @@ void spritechat::ModeratorDialog::onAcceptedClicked()
     }
   }
 
-  QStringList arglist;
-  arglist.append(QString::number(m_client_id));
+  theory::ModActionPacket packet;
+  packet.targetClientId = m_client_id;
+  packet.reason = reason;
   if (m_ban)
   {
+    packet.action = theory::ModActionPacket::Action::Ban;
     if (permanent)
     {
-      arglist.append("-1");
+      packet.durationSeconds = -1;
     }
     else
     {
       qint64 duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::days(ui_duration_dd->value())).count();
       duration = duration + std::chrono::duration_cast<std::chrono::seconds>(std::chrono::hours(ui_duration_hh->value())).count();
       duration = duration + std::chrono::duration_cast<std::chrono::seconds>(std::chrono::minutes(ui_duration_mm->value())).count();
-      arglist.append(QString::number(duration));
+      packet.durationSeconds = duration;
     }
   }
   else
   {
-    arglist.append("0");
+    packet.action = theory::ModActionPacket::Action::Kick;
   }
-  arglist.append(reason);
 
-  ao_app->send_server_packet(AOPacket("MA", arglist));
+  ao_app->shipPacket(packet);
 
   close();
 }

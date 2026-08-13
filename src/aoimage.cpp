@@ -1,7 +1,9 @@
 #include "file_functions.h"
 
 #include "aoimage.h"
+#include "core/logging.h"
 #include "options.h"
+#include "spritechat_log.h"
 
 #include <QBitmap>
 
@@ -15,13 +17,13 @@ QString spritechat::AOImage::image()
   return m_file_name;
 }
 
-bool spritechat::AOImage::setImage(QString fileName, QString miscellaneous)
+bool spritechat::AOImage::setImage(const QString &fileName, const QString &miscellaneous)
 {
   QString p_image_resolved = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, miscellaneous, "", "", false);
 
   if (!file_exists(p_image_resolved))
   {
-    qWarning() << "could not find image" << fileName;
+    zWarning(log::asset) << "could not find image" << fileName;
     return false;
   }
 
@@ -33,7 +35,7 @@ bool spritechat::AOImage::setImage(QString fileName, QString miscellaneous)
   return true;
 }
 
-bool spritechat::AOImage::setImage(QString fileName)
+bool spritechat::AOImage::setImage(const QString &fileName)
 {
   return setImage(fileName, QString());
 }

@@ -15,7 +15,7 @@ public:
   explicit AOButton(AOApplication *ao_app, QWidget *parent = nullptr);
   virtual ~AOButton();
 
-  void setImage(QString image_name);
+  void setImage(const QString &image_name);
 
 private:
   AOApplication *ao_app;
@@ -27,6 +27,6 @@ private:
 private Q_SLOTS:
   void handleNextFrame();
 
-  void updateIcon(QPixmap icon);
+  void updateIcon(const QPixmap &icon);
 };
 } // namespace spritechat

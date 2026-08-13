@@ -1,5 +1,7 @@
 #pragma once
 
+#include "game/game_defs.h"
+
 #include <QBasicTimer>
 #include <QDateTime>
 #include <QDebug>
@@ -15,13 +17,8 @@ class AOClockLabel : public QLabel
 public:
   AOClockLabel(QWidget *parent);
 
-  void start();
-  void start(qint64 msecs);
-  void set(qint64 msecs, bool update_text = false);
-  void pause();
-  void stop();
-  void skip(qint64 msecs);
-  bool active();
+  void set(theory::TimerState state, qint64 remaining);
+  void clear();
 
 protected:
   void timerEvent(QTimerEvent *event) override;
@@ -29,5 +26,7 @@ protected:
 private:
   QBasicTimer m_timer;
   QDateTime m_target_time;
+
+  void refresh();
 };
 } // namespace spritechat

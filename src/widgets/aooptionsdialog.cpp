@@ -1,10 +1,12 @@
 #include "aooptionsdialog.h"
 
+#include "ao_widget_lookup.h"
 #include "aoapplication.h"
+#include "core/logging.h"
 #include "file_functions.h"
-#include "gui_utils.h"
-#include "networkmanager.h"
+#include "network_manager.h"
 #include "options.h"
+#include "spritechat_log.h"
 
 #include <bass.h>
 
@@ -123,7 +125,7 @@ void spritechat::AOOptionsDialog::setWidgetData(QComboBox *widget, const QString
       return;
     }
   }
-  qWarning() << "value" << value << "not found for widget" << widget->objectName();
+  zWarning(log::ui) << "value" << value << "not found for widget" << widget->objectName();
 }
 
 template <>
@@ -173,13 +175,13 @@ QStringList spritechat::AOOptionsDialog::widgetData(QListWidget *widget) const
   return paths;
 }
 
-template <typename T, typename V>
-void spritechat::AOOptionsDialog::registerOption(const QString &widgetName, V (Options::*getter)() const, void (Options::*setter)(V))
+template <typename T, typename V, typename Setter>
+void spritechat::AOOptionsDialog::registerOption(const QString &widgetName, V (Options::*getter)() const, Setter setter)
 {
   auto *widget = findChild<T *>(widgetName);
   if (!widget)
   {
-    qWarning() << "could not find widget" << widgetName;
+    zWarning(log::ui) << "could not find widget" << widgetName;
     return;
   }
 
@@ -228,13 +230,15 @@ void spritechat::AOOptionsDialog::updateValues()
     }
   }
 
-  ao_app->net_manager->request_document(MSDocumentType::PrivacyPolicy, [this](QString document) {
+  connect(ao_app->master_gateway, &MasterGateway::privacyPolicyChanged, this, [this] {
+    QString document = ao_app->master_gateway->privacyPolicy();
     if (document.isEmpty())
     {
       document = tr("Couldn't get the privacy policy.");
     }
     ui_privacy_policy->setHtml(document);
   });
+  ao_app->master_gateway->requestPrivacyPolicy();
 
   for (const OptionEntry &entry : std::as_const(optionEntries))
   {
@@ -309,7 +313,7 @@ void spritechat::AOOptionsDialog::themeChanged(int i)
   if (l_resource.isEmpty())
   {
     QResource::unregisterResource(ao_app->get_asset("themes/" + l_ressource_name));
-    qDebug() << "Unable to locate ressource file" << l_ressource_name;
+    zDebug(log::ui) << "Unable to locate ressource file" << l_ressource_name;
     return;
   }
   QResource::registerResource(l_resource);
@@ -322,7 +326,7 @@ void spritechat::AOOptionsDialog::setupUI()
   QFile l_uiFile(Options::getInstance().getUIAsset("options_dialog.ui"));
   if (!l_uiFile.open(QFile::ReadOnly))
   {
-    qWarning() << "Unable to open file " << l_uiFile.fileName();
+    zWarning(log::ui) << "Unable to open file " << l_uiFile.fileName();
     return;
   }
   ui_settings_widget = l_loader.load(&l_uiFile, this);
@@ -331,25 +335,27 @@ void spritechat::AOOptionsDialog::setupUI()
   l_layout->addWidget(ui_settings_widget);
 
   // General dialog element.
-  FROM_UI(QDialogButtonBox, settings_buttons);
+  AOWidgetLookup l_ui{this};
+
+  l_ui.find(ui_settings_buttons, "settings_buttons");
 
   connect(ui_settings_buttons, &QDialogButtonBox::accepted, this, &AOOptionsDialog::savePressed);
   connect(ui_settings_buttons, &QDialogButtonBox::rejected, this, &AOOptionsDialog::discardPressed);
   connect(ui_settings_buttons, &QDialogButtonBox::clicked, this, &AOOptionsDialog::buttonClicked);
 
   // Gameplay Tab
-  FROM_UI(QComboBox, theme_combobox);
+  l_ui.find(ui_theme_combobox, "theme_combobox");
   connect(ui_theme_combobox, &QComboBox::currentIndexChanged, this, &AOOptionsDialog::themeChanged);
 
   registerOption<QComboBox, QString>("theme_combobox", &Options::theme, &Options::setTheme);
 
-  FROM_UI(QComboBox, subtheme_combobox);
+  l_ui.find(ui_subtheme_combobox, "subtheme_combobox");
   registerOption<QComboBox, QString>("subtheme_combobox", &Options::settingsSubTheme, &Options::setSettingsSubTheme);
 
-  FROM_UI(QPushButton, theme_reload_button);
+  l_ui.find(ui_theme_reload_button, "theme_reload_button");
   connect(ui_theme_reload_button, &QPushButton::clicked, this, &AOOptionsDialog::onReloadThemeClicked);
 
-  FROM_UI(QPushButton, theme_folder_button);
+  l_ui.find(ui_theme_folder_button, "theme_folder_button");
   connect(ui_theme_folder_button, &QPushButton::clicked, this, [=, this] {
     QString p_path = ao_app->get_real_path(ao_app->get_theme_path("", ui_theme_combobox->itemText(ui_theme_combobox->currentIndex())));
     if (!dir_exists(p_path))
@@ -359,45 +365,41 @@ void spritechat::AOOptionsDialog::setupUI()
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
 
-  FROM_UI(QDoubleSpinBox, theme_scaling_factor_sb);
-  FROM_UI(QCheckBox, animated_theme_cb);
-  FROM_UI(QSpinBox, stay_time_spinbox);
-  FROM_UI(QCheckBox, instant_objection_cb);
-  FROM_UI(QSpinBox, text_crawl_spinbox);
-  FROM_UI(QSpinBox, chat_ratelimit_spinbox);
-  FROM_UI(QLineEdit, username_textbox);
-  FROM_UI(QCheckBox, showname_cb);
-  FROM_UI(QLineEdit, default_showname_textbox);
-  FROM_UI(QLineEdit, ms_textbox);
-  FROM_UI(QComboBox, language_combobox);
-  FROM_UI(QComboBox, resize_combobox);
-  FROM_UI(QCheckBox, shake_cb);
-  FROM_UI(QCheckBox, effects_cb);
-  FROM_UI(QCheckBox, framenetwork_cb);
-  FROM_UI(QCheckBox, colorlog_cb);
-  FROM_UI(QCheckBox, stickysounds_cb);
-  FROM_UI(QCheckBox, stickyeffects_cb);
-  FROM_UI(QCheckBox, stickypres_cb);
-  FROM_UI(QCheckBox, customchat_cb);
-  FROM_UI(QCheckBox, sticker_cb);
-  FROM_UI(QCheckBox, continuous_cb);
-  FROM_UI(QCheckBox, category_stop_cb);
-  FROM_UI(QCheckBox, sfx_on_idle_cb);
-  FROM_UI(QCheckBox, evidence_double_click_cb);
-  FROM_UI(QCheckBox, slides_cb);
-  FROM_UI(QCheckBox, restoreposition_cb);
-  FROM_UI(QLineEdit, playerlist_format_edit);
+  l_ui.find(ui_theme_scaling_factor_sb, "theme_scaling_factor_sb");
+  l_ui.find(ui_animated_theme_cb, "animated_theme_cb");
+  l_ui.find(ui_text_crawl_spinbox, "text_crawl_spinbox");
+  l_ui.find(ui_chat_ratelimit_spinbox, "chat_ratelimit_spinbox");
+  l_ui.find(ui_username_textbox, "username_textbox");
+  l_ui.find(ui_showname_cb, "showname_cb");
+  l_ui.find(ui_default_showname_textbox, "default_showname_textbox");
+  l_ui.find(ui_ms_textbox, "ms_textbox");
+  l_ui.find(ui_language_combobox, "language_combobox");
+  l_ui.find(ui_resize_combobox, "resize_combobox");
+  l_ui.find(ui_shake_cb, "shake_cb");
+  l_ui.find(ui_effects_cb, "effects_cb");
+  l_ui.find(ui_framenetwork_cb, "framenetwork_cb");
+  l_ui.find(ui_colorlog_cb, "colorlog_cb");
+  l_ui.find(ui_stickysounds_cb, "stickysounds_cb");
+  l_ui.find(ui_stickyeffects_cb, "stickyeffects_cb");
+  l_ui.find(ui_stickypres_cb, "stickypres_cb");
+  l_ui.find(ui_customchat_cb, "customchat_cb");
+  l_ui.find(ui_sticker_cb, "sticker_cb");
+  l_ui.find(ui_continuous_cb, "continuous_cb");
+  l_ui.find(ui_category_stop_cb, "category_stop_cb");
+  l_ui.find(ui_sfx_on_idle_cb, "sfx_on_idle_cb");
+  l_ui.find(ui_evidence_double_click_cb, "evidence_double_click_cb");
+  l_ui.find(ui_slides_cb, "slides_cb");
+  l_ui.find(ui_restoreposition_cb, "restoreposition_cb");
+  l_ui.find(ui_playerlist_format_edit, "playerlist_format_edit");
 
   registerOption<QDoubleSpinBox, double>("theme_scaling_factor_sb", &Options::themeScalingFactor, &Options::setThemeScalingFactor);
   registerOption<QCheckBox, bool>("animated_theme_cb", &Options::animatedThemeEnabled, &Options::setAnimatedThemeEnabled);
-  registerOption<QSpinBox, int>("stay_time_spinbox", &Options::textStayTime, &Options::setTextStayTime);
-  registerOption<QCheckBox, bool>("instant_objection_cb", &Options::objectionSkipQueueEnabled, &Options::setObjectionSkipQueueEnabled);
   registerOption<QSpinBox, int>("text_crawl_spinbox", &Options::textCrawlSpeed, &Options::setTextCrawlSpeed);
   registerOption<QSpinBox, int>("chat_ratelimit_spinbox", &Options::chatRateLimit, &Options::setChatRateLimit);
   registerOption<QLineEdit, QString>("username_textbox", &Options::username, &Options::setUsername);
   registerOption<QCheckBox, bool>("showname_cb", &Options::customShownameEnabled, &Options::setCustomShownameEnabled);
   registerOption<QLineEdit, QString>("default_showname_textbox", &Options::shownameOnJoin, &Options::setShownameOnJoin);
-  registerOption<QLineEdit, QString>("ms_textbox", &Options::alternativeMasterserver, &Options::setAlternativeMasterserver);
+  registerOption<QLineEdit, QString>("ms_textbox", &Options::masterServerUrl, &Options::setMasterServerUrl);
   registerOption<QComboBox, QString>("language_combobox", &Options::language, &Options::setLanguage);
 
   ui_language_combobox->addItem("English", "en");
@@ -428,22 +430,22 @@ void spritechat::AOOptionsDialog::setupUI()
 
   // Callwords tab. This could just be a QLineEdit, but no, we decided to allow
   // people to put a billion entries in.
-  FROM_UI(QPlainTextEdit, callwords_textbox);
+  l_ui.find(ui_callwords_textbox, "callwords_textbox");
   registerOption<QPlainTextEdit, QStringList>("callwords_textbox", &Options::callwords, &Options::setCallwords);
-  FROM_UI(QLineEdit, callwords_sfx);
+  l_ui.find(ui_callwords_sfx, "callwords_sfx");
   registerOption<QLineEdit, QString>("callwords_sfx", &Options::callwordSfx, &Options::setCallwordSfx);
 
   // Audio tab.
-  FROM_UI(QComboBox, audio_device_combobox);
+  l_ui.find(ui_audio_device_combobox, "audio_device_combobox");
   populateAudioDevices();
   registerOption<QComboBox, QString>("audio_device_combobox", &Options::audioOutputDevice, &Options::setAudioOutputDevice);
 
-  FROM_UI(QSpinBox, suppress_audio_spinbox);
-  FROM_UI(QSpinBox, bliprate_spinbox);
-  FROM_UI(QCheckBox, blank_blips_cb);
-  FROM_UI(QCheckBox, loopsfx_cb);
-  FROM_UI(QCheckBox, objectmusic_cb);
-  FROM_UI(QCheckBox, disablestreams_cb);
+  l_ui.find(ui_suppress_audio_spinbox, "suppress_audio_spinbox");
+  l_ui.find(ui_bliprate_spinbox, "bliprate_spinbox");
+  l_ui.find(ui_blank_blips_cb, "blank_blips_cb");
+  l_ui.find(ui_loopsfx_cb, "loopsfx_cb");
+  l_ui.find(ui_objectmusic_cb, "objectmusic_cb");
+  l_ui.find(ui_disablestreams_cb, "disablestreams_cb");
 
   registerOption<QSpinBox, int>("suppress_audio_spinbox", &Options::defaultSuppressAudio, &Options::setDefaultSupressedAudio);
   registerOption<QSpinBox, int>("bliprate_spinbox", &Options::blipRate, &Options::setBlipRate);
@@ -453,13 +455,13 @@ void spritechat::AOOptionsDialog::setupUI()
   registerOption<QCheckBox, bool>("disablestreams_cb", &Options::streamingEnabled, &Options::setStreamingEnabled);
 
   // Asset tab
-  FROM_UI(QListWidget, mount_list);
+  l_ui.find(ui_mount_list, "mount_list");
   auto *defaultMount = new QListWidgetItem(tr("%1 (default)").arg(get_base_path()));
   defaultMount->setFlags(Qt::ItemFlag::NoItemFlags);
   ui_mount_list->addItem(defaultMount);
   registerOption<QListWidget, QStringList>("mount_list", &Options::mountPaths, &Options::setMountPaths);
 
-  FROM_UI(QPushButton, mount_add);
+  l_ui.find(ui_mount_add, "mount_add");
   connect(ui_mount_add, &QPushButton::clicked, this, [this] {
     QString path = QFileDialog::getExistingDirectory(this, tr("Select a base folder"), get_app_path(), QFileDialog::ShowDirsOnly);
     if (path.isEmpty())
@@ -480,7 +482,7 @@ void spritechat::AOOptionsDialog::setupUI()
     Q_EMIT ui_mount_list->itemSelectionChanged();
   });
 
-  FROM_UI(QPushButton, mount_remove);
+  l_ui.find(ui_mount_remove, "mount_remove");
   connect(ui_mount_remove, &QPushButton::clicked, this, [this] {
     auto selected = ui_mount_list->selectedItems();
     if (selected.isEmpty())
@@ -492,7 +494,7 @@ void spritechat::AOOptionsDialog::setupUI()
     asset_cache_dirty = true;
   });
 
-  FROM_UI(QPushButton, mount_up);
+  l_ui.find(ui_mount_up, "mount_up");
   connect(ui_mount_up, &QPushButton::clicked, this, [this] {
     auto selected = ui_mount_list->selectedItems();
     if (selected.isEmpty())
@@ -508,7 +510,7 @@ void spritechat::AOOptionsDialog::setupUI()
     asset_cache_dirty = true;
   });
 
-  FROM_UI(QPushButton, mount_down);
+  l_ui.find(ui_mount_down, "mount_down");
   connect(ui_mount_down, &QPushButton::clicked, this, [this] {
     auto selected = ui_mount_list->selectedItems();
     if (selected.isEmpty())
@@ -524,7 +526,7 @@ void spritechat::AOOptionsDialog::setupUI()
     asset_cache_dirty = true;
   });
 
-  FROM_UI(QPushButton, mount_clear_cache);
+  l_ui.find(ui_mount_clear_cache, "mount_clear_cache");
   connect(ui_mount_clear_cache, &QPushButton::clicked, this, [this] {
     asset_cache_dirty = true;
     ui_mount_clear_cache->setEnabled(false);
@@ -554,24 +556,24 @@ void spritechat::AOOptionsDialog::setupUI()
   });
 
   // Logging tab
-  FROM_UI(QCheckBox, downwards_cb);
-  FROM_UI(QSpinBox, length_spinbox);
-  FROM_UI(QCheckBox, log_newline_cb);
-  FROM_UI(QSpinBox, log_margin_spinbox);
-  FROM_UI(QLabel, log_timestamp_format_lbl);
-  FROM_UI(QComboBox, log_timestamp_format_combobox);
+  l_ui.find(ui_downwards_cb, "downwards_cb");
+  l_ui.find(ui_length_spinbox, "length_spinbox");
+  l_ui.find(ui_log_newline_cb, "log_newline_cb");
+  l_ui.find(ui_log_margin_spinbox, "log_margin_spinbox");
+  l_ui.find(ui_log_timestamp_format_lbl, "log_timestamp_format_lbl");
+  l_ui.find(ui_log_timestamp_format_combobox, "log_timestamp_format_combobox");
 
   registerOption<QCheckBox, bool>("downwards_cb", &Options::logDirectionDownwards, &Options::setLogDirectionDownwards);
   registerOption<QSpinBox, int>("length_spinbox", &Options::maxLogSize, &Options::setMaxLogSize);
   registerOption<QCheckBox, bool>("log_newline_cb", &Options::logNewline, &Options::setLogNewline);
   registerOption<QSpinBox, int>("log_margin_spinbox", &Options::logMargin, &Options::setLogMargin);
 
-  FROM_UI(QCheckBox, log_timestamp_cb);
+  l_ui.find(ui_log_timestamp_cb, "log_timestamp_cb");
   registerOption<QCheckBox, bool>("log_timestamp_cb", &Options::logTimestampEnabled, &Options::setLogTimestampEnabled);
   connect(ui_log_timestamp_cb, &QCheckBox::stateChanged, this, &AOOptionsDialog::timestampCbChanged);
   ui_log_timestamp_format_lbl->setText(tr("Log timestamp format:\n") + QDateTime::currentDateTime().toString(Options::getInstance().logTimestampFormat()));
 
-  FROM_UI(QComboBox, log_timestamp_format_combobox);
+  l_ui.find(ui_log_timestamp_format_combobox, "log_timestamp_format_combobox");
   registerOption<QComboBox, QString>("log_timestamp_format_combobox", &Options::logTimestampFormat, &Options::setLogTimestampFormat);
   connect(ui_log_timestamp_format_combobox, &QComboBox::currentTextChanged, this, &AOOptionsDialog::onTimestampFormatEdited);
 
@@ -590,20 +592,18 @@ void spritechat::AOOptionsDialog::setupUI()
     ui_log_timestamp_format_combobox->setDisabled(true);
   }
 
-  FROM_UI(QCheckBox, log_ic_actions_cb);
-  FROM_UI(QCheckBox, desync_logs_cb);
-  FROM_UI(QCheckBox, log_text_cb);
+  l_ui.find(ui_log_ic_actions_cb, "log_ic_actions_cb");
+  l_ui.find(ui_log_text_cb, "log_text_cb");
 
   registerOption<QCheckBox, bool>("log_ic_actions_cb", &Options::logIcActions, &Options::setLogIcActions);
-  registerOption<QCheckBox, bool>("desync_logs_cb", &Options::desynchronisedLogsEnabled, &Options::setDesynchronisedLogsEnabled);
   registerOption<QCheckBox, bool>("log_text_cb", &Options::logToTextFileEnabled, &Options::setLogToTextFileEnabled);
 
   // DSGVO/Privacy tab
 
-  FROM_UI(QTextBrowser, privacy_policy);
+  l_ui.find(ui_privacy_policy, "privacy_policy");
   ui_privacy_policy->setPlainText(tr("Getting privacy policy..."));
-  FROM_UI(QCheckBox, privacy_optout_cb);
-  registerOption<QCheckBox, bool>("privacy_optout", &Options::playerCountOptout, &Options::setPlayerCountOptout);
+  l_ui.find(ui_privacy_optout_cb, "privacy_optout_cb");
+  registerOption<QCheckBox, bool>("privacy_optout_cb", &Options::playerCountOptout, &Options::setPlayerCountOptout);
 
   updateValues();
 }

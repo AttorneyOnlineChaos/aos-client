@@ -1,5 +1,8 @@
 #include "screenslidetimer.h"
 
+#include "core/logging.h"
+#include "spritechat_log.h"
+
 #include <QDebug>
 
 spritechat::ScreenSlideTimer::ScreenSlideTimer(QObject *parent)
@@ -26,7 +29,7 @@ void spritechat::ScreenSlideTimer::addAnimation(QAbstractAnimation *animation)
 {
   if (m_running)
   {
-    qWarning() << "Cannot add animations while transition is in progress";
+    zWarning(log::viewport) << "Cannot add animations while transition is in progress";
     return;
   }
   m_group->addAnimation(animation);
@@ -36,7 +39,7 @@ void spritechat::ScreenSlideTimer::start()
 {
   if (m_running)
   {
-    qWarning() << "Transition already in progress";
+    zWarning(log::viewport) << "Transition already in progress";
     return;
   }
   m_running = true;

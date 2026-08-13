@@ -1,7 +1,9 @@
 #pragma once
 
 #include "animationloader.h"
+#include "aoapplication.h"
 #include "datatypes.h"
+#include "game/emote_cue.h"
 
 #include <QBitmap>
 #include <QDebug>
@@ -17,9 +19,6 @@
 
 namespace spritechat
 {
-class AOApplication;
-class VPath;
-
 // "Brief" explanation of what the hell this is:
 //
 // AOLayer handles all animations both inside and outside
@@ -50,7 +49,7 @@ public:
   virtual ~AnimationLayer();
 
   QString fileName();
-  void setFileName(QString fileName);
+  void setFileName(const QString &fileName);
 
   void startPlayback();
   void stopPlayback();
@@ -141,31 +140,16 @@ public:
     PostEmote,
   };
 
-  enum EffectType
-  {
-    SfxEffect,
-    ShakeEffect,
-    FlashEffect,
-  };
-
-  class FrameEffect
-  {
-  public:
-    QString emote_name;
-    EffectType type = SfxEffect;
-    QString file_name;
-  };
-
   CharacterAnimationLayer(AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void loadCharacterEmote(QString character, QString fileName, EmoteType emoteType, int durationLimit = 0);
+  void loadCharacterEmote(const QString &character, const QString &fileName, EmoteType emoteType);
 
-  void setFrameEffects(QStringList data);
+  void setFrameEffects(const QList<theory::EmoteCue> &cues);
 
 Q_SIGNALS:
   void finishedPreOrPostEmotePlayback();
 
-  void soundEffect(QString sfx);
+  void soundEffect(const QString &sfx);
   void shakeEffect();
   void flashEffect();
 
@@ -176,18 +160,10 @@ private:
   QString m_emote;
   QString m_resolved_emote;
   EmoteType m_emote_type = NoEmoteType;
-  QTimer *m_duration_timer = nullptr;
-  int m_duration = 0;
 
-  QMap<int, QList<FrameEffect>> m_effects;
-
-  void startTimeLimit();
+  QMap<int, QList<theory::EmoteCue>> m_effects;
 
 private Q_SLOTS:
-  void onPlaybackStopped();
-  void onPlaybackFinished();
-  void onDurationLimitReached();
-
   void notifyFrameEffect(int frame);
   void notifyEmotePlaybackFinished();
 };
@@ -199,7 +175,7 @@ class BackgroundAnimationLayer : public AnimationLayer
 public:
   BackgroundAnimationLayer(AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void loadAndPlayAnimation(QString fileName);
+  void loadAndPlayAnimation(const QString &fileName);
 
 private:
   AOApplication *ao_app;
@@ -212,7 +188,7 @@ class SplashAnimationLayer : public AnimationLayer
 public:
   SplashAnimationLayer(AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void loadAndPlayAnimation(QString fileName, QString character, QString miscellaneous);
+  void loadAndPlayAnimation(const QString &fileName, const QString &character, const QString &miscellaneous);
 
 private:
   AOApplication *ao_app;
@@ -225,7 +201,7 @@ class EffectAnimationLayer : public AnimationLayer
 public:
   EffectAnimationLayer(AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void loadAndPlayAnimation(QString fileName, bool repeat = false);
+  void loadAndPlayAnimation(const QString &fileName, bool repeat = false);
 
   void setHideWhenStopped(bool enabled);
 
@@ -245,7 +221,7 @@ class InterfaceAnimationLayer : public AnimationLayer
 public:
   InterfaceAnimationLayer(AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void loadAndPlayAnimation(QString fileName, QString miscName);
+  void loadAndPlayAnimation(const QString &fileName, const QString &miscName);
 
 private:
   AOApplication *ao_app;
@@ -258,7 +234,7 @@ class StickerAnimationLayer : public AnimationLayer
 public:
   StickerAnimationLayer(AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void loadAndPlayAnimation(QString fileName);
+  void loadAndPlayAnimation(const QString &fileName);
 
 private:
   AOApplication *ao_app;

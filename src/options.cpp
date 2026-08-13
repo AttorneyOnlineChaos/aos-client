@@ -1,5 +1,7 @@
 #include "options.h"
+#include "core/logging.h"
 #include "file_functions.h"
+#include "spritechat_log.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -19,7 +21,7 @@ void spritechat::Options::migrateCallwords()
 
   if (!l_file.open(QIODevice::ReadOnly))
   {
-    qWarning() << "Unable to migrate callwords : File not open.";
+    zWarning(log::asset) << "Unable to migrate callwords : File not open.";
     return;
   }
 
@@ -77,7 +79,7 @@ QString spritechat::Options::theme() const
   return config.value("theme", "AceAttorney2x").toString();
 }
 
-void spritechat::Options::setTheme(QString value)
+void spritechat::Options::setTheme(const QString &value)
 {
   config.setValue("theme", value);
 }
@@ -157,16 +159,6 @@ void spritechat::Options::setMaxLogSize(int value)
   config.setValue("log_maximum", value);
 }
 
-int spritechat::Options::textStayTime() const
-{
-  return config.value("stay_time", 200).toInt();
-}
-
-void spritechat::Options::setTextStayTime(int value)
-{
-  config.setValue("stay_time", value);
-}
-
 int spritechat::Options::textCrawlSpeed() const
 {
   return config.value("text_crawl", 40).toInt();
@@ -232,7 +224,7 @@ QString spritechat::Options::logTimestampFormat() const
   return config.value("log_timestamp_format", "h:mm:ss AP").toString();
 }
 
-void spritechat::Options::setLogTimestampFormat(QString value)
+void spritechat::Options::setLogTimestampFormat(const QString &value)
 {
   config.setValue("log_timestamp_format", value);
 }
@@ -262,7 +254,7 @@ QString spritechat::Options::username() const
   return config.value("default_username", "").value<QString>();
 }
 
-void spritechat::Options::setUsername(QString value)
+void spritechat::Options::setUsername(const QString &value)
 {
   config.setValue("default_username", value);
 }
@@ -272,7 +264,7 @@ QString spritechat::Options::shownameOnJoin() const
   return config.value("default_showname", "").toString();
 }
 
-void spritechat::Options::setShownameOnJoin(QString value)
+void spritechat::Options::setShownameOnJoin(const QString &value)
 {
   config.setValue("default_showname", value);
 }
@@ -282,7 +274,7 @@ QString spritechat::Options::audioOutputDevice() const
   return config.value("default_audio_device", "default").toString();
 }
 
-void spritechat::Options::setAudioOutputDevice(QString value)
+void spritechat::Options::setAudioOutputDevice(const QString &value)
 {
   config.setValue("default_audio_device", value);
 }
@@ -325,26 +317,6 @@ bool spritechat::Options::streamingEnabled() const
 void spritechat::Options::setStreamingEnabled(bool value)
 {
   config.setValue("streaming_enabled", value);
-}
-
-bool spritechat::Options::objectionSkipQueueEnabled() const
-{
-  return config.value("instant_objection", true).toBool();
-}
-
-void spritechat::Options::setObjectionSkipQueueEnabled(bool value)
-{
-  config.setValue("instant_objection", value);
-}
-
-bool spritechat::Options::desynchronisedLogsEnabled() const
-{
-  return config.value("desync_logs", false).toBool();
-}
-
-void spritechat::Options::setDesynchronisedLogsEnabled(bool value)
-{
-  config.setValue("desync_logs", value);
 }
 
 bool spritechat::Options::shakeEnabled() const
@@ -491,7 +463,7 @@ QString spritechat::Options::settingsSubTheme() const
   return config.value("subtheme", "server").toString();
 }
 
-void spritechat::Options::setSettingsSubTheme(QString value)
+void spritechat::Options::setSettingsSubTheme(const QString &value)
 {
   config.setValue("subtheme", value);
 }
@@ -501,7 +473,7 @@ QString spritechat::Options::serverSubTheme() const
   return m_server_subtheme;
 }
 
-void spritechat::Options::setServerSubTheme(QString value)
+void spritechat::Options::setServerSubTheme(const QString &value)
 {
   m_server_subtheme = value;
 }
@@ -521,7 +493,7 @@ QStringList spritechat::Options::mountPaths() const
   return config.value("mount_paths").value<QStringList>();
 }
 
-void spritechat::Options::setMountPaths(QStringList value)
+void spritechat::Options::setMountPaths(const QStringList &value)
 {
   config.setValue("mount_paths", value);
 }
@@ -556,12 +528,18 @@ void spritechat::Options::setEvidenceDoubleClickEdit(bool value)
   config.setValue("evidence_double_click", value);
 }
 
-QString spritechat::Options::alternativeMasterserver() const
+QString spritechat::Options::masterServerUrl() const
 {
-  return config.value("master", "").toString();
+  const QString value = config.value("master", "").toString();
+  if (value.isEmpty())
+  {
+    return QStringLiteral("http://servers.aceattorneyonline.com");
+  }
+
+  return value;
 }
 
-void spritechat::Options::setAlternativeMasterserver(QString value)
+void spritechat::Options::setMasterServerUrl(const QString &value)
 {
   config.setValue("master", value);
 }
@@ -571,7 +549,7 @@ QString spritechat::Options::language() const
   return config.value("language", QLocale::system().name()).toString();
 }
 
-void spritechat::Options::setLanguage(QString value)
+void spritechat::Options::setLanguage(const QString &value)
 {
   config.setValue("language", value);
 }
@@ -599,7 +577,7 @@ QStringList spritechat::Options::callwords() const
   return l_callwords;
 }
 
-void spritechat::Options::setCallwords(QStringList value)
+void spritechat::Options::setCallwords(const QStringList &value)
 {
   config.setValue("callwords", value);
 }
@@ -609,7 +587,7 @@ QString spritechat::Options::callwordSfx() const
   return config.value("callword_sfx").toString();
 }
 
-void spritechat::Options::setCallwordSfx(QString value)
+void spritechat::Options::setCallwordSfx(const QString &value)
 {
   config.setValue("callword_sfx", value);
 }
@@ -619,7 +597,7 @@ QString spritechat::Options::playerlistFormatString() const
   return config.value("visuals/playerlist_format", "[{id}] {character} {displayname} {username}").toString();
 }
 
-void spritechat::Options::setPlayerlistFormatString(QString value)
+void spritechat::Options::setPlayerlistFormatString(const QString &value)
 {
   config.setValue("visuals/playerlist_format", value);
 }
@@ -629,9 +607,9 @@ void spritechat::Options::clearConfig()
   config.clear();
 }
 
-QVector<spritechat::ServerInfo> spritechat::Options::favorites()
+QList<spritechat::ServerBookmark> spritechat::Options::favorites()
 {
-  QVector<ServerInfo> serverlist;
+  QList<ServerBookmark> serverlist;
 
   auto grouplist = favorite.childGroups();
   { // remove all negative and non-numbers
@@ -652,7 +630,7 @@ QVector<spritechat::ServerInfo> spritechat::Options::favorites()
 
   for (const QString &group : std::as_const(grouplist))
   {
-    ServerInfo f_server;
+    ServerBookmark f_server;
     favorite.beginGroup(group);
     f_server.address = favorite.value("address", "127.0.0.1").toString();
     f_server.port = favorite.value("port", 27016).toInt();
@@ -674,7 +652,7 @@ QVector<spritechat::ServerInfo> spritechat::Options::favorites()
   return serverlist;
 }
 
-void spritechat::Options::setFavorites(QVector<ServerInfo> value)
+void spritechat::Options::setFavorites(const QList<ServerBookmark> &value)
 {
   favorite.clear();
   for (int i = 0; i < value.size(); ++i)
@@ -693,12 +671,12 @@ void spritechat::Options::setFavorites(QVector<ServerInfo> value)
 
 void spritechat::Options::removeFavorite(int index)
 {
-  QVector<ServerInfo> l_favorites = favorites();
+  QList<ServerBookmark> l_favorites = favorites();
   l_favorites.remove(index);
   setFavorites(l_favorites);
 }
 
-void spritechat::Options::addFavorite(ServerInfo server)
+void spritechat::Options::addFavorite(const ServerBookmark &server)
 {
   int index = favorites().size();
   favorite.beginGroup(QString::number(index));
@@ -711,7 +689,7 @@ void spritechat::Options::addFavorite(ServerInfo server)
   favorite.sync();
 }
 
-void spritechat::Options::updateFavorite(ServerInfo server, int index)
+void spritechat::Options::updateFavorite(const ServerBookmark &server, int index)
 {
   favorite.beginGroup(QString::number(index));
   favorite.setValue("name", server.name);
@@ -723,7 +701,7 @@ void spritechat::Options::updateFavorite(ServerInfo server, int index)
   favorite.sync();
 }
 
-QString spritechat::Options::getUIAsset(QString f_asset_name)
+QString spritechat::Options::getUIAsset(const QString &f_asset_name)
 {
   QStringList l_paths{":/base/themes/" + Options::getInstance().theme() + "/" + f_asset_name};
 
@@ -746,16 +724,16 @@ QString spritechat::Options::getUIAsset(QString f_asset_name)
       return l_path;
     }
   }
-  qWarning() << "Unable to locate ui-asset" << f_asset_name << "in theme" << theme() << "Defaulting to embeeded asset.";
+  zWarning(log::asset) << "Unable to locate ui-asset" << f_asset_name << "in theme" << theme() << "Defaulting to embeeded asset.";
   return QString(":/data/ui/" + f_asset_name);
 }
 
-void spritechat::Options::setWindowPosition(QString widget, QPoint position)
+void spritechat::Options::setWindowPosition(const QString &widget, QPoint position)
 {
   config.setValue("windows/position_" + widget, position);
 }
 
-std::optional<QPoint> spritechat::Options::windowPosition(QString widget)
+std::optional<QPoint> spritechat::Options::windowPosition(const QString &widget)
 {
   QPoint point = config.value("windows/position_" + widget, QPoint()).toPoint();
   if (point.isNull())

@@ -1,9 +1,14 @@
 #include "courtroom.h"
 #include "lobby.h"
 
+#include "core/logging.h"
 #include "debug_functions.h"
 #include "file_functions.h"
 #include "hardware_functions.h"
+#include "protocol/packets/session_packets.h"
+#include "spritechat_log.h"
+
+#include <QTreeWidgetItemIterator>
 
 void spritechat::Courtroom::construct_char_select()
 {
@@ -13,11 +18,10 @@ void spritechat::Courtroom::construct_char_select()
   ui_char_select_background->setObjectName("ui_char_select_background");
 
   ui_char_list = new QTreeWidget(ui_char_select_background);
-  ui_char_list->setColumnCount(2);
-  ui_char_list->setHeaderLabels({"Name", "ID"});
+  ui_char_list->setColumnCount(1);
+  ui_char_list->setHeaderLabels({"Name"});
   ui_char_list->setHeaderHidden(true);
   ui_char_list->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-  ui_char_list->hideColumn(1);
   ui_char_list->setDropIndicatorShown(true);
   ui_char_list->setObjectName("ui_char_list");
 
@@ -26,10 +30,6 @@ void spritechat::Courtroom::construct_char_select()
 
   ui_back_to_lobby = new AOButton(ao_app, ui_char_select_background);
   ui_back_to_lobby->setObjectName("ui_back_to_lobby");
-
-  ui_char_password = new QLineEdit(ui_char_select_background);
-  ui_char_password->setPlaceholderText(tr("Password"));
-  ui_char_password->setObjectName("ui_char_password");
 
   ui_char_select_left = new AOButton(ao_app, ui_char_select_background);
   ui_char_select_left->setObjectName("ui_char_select_left");
@@ -44,17 +44,13 @@ void spritechat::Courtroom::construct_char_select()
   ui_char_search->setPlaceholderText(tr("Search"));
   ui_char_search->setObjectName("ui_char_search");
 
-  ui_char_passworded = new QCheckBox(ui_char_select_background);
-  ui_char_passworded->setText(tr("Passworded"));
-  ui_char_passworded->setObjectName("ui_char_passworded");
-
   ui_char_taken = new QCheckBox(ui_char_select_background);
   ui_char_taken->setText(tr("Taken"));
   ui_char_taken->setObjectName("ui_char_taken");
 
   connect(ui_char_list, &QTreeWidget::itemDoubleClicked, this, &Courtroom::on_char_list_double_clicked);
 
-  connect(ui_back_to_lobby, &AOButton::clicked, this, &Courtroom::on_back_to_lobby_clicked);
+  connect(ui_back_to_lobby, &AOButton::clicked, this, &Courtroom::close);
 
   connect(ui_char_select_left, &AOButton::clicked, this, &Courtroom::on_char_select_left_clicked);
   connect(ui_char_select_right, &AOButton::clicked, this, &Courtroom::on_char_select_right_clicked);
@@ -62,7 +58,6 @@ void spritechat::Courtroom::construct_char_select()
   connect(ui_spectator, &AOButton::clicked, this, &Courtroom::on_spectator_clicked);
 
   connect(ui_char_search, &QLineEdit::textEdited, this, &Courtroom::on_char_search_changed);
-  connect(ui_char_passworded, &QCheckBox::stateChanged, this, &Courtroom::on_char_passworded_clicked);
   connect(ui_char_taken, &QCheckBox::stateChanged, this, &Courtroom::on_char_taken_clicked);
 }
 
@@ -74,8 +69,8 @@ void spritechat::Courtroom::set_char_select()
 
   if (f_charselect.width < 0 || f_charselect.height < 0)
   {
-    qWarning() << "did not find char_select width or height in "
-                  "courtroom_design.ini!";
+    zWarning(log::ui) << "did not find char_select width or height in "
+                         "courtroom_design.ini!";
     this->setFixedSize(714, 668);
   }
   else
@@ -88,21 +83,18 @@ void spritechat::Courtroom::set_char_select()
   ui_char_search->setFocus();
   set_size_and_pos(ui_char_search, "char_search");
   set_size_and_pos(ui_char_list, "char_list");
-  set_size_and_pos(ui_char_passworded, "char_passworded");
   set_size_and_pos(ui_char_taken, "char_taken");
   set_size_and_pos(ui_char_buttons, "char_buttons");
 
   // Silence emission. This causes the signal to be emitted TWICE during server join!
   // Fuck this. Performance Sandwich.
   ui_char_taken->blockSignals(true);
-  ui_char_passworded->blockSignals(true);
   ui_char_taken->setChecked(true);
-  ui_char_passworded->setChecked(true);
   ui_char_taken->blockSignals(false);
-  ui_char_passworded->blockSignals(false);
 
   truncate_label_text(ui_char_taken, "char_taken");
-  truncate_label_text(ui_char_passworded, "char_passworded");
+
+  ui_char_select_background->show();
 
   filter_character_list();
 
@@ -111,8 +103,6 @@ void spritechat::Courtroom::set_char_select()
 
 void spritechat::Courtroom::set_char_select_page()
 {
-  ui_char_select_background->show();
-
   ui_char_select_left->hide();
   ui_char_select_right->hide();
 
@@ -168,13 +158,13 @@ void spritechat::Courtroom::set_char_select_page()
 void spritechat::Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item, int column)
 {
   Q_UNUSED(column);
-  int cid = p_item->text(1).toInt();
-  if (cid == -1 && !p_item->isExpanded())
+  theory::CharacterId cid = p_item->data(0, Qt::UserRole).toInt();
+  if (cid == theory::NoCharacterId && !p_item->isExpanded())
   {
     p_item->setExpanded(true);
     return;
   }
-  else if (cid == -1)
+  else if (cid == theory::NoCharacterId)
   {
     p_item->setExpanded(false);
     return;
@@ -182,28 +172,29 @@ void spritechat::Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item,
   char_clicked(cid);
 }
 
-void spritechat::Courtroom::char_clicked(int n_char)
+void spritechat::Courtroom::char_clicked(theory::CharacterId n_char)
 {
-  if (n_char != -1)
+  if (n_char != theory::NoCharacterId)
   {
-    QString char_name = char_list.at(n_char).name;
+    QString char_name = char_list.at(n_char);
     QString char_ini_path = ao_app->get_real_path(ao_app->get_character_path(char_name, "char.ini"));
 
     if (!file_exists(char_ini_path))
     {
-      call_error(tr("Could not find character (char.ini) for %1").arg(char_name));
+      call_warning(tr("Could not find character (char.ini) for %1").arg(char_name));
       return;
     }
 
-    qDebug() << "Found char.ini for" << char_name << "at" << char_ini_path;
+    zDebug(log::character) << "Found char.ini for" << char_name << "at" << char_ini_path;
   }
 
-  if (n_char != m_cid || n_char == -1)
+  if (n_char != m_cid || n_char == theory::NoCharacterId)
   {
-    ao_app->send_server_packet(AOPacket("PW", {ui_char_password->text()}));
-    ao_app->send_server_packet(AOPacket("CC", {QString::number(ao_app->client_id), QString::number(n_char), get_hdid()}));
+    theory::ChangeCharacterPacket changePacket;
+    changePacket.characterId = n_char;
+    ao_app->shipPacket(changePacket);
   }
-  if (n_char == m_cid || n_char == -1)
+  if (n_char == m_cid || n_char == theory::NoCharacterId)
   {
     update_character(n_char);
     enter_courtroom();
@@ -214,18 +205,18 @@ void spritechat::Courtroom::char_clicked(int n_char)
 void spritechat::Courtroom::on_char_button_context_menu_requested(const QPoint &pos)
 {
   AOCharButton *button = qobject_cast<AOCharButton *>(sender());
-  int n_char = ui_char_button_list.indexOf(button);
-  if (n_char == -1)
+  theory::CharacterId n_char = ui_char_button_list.indexOf(button);
+  if (n_char == theory::NoCharacterId)
   {
     return;
   }
 
-  QString char_name = char_list.at(n_char).name;
+  QString char_name = char_list.at(n_char);
   QString char_ini_path = ao_app->get_real_path(ao_app->get_character_path(char_name, "char.ini"));
 
   if (!file_exists(char_ini_path))
   {
-    call_error(tr("Could not find character (char.ini) for %1").arg(char_name));
+    call_warning(tr("Could not find character (char.ini) for %1").arg(char_name));
     return;
   }
 
@@ -278,7 +269,6 @@ void spritechat::Courtroom::put_button_in_place(int starting, int chars_on_this_
 void spritechat::Courtroom::character_loading_finished()
 {
   // Zeroeth, we'll clear any leftover characters from previous server visits.
-  ao_app->generated_chars = 0;
   if (ui_char_button_list.size() > 0)
   {
     for (AOCharButton *item : std::as_const(ui_char_button_list))
@@ -292,24 +282,24 @@ void spritechat::Courtroom::character_loading_finished()
   // First, we'll make all the character buttons in the very beginning.
   // We also hide them all, so they can't be accidentally clicked.
   // Later on, we'll be revealing buttons as we need them.
-  for (int i = 0; i < char_list.size(); i++)
+  for (theory::CharacterId i = 0; i < char_list.size(); i++)
   {
-    const CharacterSlot &character = char_list.at(i);
+    const QString &character = char_list.at(i);
 
     AOCharButton *char_button = new AOCharButton(ao_app, ui_char_buttons);
     char_button->setContextMenuPolicy(Qt::CustomContextMenu);
     char_button->hide();
-    char_button->setCharacter(character.name);
-    char_button->setTaken(character.taken);
-    char_button->setToolTip(character.name);
+    char_button->setCharacter(character);
+    char_button->setTaken(taken_chars.contains(i));
+    char_button->setToolTip(character);
     ui_char_button_list.append(char_button);
-    QString char_category = ao_app->get_category(character.name);
+    QString char_category = ao_app->get_category(character);
     QList<QTreeWidgetItem *> matching_list = ui_char_list->findItems(char_category, Qt::MatchFixedString, 0);
     // create the character tree item
     QTreeWidgetItem *treeItem = new QTreeWidgetItem();
-    treeItem->setText(0, character.name);
-    treeItem->setIcon(0, QIcon(ao_app->get_image_suffix(ao_app->get_character_path(character.name, "char_icon"), true)));
-    treeItem->setText(1, QString::number(i));
+    treeItem->setText(0, character);
+    treeItem->setIcon(0, QIcon(ao_app->get_image_suffix(ao_app->get_character_path(character, "char_icon"), true)));
+    treeItem->setData(0, Qt::UserRole, i);
     // category logic
     QTreeWidgetItem *category;
     if (char_category == "") // no category
@@ -325,7 +315,7 @@ void spritechat::Courtroom::character_loading_finished()
     { // we need to make a new category
       category = new QTreeWidgetItem();
       category->setText(0, char_category);
-      category->setText(1, "-1");
+      category->setData(0, Qt::UserRole, theory::NoCharacterId);
       category->setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicatorWhenChildless);
       ui_char_list->insertTopLevelItem(0, category);
       category->addChild(treeItem);
@@ -333,13 +323,6 @@ void spritechat::Courtroom::character_loading_finished()
 
     connect(char_button, &AOCharButton::clicked, this, [this, i]() { this->char_clicked(i); });
     connect(char_button, &AOCharButton::customContextMenuRequested, this, &Courtroom::on_char_button_context_menu_requested);
-
-    // This part here serves as a way of showing to the player that the game is
-    // still running, it is just loading the pictures of the characters.
-    if (ao_app->is_lobby_constructed())
-    {
-      ao_app->generated_chars++;
-    }
   }
   ui_char_list->sortItems(0, Qt::AscendingOrder);
   ui_char_list->expandAll();
@@ -348,39 +331,47 @@ void spritechat::Courtroom::character_loading_finished()
 void spritechat::Courtroom::filter_character_list()
 {
   ui_char_button_list_filtered.clear();
-  for (int i = 0; i < char_list.size(); i++)
+  for (theory::CharacterId i = 0; i < char_list.size(); i++)
   {
     AOCharButton *current_char = ui_char_button_list.at(i);
-    QTreeWidgetItem *current_char_list_item = ui_char_list->findItems(QString::number(i), Qt::MatchExactly | Qt::MatchRecursive, 1).at(0);
-
-    // It seems passwording characters is unimplemented yet?
-    // Until then, this will stay here, I suppose.
-    // if (ui_char_passworded->isChecked() && character_is_passworded??)
-    //    continue;
-
-    if (!ui_char_taken->isChecked() && char_list.at(i).taken)
+    QTreeWidgetItem *current_char_item = nullptr;
+    for (QTreeWidgetItemIterator it(ui_char_list); *it; ++it)
     {
-      current_char_list_item->setHidden(true);
+      if ((*it)->data(0, Qt::UserRole).toInt() == i)
+      {
+        current_char_item = *it;
+        break;
+      }
+    }
+
+    if (!current_char_item)
+    {
       continue;
     }
 
-    if (!char_list.at(i).name.contains(ui_char_search->text(), Qt::CaseInsensitive) && !ao_app->get_category(char_list.at(i).name).contains(ui_char_search->text(), Qt::CaseInsensitive))
+    if (!ui_char_taken->isChecked() && taken_chars.contains(i))
     {
-      current_char_list_item->setHidden(true);
+      current_char_item->setHidden(true);
+      continue;
+    }
+
+    if (!char_list.at(i).contains(ui_char_search->text(), Qt::CaseInsensitive) && !ao_app->get_category(char_list.at(i)).contains(ui_char_search->text(), Qt::CaseInsensitive))
+    {
+      current_char_item->setHidden(true);
       continue;
     }
 
     // We only really need to update the fact that a character is taken
     // for the buttons that actually appear.
     // You'd also update the passwordedness and etc. here later.
-    current_char_list_item->setHidden(false);
-    current_char->setTaken(char_list.at(i).taken);
-    current_char_list_item->setText(0, char_list.at(i).name);
+    current_char_item->setHidden(false);
+    current_char->setTaken(taken_chars.contains(i));
+    current_char_item->setText(0, char_list.at(i));
     // reset disabled
-    current_char_list_item->setDisabled(false);
-    if (char_list.at(i).taken) // woops, we are taken
+    current_char_item->setDisabled(false);
+    if (taken_chars.contains(i)) // woops, we are taken
     {
-      current_char_list_item->setDisabled(true);
+      current_char_item->setDisabled(true);
     }
 
     ui_char_button_list_filtered.append(current_char);
@@ -391,11 +382,6 @@ void spritechat::Courtroom::filter_character_list()
 }
 
 void spritechat::Courtroom::on_char_search_changed()
-{
-  filter_character_list();
-}
-
-void spritechat::Courtroom::on_char_passworded_clicked()
 {
   filter_character_list();
 }

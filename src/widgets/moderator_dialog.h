@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aoapplication.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -10,8 +12,6 @@
 
 namespace spritechat
 {
-class AOApplication;
-
 class ModeratorDialog : public QWidget
 {
   Q_OBJECT
@@ -21,6 +21,8 @@ public:
 
   explicit ModeratorDialog(int clientId, bool ban, AOApplication *ao_app, QWidget *parent = nullptr);
   virtual ~ModeratorDialog();
+
+  int clientId() const { return m_client_id; }
 
 private:
   AOApplication *ao_app;

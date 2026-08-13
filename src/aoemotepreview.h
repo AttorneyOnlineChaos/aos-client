@@ -12,7 +12,7 @@ class AOEmotePreview : public QWidget
 public:
   AOEmotePreview(AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void display(QString character, QString emote, CharacterAnimationLayer::EmoteType emoteType, bool flipped = false, int xOffset = 0, int yOffset = 0);
+  void display(const QString &character, const QString &emote, CharacterAnimationLayer::EmoteType emoteType, bool flipped = false, int xOffset = 0, int yOffset = 0);
 
   void updateViewportGeometry();
 

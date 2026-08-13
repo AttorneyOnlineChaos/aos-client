@@ -1,22 +1,28 @@
-#include "aoapplication.h"
+#include "asset_lookup.h"
 
 #include "aoutils.h"
+#include "core/json_codec.h"
+#include "core/logging.h"
 #include "file_functions.h"
 #include "options.h"
+#include "spritechat_log.h"
 
 #include <QColor>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QList>
 #include <QSettings>
 #include <QStringList>
 #include <QTextStream>
-#include <QVector>
 
-QStringList spritechat::AOApplication::get_list_file(VPath path)
+QStringList spritechat::AssetLookup::get_list_file(const VPath &path)
 {
   return get_list_file(get_real_path(path));
 }
 
-QStringList spritechat::AOApplication::get_list_file(QString p_file)
+QStringList spritechat::AssetLookup::get_list_file(const QString &p_file)
 {
   QStringList return_value;
 
@@ -40,7 +46,7 @@ QStringList spritechat::AOApplication::get_list_file(QString p_file)
   return return_value;
 }
 
-QString spritechat::AOApplication::read_file(QString filename)
+QString spritechat::AssetLookup::read_file(const QString &filename)
 {
   if (filename.isEmpty())
   {
@@ -51,7 +57,7 @@ QString spritechat::AOApplication::read_file(QString filename)
 
   if (!f_log.open(QIODevice::ReadOnly | QIODevice::Text))
   {
-    qWarning() << "Couldn't open" << filename << "for reading";
+    zWarning(log::character) << "Couldn't open" << filename << "for reading";
     return QString();
   }
 
@@ -61,7 +67,7 @@ QString spritechat::AOApplication::read_file(QString filename)
   return text;
 }
 
-bool spritechat::AOApplication::write_to_file(QString p_text, QString p_file, bool make_dir)
+bool spritechat::AssetLookup::write_to_file(const QString &p_text, const QString &p_file, bool make_dir)
 {
   QString path = QFileInfo(p_file).path();
   if (make_dir)
@@ -91,7 +97,7 @@ bool spritechat::AOApplication::write_to_file(QString p_text, QString p_file, bo
   return false;
 }
 
-bool spritechat::AOApplication::append_to_file(QString p_text, QString p_file, bool make_dir)
+bool spritechat::AssetLookup::append_to_file(const QString &p_text, const QString &p_file, bool make_dir)
 {
   if (!file_exists(p_file)) // Don't create a newline if file didn't exist before now
   {
@@ -125,12 +131,12 @@ bool spritechat::AOApplication::append_to_file(QString p_text, QString p_file, b
   return false;
 }
 
-QString spritechat::AOApplication::read_design_ini(QString p_identifier, VPath p_design_path)
+QString spritechat::AssetLookup::read_design_ini(const QString &p_identifier, const VPath &p_design_path)
 {
   return read_design_ini(p_identifier, get_real_path(p_design_path));
 }
 
-QString spritechat::AOApplication::read_design_ini(QString p_identifier, QString p_design_path)
+QString spritechat::AssetLookup::read_design_ini(const QString &p_identifier, const QString &p_design_path)
 {
   QSettings settings(p_design_path, QSettings::IniFormat);
   QVariant value = settings.value(p_identifier);
@@ -145,7 +151,7 @@ QString spritechat::AOApplication::read_design_ini(QString p_identifier, QString
   return "";
 }
 
-spritechat::RESIZE_MODE spritechat::AOApplication::get_scaling(QString p_scaling)
+spritechat::RESIZE_MODE spritechat::AssetLookup::get_scaling(const QString &p_scaling)
 {
   RESIZE_MODE mode = Options::getInstance().resizeMode();
   if (mode == AUTO_RESIZE_MODE)
@@ -163,7 +169,7 @@ spritechat::RESIZE_MODE spritechat::AOApplication::get_scaling(QString p_scaling
   return mode;
 }
 
-QPoint spritechat::AOApplication::get_button_spacing(QString p_identifier, QString p_file)
+QPoint spritechat::AssetLookup::get_button_spacing(const QString &p_identifier, const QString &p_file)
 {
   QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme);
   QPoint return_value;
@@ -188,7 +194,7 @@ QPoint spritechat::AOApplication::get_button_spacing(QString p_identifier, QStri
   return return_value;
 }
 
-spritechat::pos_size_type spritechat::AOApplication::get_element_dimensions(QString p_identifier, QString p_file, QString p_misc)
+spritechat::pos_size_type spritechat::AssetLookup::get_element_dimensions(const QString &p_identifier, const QString &p_file, const QString &p_misc)
 {
   pos_size_type return_value;
   return_value.x = 0;
@@ -213,7 +219,7 @@ spritechat::pos_size_type spritechat::AOApplication::get_element_dimensions(QStr
 
   return return_value;
 }
-QString spritechat::AOApplication::get_design_element(QString p_identifier, QString p_file, QString p_misc)
+QString spritechat::AssetLookup::get_design_element(const QString &p_identifier, const QString &p_file, const QString &p_misc)
 {
   QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_misc);
   if (!value.isEmpty())
@@ -223,7 +229,7 @@ QString spritechat::AOApplication::get_design_element(QString p_identifier, QStr
   return "";
 }
 
-QColor spritechat::AOApplication::get_color(QString p_identifier, QString p_file)
+QColor spritechat::AssetLookup::get_color(const QString &p_identifier, const QString &p_file)
 {
   QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme);
   QColor return_color(0, 0, 0);
@@ -247,7 +253,7 @@ QColor spritechat::AOApplication::get_color(QString p_identifier, QString p_file
   return return_color;
 }
 
-QString spritechat::AOApplication::get_stylesheet(QString p_file)
+QString spritechat::AssetLookup::get_stylesheet(const QString &p_file)
 {
   QString path = get_asset(p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme);
   QFile design_ini;
@@ -270,7 +276,7 @@ QString spritechat::AOApplication::get_stylesheet(QString p_file)
   return f_text;
 }
 
-QString spritechat::AOApplication::get_chat_markup(QString p_identifier, QString p_chat)
+QString spritechat::AssetLookup::get_chat_markup(const QString &p_identifier, const QString &p_chat)
 {
   // New Chadly method
   QString value = get_config_value(p_identifier, "chat_config.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_chat);
@@ -280,7 +286,7 @@ QString spritechat::AOApplication::get_chat_markup(QString p_identifier, QString
   }
 
   // Backwards ass compatibility
-  QVector<VPath> backwards_paths{get_theme_path("misc/" + p_chat + "/config.ini"), VPath("misc/" + p_chat + "/config.ini"), get_theme_path("misc/default/config.ini"), VPath("misc/default/config.ini")};
+  QList<VPath> backwards_paths{get_theme_path("misc/" + p_chat + "/config.ini"), VPath("misc/" + p_chat + "/config.ini"), get_theme_path("misc/default/config.ini"), VPath("misc/default/config.ini")};
 
   for (const VPath &p : backwards_paths)
   {
@@ -294,7 +300,7 @@ QString spritechat::AOApplication::get_chat_markup(QString p_identifier, QString
   return "";
 }
 
-QColor spritechat::AOApplication::get_chat_color(QString p_identifier, QString p_chat)
+QColor spritechat::AssetLookup::get_chat_color(const QString &p_identifier, const QString &p_chat)
 {
   QColor return_color(255, 255, 255);
   QString f_result = get_chat_markup(p_identifier, p_chat);
@@ -317,12 +323,12 @@ QColor spritechat::AOApplication::get_chat_color(QString p_identifier, QString p
   return return_color;
 }
 
-QString spritechat::AOApplication::get_penalty_value(QString p_identifier)
+QString spritechat::AssetLookup::get_penalty_value(const QString &p_identifier)
 {
   return get_config_value(p_identifier, "penalty/penalty.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, "");
 }
 
-QString spritechat::AOApplication::get_court_sfx(QString p_identifier, QString p_misc)
+QString spritechat::AssetLookup::get_court_sfx(const QString &p_identifier, const QString &p_misc)
 {
   QString value = get_config_value(p_identifier, "courtroom_sounds.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_misc);
   if (!value.isEmpty())
@@ -332,7 +338,73 @@ QString spritechat::AOApplication::get_court_sfx(QString p_identifier, QString p
   return "";
 }
 
-QString spritechat::AOApplication::get_sfx_suffix(VPath sound_to_check)
+spritechat::AOMusicTrack spritechat::AssetLookup::get_music_track(const QString &p_song)
+{
+  AOMusicTrack track;
+
+  if (p_song.startsWith("http"))
+  {
+    track.url = QUrl(p_song);
+    return track;
+  }
+
+  const QString real_path = get_real_path(get_music_path(p_song));
+  if (real_path.isEmpty())
+  {
+    return track;
+  }
+  track.url = QUrl::fromLocalFile(real_path);
+
+  const QString loop_path = real_path + ".txt";
+  if (!file_exists(loop_path))
+  {
+    return track;
+  }
+
+  const QStringList lines = read_file(loop_path).split("\n");
+  for (const QString &line : lines)
+  {
+    const QStringList args = line.split("=");
+    if (args.size() < 2)
+    {
+      continue;
+    }
+
+    const QString arg = args[0].trimmed();
+    const QString value = args[1].trimmed();
+    if (arg == "seconds")
+    {
+      if (value == "true")
+      {
+        track.loopUnit = AOMusicTrack::LoopUnit::Second;
+      }
+      continue;
+    }
+
+    if (arg == "loop_start")
+    {
+      track.loopStart = value.toDouble();
+    }
+    else if (arg == "loop_length")
+    {
+      track.loopEnd = track.loopStart + value.toDouble();
+    }
+    else if (arg == "loop_end")
+    {
+      track.loopEnd = value.toDouble();
+    }
+  }
+
+  if (track.loopStart < 0 || track.loopEnd < 0)
+  {
+    track.loopStart = 0;
+    track.loopEnd = 0;
+  }
+
+  return track;
+}
+
+QString spritechat::AssetLookup::get_sfx_suffix(const VPath &sound_to_check)
 {
   QStringList suffixes = {".opus", ".ogg", ".mp3", ".wav"};
   // Check if we were provided a direct filepath with a suffix already
@@ -351,7 +423,7 @@ QString spritechat::AOApplication::get_sfx_suffix(VPath sound_to_check)
   return get_real_path(sound_to_check, suffixes);
 }
 
-QString spritechat::AOApplication::get_image_suffix(VPath path_to_check, bool static_image)
+QString spritechat::AssetLookup::get_image_suffix(const VPath &path_to_check, bool static_image)
 {
   QStringList suffixes{};
   if (!static_image)
@@ -379,7 +451,7 @@ QString spritechat::AOApplication::get_image_suffix(VPath path_to_check, bool st
 // returns whatever is to the right of "search_line =" within target_tag and
 // terminator_tag, trimmed returns the empty string if the search line couldnt
 // be found
-QString spritechat::AOApplication::read_char_ini(QString p_char, QString p_search_line, QString target_tag)
+QString spritechat::AssetLookup::read_char_ini(const QString &p_char, const QString &p_search_line, const QString &target_tag)
 {
   QSettings settings(get_real_path(get_character_path(p_char, "char.ini")), QSettings::IniFormat);
   settings.beginGroup(target_tag);
@@ -389,7 +461,7 @@ QString spritechat::AOApplication::read_char_ini(QString p_char, QString p_searc
 }
 
 // returns all the values of target_tag
-QStringList spritechat::AOApplication::read_ini_tags(VPath p_path, QString target_tag)
+QStringList spritechat::AssetLookup::read_ini_tags(const VPath &p_path, const QString &target_tag)
 {
   QStringList r_values;
   QSettings settings(get_real_path(p_path), QSettings::IniFormat);
@@ -410,7 +482,7 @@ QStringList spritechat::AOApplication::read_ini_tags(VPath p_path, QString targe
   return r_values;
 }
 
-QString spritechat::AOApplication::get_showname(QString p_char, int p_emote)
+QString spritechat::AssetLookup::get_showname(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, "showname", "Options");
   QString f_needed = read_char_ini(p_char, "needs_showname", "Options");
@@ -440,7 +512,7 @@ QString spritechat::AOApplication::get_showname(QString p_char, int p_emote)
   return f_result;
 }
 
-QString spritechat::AOApplication::get_char_side(QString p_char)
+QString spritechat::AssetLookup::get_char_side(const QString &p_char)
 {
   QString f_result = read_char_ini(p_char, "side", "Options");
 
@@ -451,7 +523,7 @@ QString spritechat::AOApplication::get_char_side(QString p_char)
   return f_result;
 }
 
-QString spritechat::AOApplication::get_blipname(QString p_char, int p_emote)
+QString spritechat::AssetLookup::get_blipname(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, "blips", "Options");
 
@@ -479,7 +551,7 @@ QString spritechat::AOApplication::get_blipname(QString p_char, int p_emote)
   }
   return f_result;
 }
-QString spritechat::AOApplication::get_blips(QString p_blipname)
+QString spritechat::AssetLookup::get_blips(const QString &p_blipname)
 {
   if (!file_exists(get_sfx_suffix(get_sounds_path(p_blipname))))
   {
@@ -493,7 +565,7 @@ QString spritechat::AOApplication::get_blips(QString p_blipname)
   return p_blipname;
 }
 
-QString spritechat::AOApplication::get_emote_property(QString p_char, QString p_emote, QString p_property)
+QString spritechat::AssetLookup::get_emote_property(const QString &p_char, const QString &p_emote, const QString &p_property)
 {
   QString f_result = read_char_ini(p_char, p_emote, p_property); // per-emote override
   if (f_result == "")
@@ -504,7 +576,7 @@ QString spritechat::AOApplication::get_emote_property(QString p_char, QString p_
   return f_result;
 }
 
-spritechat::RESIZE_MODE spritechat::AOApplication::get_misc_scaling(QString p_miscname)
+spritechat::RESIZE_MODE spritechat::AssetLookup::get_misc_scaling(const QString &p_miscname)
 {
   if (p_miscname != "")
   {
@@ -520,13 +592,13 @@ spritechat::RESIZE_MODE spritechat::AOApplication::get_misc_scaling(QString p_mi
   return AUTO_RESIZE_MODE;
 }
 
-QString spritechat::AOApplication::get_category(QString p_char)
+QString spritechat::AssetLookup::get_category(const QString &p_char)
 {
   QString f_result = read_char_ini(p_char, "category", "Options");
   return f_result;
 }
 
-QString spritechat::AOApplication::get_chat(QString p_char)
+QString spritechat::AssetLookup::get_chat(const QString &p_char)
 {
   if (p_char == "default")
   {
@@ -536,14 +608,14 @@ QString spritechat::AOApplication::get_chat(QString p_char)
   return f_result;
 }
 
-QString spritechat::AOApplication::get_chat_font(QString p_char)
+QString spritechat::AssetLookup::get_chat_font(const QString &p_char)
 {
   QString f_result = read_char_ini(p_char, "chat_font", "Options");
 
   return f_result;
 }
 
-int spritechat::AOApplication::get_chat_size(QString p_char)
+int spritechat::AssetLookup::get_chat_size(const QString &p_char)
 {
   QString f_result = read_char_ini(p_char, "chat_size", "Options");
 
@@ -554,18 +626,7 @@ int spritechat::AOApplication::get_chat_size(QString p_char)
   return f_result.toInt();
 }
 
-int spritechat::AOApplication::get_preanim_duration(QString p_char, QString p_emote)
-{
-  QString f_result = read_char_ini(p_char, p_emote, "Time");
-
-  if (f_result == "")
-  {
-    return -1;
-  }
-  return f_result.toInt();
-}
-
-int spritechat::AOApplication::get_emote_number(QString p_char)
+int spritechat::AssetLookup::get_emote_number(const QString &p_char)
 {
   QString f_result = read_char_ini(p_char, "number", "Emotions");
 
@@ -576,7 +637,7 @@ int spritechat::AOApplication::get_emote_number(QString p_char)
   return f_result.toInt();
 }
 
-QString spritechat::AOApplication::get_emote_comment(QString p_char, int p_emote)
+QString spritechat::AssetLookup::get_emote_comment(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "Emotions");
 
@@ -584,13 +645,13 @@ QString spritechat::AOApplication::get_emote_comment(QString p_char, int p_emote
 
   if (result_contents.size() < 4)
   {
-    qWarning() << "misformatted char.ini: " << p_char << ", " << p_emote;
+    zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << p_emote;
     return "normal";
   }
   return result_contents.at(0);
 }
 
-QString spritechat::AOApplication::get_pre_emote(QString p_char, int p_emote)
+QString spritechat::AssetLookup::get_pre_emote(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "Emotions");
 
@@ -598,13 +659,13 @@ QString spritechat::AOApplication::get_pre_emote(QString p_char, int p_emote)
 
   if (result_contents.size() < 4)
   {
-    qWarning() << "misformatted char.ini: " << p_char << ", " << p_emote;
+    zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << p_emote;
     return "";
   }
   return result_contents.at(1);
 }
 
-QString spritechat::AOApplication::get_emote(QString p_char, int p_emote)
+QString spritechat::AssetLookup::get_emote(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "Emotions");
 
@@ -612,13 +673,13 @@ QString spritechat::AOApplication::get_emote(QString p_char, int p_emote)
 
   if (result_contents.size() < 4)
   {
-    qWarning() << "misformatted char.ini: " << p_char << ", " << p_emote;
+    zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << p_emote;
     return "normal";
   }
   return result_contents.at(2);
 }
 
-int spritechat::AOApplication::get_emote_mod(QString p_char, int p_emote)
+int spritechat::AssetLookup::get_emote_mod(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "Emotions");
 
@@ -626,13 +687,13 @@ int spritechat::AOApplication::get_emote_mod(QString p_char, int p_emote)
 
   if (result_contents.size() < 4)
   {
-    qWarning() << "misformatted char.ini: " << p_char << ", " << QString::number(p_emote);
+    zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << QString::number(p_emote);
     return 0;
   }
   return result_contents.at(3).toInt();
 }
 
-int spritechat::AOApplication::get_desk_mod(QString p_char, int p_emote)
+int spritechat::AssetLookup::get_desk_mod(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "Emotions");
 
@@ -652,7 +713,7 @@ int spritechat::AOApplication::get_desk_mod(QString p_char, int p_emote)
   return string_result.toInt();
 }
 
-QString spritechat::AOApplication::get_sfx_name(QString p_char, int p_emote)
+QString spritechat::AssetLookup::get_sfx_name(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "SoundN");
 
@@ -663,18 +724,18 @@ QString spritechat::AOApplication::get_sfx_name(QString p_char, int p_emote)
   return f_result;
 }
 
-int spritechat::AOApplication::get_sfx_delay(QString p_char, int p_emote)
+int spritechat::AssetLookup::get_sfx_delay(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "SoundT");
 
   if (f_result == "")
   {
-    return 1;
+    return 0;
   }
-  return f_result.toInt();
+  return f_result.toInt() * 40;
 }
 
-QString spritechat::AOApplication::get_sfx_looping(QString p_char, int p_emote)
+QString spritechat::AssetLookup::get_sfx_looping(const QString &p_char, int p_emote)
 {
   QString f_result = read_char_ini(p_char, QString::number(p_emote + 1), "SoundL");
 
@@ -688,51 +749,50 @@ QString spritechat::AOApplication::get_sfx_looping(QString p_char, int p_emote)
   }
 }
 
-QString spritechat::AOApplication::get_sfx_frame(QString p_char, QString p_emote, int n_frame)
+QList<theory::EmoteCue> spritechat::AssetLookup::get_emote_cues(const QString &p_char, const QString &p_emote)
 {
-  QString f_result = read_char_ini(p_char, QString::number(n_frame), p_emote.append("_FrameSFX"));
+  QList<theory::EmoteCue> cues;
+  QSettings settings(get_real_path(get_character_path(p_char, "char.ini")), QSettings::IniFormat);
 
-  if (f_result == "")
-  {
-    return "";
-  }
-  return f_result;
+  auto read_section = [&](const QString &suffix, theory::EmoteCue::Type type) {
+    settings.beginGroup(p_emote + suffix);
+    const QStringList keys = settings.childKeys();
+    for (const QString &key : keys)
+    {
+      bool valid_frame = false;
+      const int frame = key.toInt(&valid_frame);
+      if (!valid_frame || frame < 0)
+      {
+        continue;
+      }
+
+      theory::EmoteCue cue;
+      cue.emote = p_emote;
+      cue.frame = frame;
+      cue.type = type;
+      if (type == theory::EmoteCue::Sound)
+      {
+        theory::SoundEmoteCue sound;
+        sound.fileName = settings.value(key).toString();
+        if (sound.fileName.isEmpty())
+        {
+          continue;
+        }
+        cue.data = theory::encodeJson(sound);
+      }
+      cues.append(cue);
+    }
+    settings.endGroup();
+  };
+
+  read_section("_FrameScreenshake", theory::EmoteCue::Shake);
+  read_section("_FrameRealization", theory::EmoteCue::Realization);
+  read_section("_FrameSFX", theory::EmoteCue::Sound);
+
+  return cues;
 }
 
-QString spritechat::AOApplication::get_screenshake_frame(QString p_char, QString p_emote, int n_frame)
-{
-  QString f_result = read_char_ini(p_char, QString::number(n_frame), p_emote.append("_FrameScreenshake"));
-
-  if (f_result == "")
-  {
-    return "";
-  }
-  return f_result;
-}
-
-QString spritechat::AOApplication::get_flash_frame(QString p_char, QString p_emote, int n_frame)
-{
-  QString f_result = read_char_ini(p_char, QString::number(n_frame), p_emote.append("_FrameRealization"));
-
-  if (f_result == "")
-  {
-    return "";
-  }
-  return f_result;
-}
-
-int spritechat::AOApplication::get_text_delay(QString p_char, QString p_emote)
-{
-  QString f_result = read_char_ini(p_char, p_emote, "stay_time");
-
-  if (f_result == "")
-  {
-    return -1;
-  }
-  return f_result.toInt();
-}
-
-QStringList spritechat::AOApplication::get_effects(QString p_char)
+QStringList spritechat::AssetLookup::get_effects(const QString &p_char)
 {
   const QStringList l_filepath_list{
       get_asset("effects/effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, ""),
@@ -758,7 +818,7 @@ QStringList spritechat::AOApplication::get_effects(QString p_char)
       }
       else
       {
-        qWarning() << "Unable to copy effects.ini, skipping migration.";
+        zWarning(log::effect) << "Unable to copy effects.ini, skipping migration.";
       }
     }
 
@@ -795,7 +855,7 @@ QStringList spritechat::AOApplication::get_effects(QString p_char)
   return l_effect_name_list;
 }
 
-QString spritechat::AOApplication::get_effect(QString effect, QString p_char, QString p_folder)
+QString spritechat::AssetLookup::get_effect(const QString &effect, const QString &p_char, QString p_folder)
 {
   if (p_folder == "")
   {
@@ -814,7 +874,7 @@ QString spritechat::AOApplication::get_effect(QString effect, QString p_char, QS
   return {};
 }
 
-QString spritechat::AOApplication::get_effect_property(QString fx_name, QString p_char, QString p_folder, QString p_property)
+QString spritechat::AssetLookup::get_effect_property(const QString &fx_name, const QString &p_char, QString p_folder, const QString &p_property)
 {
   if (p_folder == "")
   {
@@ -854,7 +914,7 @@ QString spritechat::AOApplication::get_effect_property(QString fx_name, QString 
   return f_result;
 }
 
-QString spritechat::AOApplication::get_custom_realization(QString p_char)
+QString spritechat::AssetLookup::get_custom_realization(const QString &p_char)
 {
   QString f_result = read_char_ini(p_char, "realization", "Options");
   if (f_result == "")
@@ -864,7 +924,7 @@ QString spritechat::AOApplication::get_custom_realization(QString p_char)
   return get_sfx_suffix(get_sounds_path(f_result));
 }
 
-bool spritechat::AOApplication::get_pos_is_judge(const QString &p_pos)
+bool spritechat::AssetLookup::get_pos_is_judge(const QString &p_pos)
 {
   QStringList positions = read_design_ini("judges", get_background_path("design.ini")).split(",");
   if (positions.size() == 1 && positions[0] == "")
@@ -874,7 +934,7 @@ bool spritechat::AOApplication::get_pos_is_judge(const QString &p_pos)
   return positions.contains(p_pos.trimmed());
 }
 
-int spritechat::AOApplication::get_pos_transition_duration(const QString &old_pos, const QString &new_pos)
+int spritechat::AssetLookup::get_pos_transition_duration(const QString &old_pos, const QString &new_pos)
 {
   if (old_pos.split(":").size() < 2 || new_pos.split(":").size() < 2)
   {

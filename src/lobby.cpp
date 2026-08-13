@@ -1,9 +1,13 @@
 #include "lobby.h"
 
-#include "aoapplication.h"
+#include "ao_widget_lookup.h"
 #include "aoutils.h"
-#include "gui_utils.h"
-#include "networkmanager.h"
+#include "core/logging.h"
+#include "file_functions.h"
+#include "options.h"
+#include "spritechat_info.h"
+#include "spritechat_log.h"
+#include "widgets/aooptionsdialog.h"
 #include "widgets/direct_connect_dialog.h"
 #include "widgets/server_editor_dialog.h"
 
@@ -11,13 +15,24 @@
 #include <QMessageBox>
 #include <QUiLoader>
 #include <QVersionNumber>
-#include <qnamespace.h>
 
-spritechat::Lobby::Lobby(AOApplication *p_ao_app, NetworkManager *p_net_manager)
+#include <utility>
+
+spritechat::Lobby::Lobby(AOApplication *p_ao_app, NetworkManager &network, MasterGateway &master)
     : QMainWindow{}
     , ao_app{p_ao_app}
-    , net_manager{p_net_manager}
+    , net_manager{network}
+    , master_gateway{master}
 {
+  server_info_gateway = new ServerInfoGateway(this);
+  connect(server_info_gateway, &ServerInfoGateway::infoSettled, this, &Lobby::on_server_info_settled);
+
+  connect(&net_manager, &NetworkManager::statusChanged, this, &Lobby::update_connect_button);
+
+  connect(&master_gateway, &MasterGateway::serverListChanged, this, &Lobby::list_servers);
+  connect(&master_gateway, &MasterGateway::messageOfTheDayChanged, this, &Lobby::show_message_of_the_day);
+  connect(&master_gateway, &MasterGateway::versionChanged, this, &Lobby::warn_about_outdated_client);
+
   reloadUi();
   setObjectName("lobby");
 }
@@ -59,7 +74,7 @@ void spritechat::Lobby::on_tab_changed(int index)
   }
 }
 
-int spritechat::Lobby::get_selected_server()
+int spritechat::Lobby::get_selected_server() const
 {
   switch (ui_connections_tabview->currentIndex())
   {
@@ -81,9 +96,28 @@ int spritechat::Lobby::get_selected_server()
   return -1;
 }
 
-int spritechat::Lobby::pageSelected()
+std::optional<spritechat::ServerBookmark> spritechat::Lobby::current_server() const
 {
-  return current_page;
+  QList<ServerBookmark> servers;
+  switch (ui_connections_tabview->currentIndex())
+  {
+  default:
+    return std::nullopt;
+  case SERVER:
+    servers = master_gateway.serverList();
+    break;
+  case FAVORITES:
+    servers = Options::getInstance().favorites();
+    break;
+  }
+
+  const int index = get_selected_server();
+  if (index < 0 || index >= servers.size())
+  {
+    return std::nullopt;
+  }
+
+  return servers.at(index);
 }
 
 void spritechat::Lobby::closeEvent(QCloseEvent *event)
@@ -95,7 +129,7 @@ void spritechat::Lobby::closeEvent(QCloseEvent *event)
 void spritechat::Lobby::reset_selection()
 {
   last_index = -1;
-  ui_server_player_count_lbl->setText(tr("Offline"));
+  set_server_status(ServerStatus::Offline);
   ui_server_description_text->clear();
 
   ui_edit_favorite_button->setEnabled(false);
@@ -112,73 +146,73 @@ void spritechat::Lobby::loadUI()
   QFile l_uiFile(Options::getInstance().getUIAsset(DEFAULT_UI));
   if (!l_uiFile.open(QFile::ReadOnly))
   {
-    qCritical() << "Unable to open file " << l_uiFile.fileName();
+    zCritical(log::ui) << "Unable to open file " << l_uiFile.fileName();
     return;
   }
 
   l_loader.load(&l_uiFile, this);
 
-  FROM_UI(QLabel, game_version_lbl);
-  ui_game_version_lbl->setText(tr("Version: %1").arg(ao_app->get_version_string()));
+  AOWidgetLookup l_ui{this};
 
-  FROM_UI(QPushButton, settings_button);
+  l_ui.find(ui_game_version_lbl, "game_version_lbl");
+  ui_game_version_lbl->setText(tr("Version: %1").arg(softwareVersion().toString()));
+
+  l_ui.find(ui_settings_button, "settings_button");
   connect(ui_settings_button, &QPushButton::clicked, this, &Lobby::onSettingsRequested);
 
-  FROM_UI(QPushButton, about_button);
+  l_ui.find(ui_about_button, "about_button");
   connect(ui_about_button, &QPushButton::clicked, this, &Lobby::on_about_clicked);
 
   // Serverlist elements
-  FROM_UI(QTabWidget, connections_tabview);
+  l_ui.find(ui_connections_tabview, "connections_tabview");
   ui_connections_tabview->tabBar()->setExpanding(true);
   connect(ui_connections_tabview, &QTabWidget::currentChanged, this, &Lobby::on_tab_changed);
 
-  FROM_UI(QTreeWidget, serverlist_tree);
-  FROM_UI(QLineEdit, serverlist_search);
+  l_ui.find(ui_serverlist_tree, "serverlist_tree");
+  l_ui.find(ui_serverlist_search, "serverlist_search");
   connect(ui_serverlist_tree, &QTreeWidget::itemClicked, this, &Lobby::on_server_list_clicked);
   connect(ui_serverlist_tree, &QTreeWidget::itemDoubleClicked, this, &Lobby::on_list_doubleclicked);
   connect(ui_serverlist_search, &QLineEdit::textChanged, this, &Lobby::on_server_search_edited);
 
-  FROM_UI(QTreeWidget, favorites_tree);
+  l_ui.find(ui_favorites_tree, "favorites_tree");
   connect(ui_favorites_tree, &QTreeWidget::itemClicked, this, &Lobby::on_favorite_tree_clicked);
   connect(ui_favorites_tree, &QTreeWidget::itemDoubleClicked, this, &Lobby::on_list_doubleclicked);
 
-  FROM_UI(QPushButton, refresh_button);
+  l_ui.find(ui_refresh_button, "refresh_button");
   connect(ui_refresh_button, &QPushButton::released, this, &Lobby::on_refresh_released);
 
-  FROM_UI(QPushButton, direct_connect_button);
+  l_ui.find(ui_direct_connect_button, "direct_connect_button");
   connect(ui_direct_connect_button, &QPushButton::released, this, &Lobby::on_direct_connect_released);
 
-  FROM_UI(QPushButton, add_to_favorite_button);
+  l_ui.find(ui_add_to_favorite_button, "add_to_favorite_button");
   connect(ui_add_to_favorite_button, &QPushButton::released, this, &Lobby::on_add_to_fav_released);
 
-  FROM_UI(QPushButton, add_server_button);
+  l_ui.find(ui_add_server_button, "add_server_button");
   ui_add_server_button->setVisible(false);
   connect(ui_add_server_button, &QPushButton::released, this, &Lobby::on_add_server_to_fave_released);
 
-  FROM_UI(QPushButton, edit_favorite_button);
+  l_ui.find(ui_edit_favorite_button, "edit_favorite_button");
   ui_edit_favorite_button->setVisible(false);
   connect(ui_edit_favorite_button, &QPushButton::released, this, &Lobby::on_edit_favorite_released);
 
-  FROM_UI(QPushButton, remove_from_favorites_button);
+  l_ui.find(ui_remove_from_favorites_button, "remove_from_favorites_button");
   ui_remove_from_favorites_button->setVisible(false);
   connect(ui_remove_from_favorites_button, &QPushButton::released, this, &Lobby::on_remove_from_fav_released);
 
-  FROM_UI(QLabel, server_player_count_lbl);
-  FROM_UI(QTextBrowser, server_description_text);
-  FROM_UI(QPushButton, connect_button);
-  connect(ui_connect_button, &QPushButton::released, net_manager, &NetworkManager::join_to_server);
-  connect(ui_connect_button, &QPushButton::released, this, [=, this] { ui_server_player_count_lbl->setText(tr("Joining Server...")); });
-  connect(net_manager, &NetworkManager::server_connected, ui_connect_button, &QPushButton::setEnabled);
+  l_ui.find(ui_server_player_count_lbl, "server_player_count_lbl");
+  l_ui.find(ui_server_description_text, "server_description_text");
+  l_ui.find(ui_connect_button, "connect_button");
+  connect(ui_connect_button, &QPushButton::released, this, &Lobby::on_connect_released);
 
-  FROM_UI(QTextBrowser, motd_text);
-  FROM_UI(QTextBrowser, game_changelog_text);
+  l_ui.find(ui_motd_text, "motd_text");
+  l_ui.find(ui_game_changelog_text, "game_changelog_text");
   if (ui_game_changelog_text != nullptr)
   {
     QString l_changelog_text = "No changelog found.";
     QFile l_changelog(get_base_path() + "changelog.md");
     if (!l_changelog.open(QFile::ReadOnly))
     {
-      qDebug() << "Unable to locate changelog file. Does it even exist?";
+      zDebug(log::ui) << "Unable to locate changelog file. Does it even exist?";
 
       ui_game_changelog_text->setMarkdown(l_changelog_text);
       return;
@@ -207,14 +241,15 @@ void spritechat::Lobby::reloadUi()
 
 void spritechat::Lobby::on_refresh_released()
 {
-  net_manager->get_server_list();
+  master_gateway.requestServerList();
   get_motd();
   list_favorites();
 }
 
 void spritechat::Lobby::on_direct_connect_released()
 {
-  DirectConnectDialog connect_dialog(net_manager);
+  DirectConnectDialog connect_dialog;
+  connect(&connect_dialog, &DirectConnectDialog::connection_requested, this, &Lobby::connection_requested);
   connect_dialog.exec();
 }
 
@@ -223,7 +258,7 @@ void spritechat::Lobby::on_add_to_fav_released()
   int selection = get_selected_server();
   if (selection > -1)
   {
-    Options::getInstance().addFavorite(ao_app->get_server_list().at(selection));
+    Options::getInstance().addFavorite(master_gateway.serverList().at(selection));
     list_favorites();
   }
 }
@@ -233,7 +268,7 @@ void spritechat::Lobby::on_add_server_to_fave_released()
   ServerEditorDialog dialog;
   if (dialog.exec())
   {
-    Options::getInstance().addFavorite(dialog.currentServerInfo());
+    Options::getInstance().addFavorite(dialog.currentServerBookmark());
     list_favorites();
     reset_selection();
   }
@@ -245,7 +280,7 @@ void spritechat::Lobby::on_edit_favorite_released()
   ServerEditorDialog dialog(Options::getInstance().favorites().at(index));
   if (dialog.exec())
   {
-    Options::getInstance().updateFavorite(dialog.currentServerInfo(), index);
+    Options::getInstance().updateFavorite(dialog.currentServerBookmark(), index);
     list_favorites();
     reset_selection();
   }
@@ -301,10 +336,10 @@ void spritechat::Lobby::on_about_clicked()
                    "<p>Running on Qt version %2 with the BASS audio engine.<br>"
                    "APNG plugin loaded: %3"
                    "<p>Built on %4")
-                    .arg(ao_app->get_version_string())
-                    .arg(QLatin1String(QT_VERSION_STR))
+                    .arg(softwareVersion().toString())
+                    .arg(QLatin1StringView(QT_VERSION_STR))
                     .arg(hasApng ? tr("Yes") : tr("No"))
-                    .arg(QLatin1String(__DATE__));
+                    .arg(QLatin1StringView(__DATE__));
   QMessageBox::about(this, tr("About"), msg);
 }
 
@@ -312,7 +347,7 @@ void spritechat::Lobby::on_about_clicked()
 void spritechat::Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int column)
 {
   column = 0;
-  ServerInfo f_server;
+  ServerBookmark f_server;
   int n_server = p_item->text(column).toInt();
 
   if (n_server == last_index)
@@ -326,7 +361,7 @@ void spritechat::Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int colu
     return;
   }
 
-  QVector<ServerInfo> f_server_list = ao_app->get_server_list();
+  QList<ServerBookmark> f_server_list = master_gateway.serverList();
 
   if (n_server >= f_server_list.size())
   {
@@ -339,11 +374,10 @@ void spritechat::Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int colu
 
   ui_server_description_text->moveCursor(QTextCursor::Start);
   ui_server_description_text->ensureCursorVisible();
-  ui_server_player_count_lbl->setText(tr("Connecting..."));
 
-  ui_connect_button->setEnabled(false);
+  set_server_status(ServerStatus::Checking);
 
-  net_manager->connect_to_server(f_server);
+  server_info_gateway->requestInfo(f_server);
 }
 
 // doubleclicked on an item in the serverlist so we'll connect right away
@@ -351,14 +385,17 @@ void spritechat::Lobby::on_list_doubleclicked(QTreeWidgetItem *p_item, int colum
 {
   Q_UNUSED(p_item)
   Q_UNUSED(column)
-  ui_server_player_count_lbl->setText(tr("Joining Server..."));
-  net_manager->join_to_server();
+  if (m_server_status != ServerStatus::Online)
+  {
+    return;
+  }
+  on_connect_released();
 }
 
 void spritechat::Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int column)
 {
   column = 0;
-  ServerInfo f_server;
+  ServerBookmark f_server;
   int n_server = p_item->text(column).toInt();
 
   if (n_server == last_index)
@@ -376,7 +413,7 @@ void spritechat::Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int co
   ui_edit_favorite_button->setEnabled(true);
   ui_remove_from_favorites_button->setEnabled(true);
 
-  QVector<ServerInfo> f_server_list = Options::getInstance().favorites();
+  QList<ServerBookmark> f_server_list = Options::getInstance().favorites();
 
   if (n_server >= f_server_list.size())
   {
@@ -388,14 +425,13 @@ void spritechat::Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int co
   set_server_description(f_server.description);
   ui_server_description_text->moveCursor(QTextCursor::Start);
   ui_server_description_text->ensureCursorVisible();
-  ui_server_player_count_lbl->setText(tr("Connecting..."));
 
-  ui_connect_button->setEnabled(false);
+  set_server_status(ServerStatus::Checking);
 
-  net_manager->connect_to_server(f_server);
+  server_info_gateway->requestInfo(f_server);
 }
 
-void spritechat::Lobby::on_server_search_edited(QString p_text)
+void spritechat::Lobby::on_server_search_edited(const QString &p_text)
 {
   // Iterate through all QTreeWidgetItem items
   QTreeWidgetItemIterator it(ui_serverlist_tree);
@@ -420,6 +456,48 @@ void spritechat::Lobby::on_server_search_edited(QString p_text)
   }
 }
 
+void spritechat::Lobby::on_connect_released()
+{
+  const auto server = current_server();
+  if (!server || m_server_status != ServerStatus::Online || net_manager.status() != NetworkManager::NotConnected)
+  {
+    return;
+  }
+
+  Q_EMIT connection_requested(server.value(), server_info_gateway->info());
+}
+
+void spritechat::Lobby::on_server_info_settled()
+{
+  const auto selected_server = current_server();
+  const ServerBookmark queried_server = server_info_gateway->server();
+  if (!selected_server || queried_server.address != selected_server->address || queried_server.port != selected_server->port)
+  {
+    return;
+  }
+
+  if (!server_info_gateway->isReachable())
+  {
+    set_server_status(ServerStatus::Offline);
+  }
+  else if (!server_info_gateway->isCompatible())
+  {
+    set_server_status(ServerStatus::Incompatible);
+  }
+  else
+  {
+    const auto info = server_info_gateway->info();
+    set_player_count(info.playerCount, info.maxPlayers);
+    if (!info.description.isEmpty())
+    {
+      set_server_description(info.description);
+    }
+    set_server_status(ServerStatus::Online);
+  }
+
+  update_connect_button();
+}
+
 void spritechat::Lobby::onReloadThemeRequested()
 {
   // This is destructive to the active widget data.
@@ -434,6 +512,8 @@ void spritechat::Lobby::onSettingsRequested()
   AOOptionsDialog options(ao_app);
   connect(&options, &AOOptionsDialog::reloadThemeRequest, this, &Lobby::onReloadThemeRequested);
   options.exec();
+
+  ao_app->apply_master_options();
 }
 
 void spritechat::Lobby::list_servers()
@@ -444,7 +524,8 @@ void spritechat::Lobby::list_servers()
   ui_serverlist_search->setText("");
 
   int i = 0;
-  for (const ServerInfo &i_server : std::as_const(ao_app->get_server_list()))
+  const QList<ServerBookmark> master_servers = master_gateway.serverList();
+  for (const ServerBookmark &i_server : master_servers)
   {
     QTreeWidgetItem *treeItem = new QTreeWidgetItem(ui_serverlist_tree);
     treeItem->setData(0, Qt::DisplayRole, i);
@@ -477,7 +558,7 @@ void spritechat::Lobby::list_favorites()
   ui_favorites_tree->clear();
 
   int i = 0;
-  for (const ServerInfo &i_server : Options::getInstance().favorites())
+  for (const ServerBookmark &i_server : Options::getInstance().favorites())
   {
     QTreeWidgetItem *treeItem = new QTreeWidgetItem(ui_favorites_tree);
     treeItem->setData(0, Qt::DisplayRole, i);
@@ -506,39 +587,81 @@ void spritechat::Lobby::list_favorites()
 
 void spritechat::Lobby::get_motd()
 {
-  net_manager->request_document(MSDocumentType::Motd, [this](QString document) {
-    if (document.isEmpty())
-    {
-      document = tr("Couldn't get the message of the day.");
-    }
-    if (ui_motd_text)
-    {
-      ui_motd_text->setHtml(document);
-    }
-  });
+  master_gateway.requestMessageOfTheDay();
+}
+
+void spritechat::Lobby::show_message_of_the_day()
+{
+  QString document = master_gateway.messageOfTheDay();
+  if (document.isEmpty())
+  {
+    document = tr("Couldn't get the message of the day.");
+  }
+
+  if (ui_motd_text)
+  {
+    ui_motd_text->setHtml(document);
+  }
 }
 
 void spritechat::Lobby::check_for_updates()
 {
-  net_manager->request_document(MSDocumentType::ClientVersion, [this](QString version) {
-    QVersionNumber current_version = QVersionNumber::fromString(ao_app->get_version_string());
-    QVersionNumber master_version = QVersionNumber::fromString(version);
+  master_gateway.requestVersion();
+}
 
-    if (current_version < master_version)
-    {
-      ui_game_version_lbl->setText(tr("Version: %1 [OUTDATED]").arg(current_version.toString()));
-      setWindowTitle(tr("[Your client is outdated]"));
-      const QString download_url = convert_to_html(QStringLiteral("https://github.com/AttorneyOnline/AO2-Client/releases/latest"));
-      const QString message = QString("Your client is outdated!<br>Your Version: %1<br>Current Version: %2<br>Download the latest version at<br>%3").arg(current_version.toString(), master_version.toString(), download_url);
-      QMessageBox::warning(this, "Your client is outdated!", message);
-    }
-  });
+void spritechat::Lobby::warn_about_outdated_client()
+{
+  QVersionNumber current_version = softwareVersion();
+  QVersionNumber master_version = master_gateway.version();
+
+  if (current_version >= master_version)
+  {
+    return;
+  }
+
+  ui_game_version_lbl->setText(tr("Version: %1 [OUTDATED]").arg(current_version.toString()));
+  setWindowTitle(tr("[Your client is outdated]"));
+  const QString download_url = convert_to_html(QStringLiteral("https://github.com/AttorneyOnline/AO2-Client/releases/latest"));
+  const QString message = QString("Your client is outdated!<br>Your Version: %1<br>Current Version: %2<br>Download the latest version at<br>%3").arg(current_version.toString(), master_version.toString(), download_url);
+  QMessageBox::warning(this, "Your client is outdated!", message);
 }
 
 void spritechat::Lobby::set_player_count(int players_online, int max_players)
 {
-  QString f_string = tr("Online: %1/%2").arg(QString::number(players_online), QString::number(max_players));
-  ui_server_player_count_lbl->setText(f_string);
+  m_player_count = players_online;
+  m_max_players = max_players;
+}
+
+void spritechat::Lobby::set_server_status(ServerStatus status)
+{
+  m_server_status = status;
+  switch (status)
+  {
+  default:
+  case ServerStatus::Offline:
+    ui_server_player_count_lbl->setText(tr("Offline"));
+    break;
+  case ServerStatus::Checking:
+    ui_server_player_count_lbl->setText(tr("Checking..."));
+    break;
+  case ServerStatus::Incompatible:
+    ui_server_player_count_lbl->setText(tr("Incompatible server"));
+    break;
+  case ServerStatus::Online:
+    ui_server_player_count_lbl->setText(tr("Online: %1/%2").arg(m_player_count).arg(m_max_players));
+    break;
+  }
+
+  update_connect_button();
+}
+
+void spritechat::Lobby::update_connect_button()
+{
+  const auto selected_server = current_server();
+  const bool server_ready = m_server_status == ServerStatus::Online;
+  const bool network_idle = net_manager.status() == NetworkManager::NotConnected;
+
+  ui_connect_button->setEnabled(selected_server && server_ready && network_idle);
 }
 
 void spritechat::Lobby::set_server_description(const QString &server_description)
@@ -546,6 +669,3 @@ void spritechat::Lobby::set_server_description(const QString &server_description
   ui_server_description_text->clear();
   ui_server_description_text->insertHtml(convert_to_html(server_description));
 }
-
-spritechat::Lobby::~Lobby()
-{}

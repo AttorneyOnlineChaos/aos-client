@@ -1,49 +1,46 @@
 #pragma once
 
+#include "aoapplication.h"
+#include "core/pointer_types.h"
 #include "datatypes.h"
+#include "player_registry.h"
+#include "widgets/moderator_dialog.h"
 
 #include <QList>
 #include <QListWidget>
 #include <QMap>
-#include <QPointer>
 
 namespace spritechat
 {
-class AOApplication;
-class ModeratorDialog;
-
 class PlayerListWidget : public QListWidget
 {
   Q_OBJECT
 public:
-  explicit PlayerListWidget(AOApplication *ao_app, QWidget *parent = nullptr);
-  virtual ~PlayerListWidget();
+  explicit PlayerListWidget(AOApplication *ao_app, PlayerRegistry &player_registry, QWidget *parent = nullptr);
 
-  void registerPlayer(const PlayerRegister &update);
-  void updatePlayer(const PlayerUpdate &update);
-  void reloadPlayers();
-
+  void setArea(theory::AreaId area);
   void setAuthenticated(bool f_state);
+
+  void reloadPlayers();
 
 private:
   AOApplication *ao_app;
-  QMap<int, PlayerData> m_player_map;
-  QMap<int, QListWidgetItem *> m_item_map;
-  QPair<int, QPointer<ModeratorDialog>> active_moderator_menu;
+  PlayerRegistry &m_registry;
+  QMap<theory::ClientId, QListWidgetItem *> m_item_map;
+  theory::Unique<ModeratorDialog> m_dialog;
+  theory::AreaId m_area = theory::NoAreaId;
   bool m_is_authenticated = false;
 
-  void addPlayer(int playerId);
-  void removePlayer(int playerId);
-  void updatePlayer(int playerId, bool updateIcon);
-
-  QString formatLabel(const PlayerData &data);
+  QString formatLabel(const PlayerInfo &data);
 
   void filterPlayerList();
 
-Q_SIGNALS:
-  void notify(const QString &messasge);
-
 private Q_SLOTS:
+  void addPlayer(theory::ClientId id);
+  void removePlayer(theory::ClientId id);
+  void refreshPlayer(theory::ClientId id);
+  void clearPlayers();
+
   void onCustomContextMenuRequested(const QPoint &pos);
 };
 } // namespace spritechat

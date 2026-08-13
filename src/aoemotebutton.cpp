@@ -19,7 +19,7 @@ spritechat::AOEmoteButton::AOEmoteButton(int id, int width, int height, AOApplic
   connect(this, &AOEmoteButton::clicked, this, [this] { Q_EMIT emoteClicked(m_id); });
 }
 
-void spritechat::AOEmoteButton::setSelectedImage(QString p_image)
+void spritechat::AOEmoteButton::setSelectedImage(const QString &p_image)
 {
   if (file_exists(p_image))
   {
@@ -36,7 +36,7 @@ int spritechat::AOEmoteButton::id()
   return m_id;
 }
 
-void spritechat::AOEmoteButton::setImage(QString character, int emoteId, bool enabled)
+void spritechat::AOEmoteButton::setImage(const QString &character, int emoteId, bool enabled)
 {
   QString emotion_number = QString::number(emoteId + 1);
 

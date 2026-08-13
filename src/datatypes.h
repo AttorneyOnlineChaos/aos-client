@@ -1,5 +1,8 @@
 #pragma once
 
+#include "game/game_defs.h"
+
+#include <QList>
 #include <QMap>
 #include <QString>
 
@@ -7,21 +10,6 @@
 
 namespace spritechat
 {
-struct CharacterSlot
-{
-  QString name;
-  QString description;
-  QString evidence_string;
-  bool taken;
-};
-
-struct EvidenceItem
-{
-  QString name;
-  QString description;
-  QString image;
-};
-
 class BackgroundPosition
 {
 public:
@@ -36,42 +24,6 @@ struct pos_size_type
   int y = 0;
   int width = 0;
   int height = 0;
-};
-
-enum CHAT_MESSAGE
-{
-  DESK_MOD = 0,
-  PRE_EMOTE,
-  CHAR_NAME,
-  EMOTE,
-  MESSAGE,
-  SIDE,
-  SFX_NAME,
-  EMOTE_MOD,
-  CHAR_ID,
-  SFX_DELAY,
-  OBJECTION_MOD,
-  EVIDENCE_ID,
-  FLIP,
-  REALIZATION,
-  TEXT_COLOR,
-  SHOWNAME,
-  OTHER_CHARID,
-  OTHER_NAME,
-  OTHER_EMOTE,
-  SELF_OFFSET,
-  OTHER_OFFSET,
-  OTHER_FLIP,
-  IMMEDIATE,
-  LOOPING_SFX,
-  SCREENSHAKE,
-  FRAME_SCREENSHAKE,
-  FRAME_REALIZATION,
-  FRAME_SFX,
-  ADDITIVE,
-  EFFECTS,
-  BLIPNAME,
-  SLIDE,
 };
 
 enum EMOTE_MOD_TYPE
@@ -109,42 +61,23 @@ enum RESIZE_MODE
   SMOOTH_RESIZE_MODE,
 };
 
-class PlayerData
+struct PlayerInfo
 {
-public:
-  int id = -1;
+  theory::ClientId id = theory::NoClientId;
   QString name;
   QString character;
-  QString character_name;
-  int area_id = 0;
+  std::optional<QString> characterName;
+  theory::AreaId areaId = 0;
+  theory::PlayerStatus status = theory::PlayerStatus::Online;
 };
 
-class PlayerRegister
+struct AreaInfo
 {
-public:
-  enum REGISTER_TYPE
-  {
-    ADD_PLAYER,
-    REMOVE_PLAYER,
-  };
-
-  int id;
-  REGISTER_TYPE type;
+  theory::AreaId id = theory::NoAreaId;
+  QString name;
+  theory::AreaStatus status = theory::AreaStatus::Idle;
+  QList<theory::ClientId> owners;
+  theory::AreaLockStatus lock = theory::AreaLockStatus::Unlocked;
 };
 
-class PlayerUpdate
-{
-public:
-  enum DATA_TYPE
-  {
-    NAME,
-    CHARACTER,
-    CHARACTER_NAME,
-    AREA_ID,
-  };
-
-  int id;
-  DATA_TYPE type;
-  QString data;
-};
 } // namespace spritechat

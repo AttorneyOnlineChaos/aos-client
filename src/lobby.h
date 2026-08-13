@@ -4,47 +4,71 @@
 #include <QLineEdit>
 #include <QPointer>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QTextBrowser>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
 
-#include "file_functions.h"
-#include "networkmanager.h"
+#include "aoapplication.h"
+#include "network/master_gateway.h"
+#include "network/server_info_gateway.h"
+#include "network_manager.h"
+
+#include "protocol/server_info.h"
+
 #include <QMainWindow>
+
+#include <optional>
 
 namespace spritechat
 {
-class AOApplication;
-
 class Lobby : public QMainWindow
 {
   Q_OBJECT
 
 public:
-  Lobby(AOApplication *p_ao_app, NetworkManager *p_net_man = nullptr);
-  ~Lobby();
+  Lobby(AOApplication *p_ao_app, NetworkManager &network, MasterGateway &master);
 
   void set_player_count(int players_online, int max_players);
   void set_server_description(const QString &server_description);
   void list_servers();
-  int get_selected_server();
-  int pageSelected();
+  int get_selected_server() const;
+  std::optional<ServerBookmark> current_server() const;
+
+Q_SIGNALS:
+  void connection_requested(const ServerBookmark &server, const theory::ServerInfo &info);
 
 protected:
   void closeEvent(QCloseEvent *event) override;
 
 private:
   AOApplication *ao_app;
-  NetworkManager *net_manager;
+  NetworkManager &net_manager;
+  MasterGateway &master_gateway;
+  ServerInfoGateway *server_info_gateway;
 
   const QString DEFAULT_UI = "lobby.ui";
+
+  enum class ServerStatus
+  {
+    Offline,
+    Checking,
+    Incompatible,
+    Online,
+  };
 
   void list_favorites();
   void get_motd();
   void check_for_updates();
   void reset_selection();
+  void set_server_status(ServerStatus status);
+  void update_connect_button();
 
   int last_index = -1;
+
+  ServerStatus m_server_status = ServerStatus::Offline;
+  int m_player_count = 0;
+  int m_max_players = 0;
 
   enum TabPage
   {
@@ -67,7 +91,6 @@ private:
   QLineEdit *ui_serverlist_search;
 
   QTreeWidget *ui_favorites_tree;
-  QLineEdit *ui_favorites_search;
 
   QPushButton *ui_add_to_favorite_button;
   QPushButton *ui_add_server_button;
@@ -103,7 +126,11 @@ private Q_SLOTS:
   void on_server_list_clicked(QTreeWidgetItem *p_item, int column);
   void on_list_doubleclicked(QTreeWidgetItem *p_item, int column);
   void on_favorite_tree_clicked(QTreeWidgetItem *p_item, int column);
-  void on_server_search_edited(QString p_text);
+  void on_server_search_edited(const QString &p_text);
+  void on_connect_released();
+  void on_server_info_settled();
+  void show_message_of_the_day();
+  void warn_about_outdated_client();
   void onReloadThemeRequested(); // Oh boy.
   void onSettingsRequested();
 };

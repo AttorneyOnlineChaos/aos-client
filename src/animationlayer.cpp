@@ -1,7 +1,10 @@
 #include "animationlayer.h"
 
 #include "aoapplication.h"
+#include "core/json_codec.h"
+#include "core/logging.h"
 #include "options.h"
+#include "spritechat_log.h"
 
 #include <QRectF>
 #include <QThreadPool>
@@ -38,14 +41,14 @@ QString spritechat::AnimationLayer::fileName()
   return m_file_name;
 }
 
-void spritechat::AnimationLayer::setFileName(QString fileName)
+void spritechat::AnimationLayer::setFileName(const QString &fileName)
 {
   stopPlayback();
   m_file_name = fileName;
   if (m_file_name.trimmed().isEmpty())
   {
 #ifdef DEBUG_MOVIE
-    qWarning() << "AnimationLayer::setFileName called with empty string";
+    zWarning(log::viewport) << "called with empty string";
 #endif
     m_file_name = QObject::tr("Invalid File");
   }
@@ -57,7 +60,7 @@ void spritechat::AnimationLayer::startPlayback()
   if (m_processing)
   {
 #ifdef DEBUG_MOVIE
-    qWarning() << "AnimationLayer::startPlayback called while already processing";
+    zWarning(log::viewport) << "called while already processing";
 #endif
     return;
   }
@@ -93,7 +96,7 @@ void spritechat::AnimationLayer::pausePlayback(bool enabled)
   if (m_pause == enabled)
   {
 #ifdef DEBUG_MOVIE
-    qWarning() << "AnimationLayer::pausePlayback called with identical state";
+    zWarning(log::viewport) << "called with identical state";
 #endif
     return;
   }
@@ -125,7 +128,7 @@ void spritechat::AnimationLayer::jumpToFrame(int number)
   if (number < 0 || number >= m_frame_count)
   {
 #ifdef DEBUG_MOVIE
-    qWarning() << "AnimationLayer::jumpToFrame failed to jump to frame" << number << "(file:" << m_file_name << ", frame count:" << m_frame_count << ")";
+    zWarning(log::viewport) << "failed to jump to frame" << number << "(file:" << m_file_name << ", frame count:" << m_frame_count << ")";
 #endif
     return;
   }
@@ -376,16 +379,11 @@ spritechat::CharacterAnimationLayer::CharacterAnimationLayer(AOApplication *ao_a
     : AnimationLayer(parent)
     , ao_app(ao_app)
 {
-  m_duration_timer = new QTimer(this);
-  m_duration_timer->setSingleShot(true);
-  connect(m_duration_timer, &QTimer::timeout, this, &CharacterAnimationLayer::onDurationLimitReached);
-
-  connect(this, &CharacterAnimationLayer::stoppedPlayback, this, &CharacterAnimationLayer::onPlaybackStopped);
   connect(this, &CharacterAnimationLayer::frameNumberChanged, this, &CharacterAnimationLayer::notifyFrameEffect);
   connect(this, &CharacterAnimationLayer::finishedPlayback, this, &CharacterAnimationLayer::notifyEmotePlaybackFinished);
 }
 
-void spritechat::CharacterAnimationLayer::loadCharacterEmote(QString character, QString fileName, EmoteType emoteType, int durationLimit)
+void spritechat::CharacterAnimationLayer::loadCharacterEmote(const QString &character, const QString &fileName, EmoteType emoteType)
 {
   auto is_dialog_emote = [](EmoteType emoteType) {
     return emoteType == IdleEmote || emoteType == TalkEmote;
@@ -431,8 +429,8 @@ void spritechat::CharacterAnimationLayer::loadCharacterEmote(QString character, 
     break;
   }
 
-  QVector<VPath> path_list;
-  QVector<QString> prefixed_emote_list;
+  QList<VPath> path_list;
+  QList<QString> prefixed_emote_list;
   for (const QString &prefix : std::as_const(prefixes))
   {
     path_list << ao_app->get_character_path(character, prefix + m_emote);
@@ -464,61 +462,15 @@ void spritechat::CharacterAnimationLayer::loadCharacterEmote(QString character, 
   {
     jumpToFrame(previous_frame_number);
   }
-  m_duration = durationLimit;
 }
 
-void spritechat::CharacterAnimationLayer::setFrameEffects(QStringList data)
+void spritechat::CharacterAnimationLayer::setFrameEffects(const QList<theory::EmoteCue> &cues)
 {
   m_effects.clear();
 
-  static const QList<EffectType> EFFECT_TYPE_LIST{ShakeEffect, FlashEffect, SfxEffect};
-  for (int i = 0; i < data.length(); ++i)
+  for (const theory::EmoteCue &cue : std::as_const(cues))
   {
-    const EffectType effect_type = EFFECT_TYPE_LIST.at(i);
-
-    QStringList emotes = data.at(i).split("^");
-    for (const QString &emote : std::as_const(emotes))
-    {
-      QStringList emote_effects = emote.split("|");
-
-      const QString emote_name = emote_effects.takeFirst();
-
-      for (const QString &raw_effect : std::as_const(emote_effects))
-      {
-        QStringList frame_data = raw_effect.split("=");
-        if (frame_data.size() < 2)
-        {
-          continue;
-        }
-        const int frame_number = frame_data.at(0).toInt();
-
-        FrameEffect effect;
-        effect.emote_name = emote_name;
-        effect.type = effect_type;
-        if (effect_type == EffectType::SfxEffect)
-        {
-          effect.file_name = frame_data.at(1);
-        }
-
-        m_effects[frame_number].append(effect);
-      }
-    }
-  }
-}
-
-void spritechat::CharacterAnimationLayer::startTimeLimit()
-{
-  if (m_duration > 0)
-  {
-    m_duration_timer->start(m_duration);
-  }
-}
-
-void spritechat::CharacterAnimationLayer::onPlaybackStopped()
-{
-  if (m_duration_timer->isActive())
-  {
-    m_duration_timer->stop();
+    m_effects[cue.frame].append(cue);
   }
 }
 
@@ -530,48 +482,35 @@ void spritechat::CharacterAnimationLayer::notifyEmotePlaybackFinished()
   }
 }
 
-void spritechat::CharacterAnimationLayer::onPlaybackFinished()
-{
-  if (m_emote_type == PreEmote || m_emote_type == PostEmote)
-  {
-    if (m_duration_timer->isActive())
-    {
-      m_duration_timer->stop();
-    }
-
-    notifyEmotePlaybackFinished();
-  }
-}
-
-void spritechat::CharacterAnimationLayer::onDurationLimitReached()
-{
-  stopPlayback();
-  notifyEmotePlaybackFinished();
-}
-
 void spritechat::CharacterAnimationLayer::notifyFrameEffect(int frameNumber)
 {
   auto it = m_effects.constFind(frameNumber);
   if (it != m_effects.constEnd())
   {
-    for (const FrameEffect &effect : std::as_const(*it))
+    for (const theory::EmoteCue &cue : std::as_const(*it))
     {
-      if (effect.emote_name == m_resolved_emote)
+      if (cue.emote == m_resolved_emote)
       {
-        switch (effect.type)
+        switch (cue.type)
         {
         default:
           break;
 
-        case EffectType::SfxEffect:
-          Q_EMIT soundEffect(effect.file_name);
-          break;
+        case theory::EmoteCue::Sound:
+          {
+            const auto sound = theory::decodeJson<theory::SoundEmoteCue>(cue.data);
+            if (!sound.fileName.isEmpty())
+            {
+              Q_EMIT soundEffect(sound.fileName);
+            }
+            break;
+          }
 
-        case EffectType::ShakeEffect:
+        case theory::EmoteCue::Shake:
           Q_EMIT shakeEffect();
           break;
 
-        case EffectType::FlashEffect:
+        case theory::EmoteCue::Realization:
           Q_EMIT flashEffect();
           break;
         }
@@ -585,13 +524,13 @@ spritechat::BackgroundAnimationLayer::BackgroundAnimationLayer(AOApplication *ao
     , ao_app(ao_app)
 {}
 
-void spritechat::BackgroundAnimationLayer::loadAndPlayAnimation(QString fileName)
+void spritechat::BackgroundAnimationLayer::loadAndPlayAnimation(const QString &fileName)
 {
   QString file_path = ao_app->get_image_suffix(ao_app->get_background_path(fileName));
 #ifdef DEBUG_MOVIE
   if (file_path.isEmpty())
   {
-    qWarning() << "[BackgroundLayer] Failed to load background:" << fileName;
+    zWarning(log::viewport) << "[BackgroundLayer] Failed to load background:" << fileName;
   }
   else if (file_path == this->fileName())
   {
@@ -599,7 +538,7 @@ void spritechat::BackgroundAnimationLayer::loadAndPlayAnimation(QString fileName
   }
   else
   {
-    qInfo() << "[BackgroundLayer] Loading background:" << file_path;
+    zInfo(log::viewport) << "[BackgroundLayer] Loading background:" << file_path;
   }
 #endif
 
@@ -627,7 +566,7 @@ spritechat::SplashAnimationLayer::SplashAnimationLayer(AOApplication *ao_app, QW
   connect(this, &SplashAnimationLayer::stoppedPlayback, this, &SplashAnimationLayer::hide);
 }
 
-void spritechat::SplashAnimationLayer::loadAndPlayAnimation(QString p_filename, QString p_charname, QString p_miscname)
+void spritechat::SplashAnimationLayer::loadAndPlayAnimation(const QString &p_filename, const QString &p_charname, const QString &p_miscname)
 {
   QString file_path = ao_app->get_image(p_filename, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, p_miscname, p_charname, "placeholder");
   setFileName(file_path);
@@ -643,7 +582,7 @@ spritechat::EffectAnimationLayer::EffectAnimationLayer(AOApplication *ao_app, QW
   connect(this, &EffectAnimationLayer::stoppedPlayback, this, &EffectAnimationLayer::maybeHide);
 }
 
-void spritechat::EffectAnimationLayer::loadAndPlayAnimation(QString p_filename, bool repeat)
+void spritechat::EffectAnimationLayer::loadAndPlayAnimation(const QString &p_filename, bool repeat)
 {
   setFileName(p_filename);
   setPlayOnce(!repeat);
@@ -673,7 +612,7 @@ spritechat::InterfaceAnimationLayer::InterfaceAnimationLayer(AOApplication *ao_a
   connect(this, &InterfaceAnimationLayer::stoppedPlayback, this, &InterfaceAnimationLayer::hide);
 }
 
-void spritechat::InterfaceAnimationLayer::loadAndPlayAnimation(QString fileName, QString miscName)
+void spritechat::InterfaceAnimationLayer::loadAndPlayAnimation(const QString &fileName, const QString &miscName)
 {
   QString file_path = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, miscName);
   setFileName(file_path);
@@ -688,7 +627,7 @@ spritechat::StickerAnimationLayer::StickerAnimationLayer(AOApplication *ao_app, 
   connect(this, &StickerAnimationLayer::stoppedPlayback, this, &StickerAnimationLayer::hide);
 }
 
-void spritechat::StickerAnimationLayer::loadAndPlayAnimation(QString fileName)
+void spritechat::StickerAnimationLayer::loadAndPlayAnimation(const QString &fileName)
 {
   QString misc_file; // FIXME this is a bad name
   if (Options::getInstance().customChatboxEnabled())

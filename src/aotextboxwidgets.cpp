@@ -32,7 +32,9 @@ double spritechat::AOChatboxLabel::outlineThickness()
     return m_outline_width * font().pointSize();
   }
   else
+  {
     return m_outline_width;
+  }
 }
 
 void spritechat::AOChatboxLabel::setOutlineThickness(double w)
@@ -40,11 +42,11 @@ void spritechat::AOChatboxLabel::setOutlineThickness(double w)
   m_outline_width = w;
 }
 
-void spritechat::AOChatboxLabel::setBrush(QBrush brush)
+void spritechat::AOChatboxLabel::setBrush(const QBrush &brush)
 {
   m_brush = brush;
 }
-void spritechat::AOChatboxLabel::setPen(QPen pen)
+void spritechat::AOChatboxLabel::setPen(const QPen &pen)
 {
   m_pen = pen;
 }

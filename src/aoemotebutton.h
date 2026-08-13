@@ -16,9 +16,9 @@ public:
 
   int id();
 
-  void setImage(QString character, int emoteId, bool enabled);
+  void setImage(const QString &character, int emoteId, bool enabled);
 
-  void setSelectedImage(QString p_image);
+  void setSelectedImage(const QString &p_image);
 
 Q_SIGNALS:
   void emoteClicked(int p_id);

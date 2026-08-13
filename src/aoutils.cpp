@@ -1,5 +1,8 @@
 #include "aoutils.h"
 
+#include "core/logging.h"
+#include "spritechat_log.h"
+
 #include <QDebug>
 #include <QMap>
 #include <QPair>
@@ -9,7 +12,7 @@
 
 void spritechat::migrateEffects(QSettings &p_effects_ini)
 {
-  qDebug() << "Migrating effects from file:" << p_effects_ini.fileName();
+  zDebug(log::effect) << "Migrating effects from file:" << p_effects_ini.fileName();
 
   QMap<QString, QString> l_effect_map;
   {

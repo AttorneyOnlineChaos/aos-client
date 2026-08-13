@@ -1,6 +1,6 @@
 #pragma once
 
-#include "network/serverinfo.h"
+#include "network/server_bookmark.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -19,9 +19,9 @@ class ServerEditorDialog : public QDialog
 
 public:
   ServerEditorDialog(QWidget *parent = nullptr);
-  ServerEditorDialog(const ServerInfo &server, QWidget *parent = nullptr);
+  ServerEditorDialog(const ServerBookmark &server, QWidget *parent = nullptr);
 
-  ServerInfo currentServerInfo() const;
+  ServerBookmark currentServerBookmark() const;
 
 private:
   static const QString UI_FILE_PATH;

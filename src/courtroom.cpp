@@ -1,16 +1,29 @@
 #include "courtroom.h"
 
+#include "core/logging.h"
 #include "datatypes.h"
 #include "moderation_functions.h"
+#include "network_manager.h"
 #include "options.h"
+#include "spritechat_log.h"
+
+#include "protocol/packets/area_packets.h"
+#include "protocol/packets/chat_packets.h"
+#include "protocol/packets/court_packets.h"
+#include "protocol/packets/evidence_packets.h"
+#include "protocol/packets/ic_packets.h"
+#include "protocol/packets/moderation_packets.h"
 
 #include <QtConcurrent/QtConcurrent>
 
 // #define DEBUG_TRANSITION
 
-spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
+spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers)
     : QMainWindow()
     , ao_app{p_ao_app}
+    , area_registry{p_area_registry}
+    , player_registry{p_player_registry}
+    , timers{p_timers}
 {
   setWindowIcon(QIcon(":/data/logo-client.png"));
   setWindowFlags((this->windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
@@ -22,18 +35,14 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
 
   chat_tick_timer = new QTimer(this);
 
-  text_delay_timer = new QTimer(this);
-  text_delay_timer->setSingleShot(true);
-
-  text_queue_timer = new QTimer(this);
-  text_queue_timer->setSingleShot(true);
-
   sfx_delay_timer = new QTimer(this);
   sfx_delay_timer->setSingleShot(true);
 
-  music_player = new AOMusicPlayer(ao_app);
+  music_player = new AOMusicPlayer;
   music_player->setMuted(true);
-  connect(&music_player->m_watcher, &QFutureWatcher<QString>::finished, this, &Courtroom::update_ui_music_name, Qt::QueuedConnection);
+
+  ambient_player = new AOMusicPlayer;
+  ambient_player->setMuted(true);
 
   sfx_player = new AOSfxPlayer(ao_app);
   sfx_player->setMuted(true);
@@ -125,6 +134,7 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
   log_goes_downwards = Options::getInstance().logDirectionDownwards();
   log_colors = Options::getInstance().colorLogEnabled();
   log_newline = Options::getInstance().logNewline();
+  log_ic_actions = Options::getInstance().logIcActions();
   log_margin = Options::getInstance().logMargin();
   log_timestamp = Options::getInstance().logTimestampEnabled();
   log_timestamp_format = Options::getInstance().logTimestampFormat();
@@ -136,7 +146,7 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
   ui_debug_log->setOpenExternalLinks(true);
   ui_debug_log->hide();
   ui_debug_log->setObjectName("ui_debug_log");
-  connect(ao_app, &AOApplication::qt_log_message, this, &Courtroom::debug_message_handler);
+  connect(&ao_app->console_logger, &ConsoleLogger::messageLogged, this, &Courtroom::debug_message_handler);
 
   ui_server_chatlog = new AOTextArea(this);
   ui_server_chatlog->setReadOnly(true);
@@ -173,7 +183,7 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
   ui_music_name->setAttribute(Qt::WA_TransparentForMouseEvents);
   ui_music_name->setObjectName("ui_music_name");
 
-  ui_player_list = new PlayerListWidget(ao_app, this);
+  ui_player_list = new PlayerListWidget(ao_app, player_registry, this);
   ui_player_list->setObjectName("ui_player_list");
 
   for (int i = 0; i < max_clocks; i++)
@@ -197,10 +207,6 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
   ui_ic_chat_message_filter->preserve_selection = true;
   ui_ic_chat_message->installEventFilter(ui_ic_chat_message_filter);
   ui_ic_chat_message->setObjectName("ui_ic_chat_message");
-
-  ui_muted = new AOImage(ao_app, ui_ic_chat_message);
-  ui_muted->hide();
-  ui_muted->setObjectName("ui_muted");
 
   ui_ooc_chat_message = new QLineEdit(this);
   ui_ooc_chat_message->setFrame(false);
@@ -426,10 +432,6 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
   connect(ui_vp_player_char, &CharacterAnimationLayer::flashEffect, this, &Courtroom::do_flash);
   connect(ui_vp_player_char, &CharacterAnimationLayer::soundEffect, this, &Courtroom::play_char_sfx);
 
-  connect(text_delay_timer, &QTimer::timeout, this, &Courtroom::start_chat_ticking);
-
-  connect(text_queue_timer, &QTimer::timeout, this, &Courtroom::chatmessage_dequeue);
-
   connect(sfx_delay_timer, &QTimer::timeout, this, &Courtroom::play_sfx);
 
   connect(chat_tick_timer, &QTimer::timeout, this, &Courtroom::chat_tick);
@@ -521,7 +523,38 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app)
 
   connect(m_screenslide_timer, &ScreenSlideTimer::finished, this, &Courtroom::post_transition_cleanup);
 
-  connect(ui_player_list, &PlayerListWidget::notify, this, [this](const QString &message) { append_server_chatmessage("CLIENT", message, "1"); });
+  connect(&area_registry, &AreaRegistry::updated, this, &Courtroom::refresh_area);
+
+  connect(&player_registry, &PlayerRegistry::added, this, &Courtroom::refresh_taken_chars);
+  connect(&player_registry, &PlayerRegistry::removed, this, &Courtroom::refresh_taken_chars);
+  connect(&player_registry, &PlayerRegistry::updated, this, &Courtroom::refresh_taken_chars);
+
+  connect(&player_registry, &PlayerRegistry::added, this, &Courtroom::list_areas);
+  connect(&player_registry, &PlayerRegistry::removed, this, &Courtroom::list_areas);
+  connect(&player_registry, &PlayerRegistry::updated, this, &Courtroom::list_areas);
+
+  for (Timer *l_timer : timers)
+  {
+    if (l_timer->id() < 0 || l_timer->id() >= max_clocks)
+    {
+      continue;
+    }
+    connect(l_timer, &Timer::stateChanged, this, [this, l_timer] { refresh_clock(l_timer); });
+    connect(l_timer, &Timer::remainingChanged, this, [this, l_timer] { refresh_clock(l_timer); });
+    connect(l_timer, &Timer::visibilityChanged, this, [this, l_timer] { refresh_clock(l_timer); });
+    refresh_clock(l_timer);
+  }
+
+  connect(&player_registry, &PlayerRegistry::updated, this, [this](theory::ClientId id) {
+    if (id != ao_app->client_id)
+    {
+      return;
+    }
+    if (const auto me = player_registry.player(id))
+    {
+      ui_player_list->setArea(me->areaId);
+    }
+  });
 
   set_widgets();
 
@@ -536,6 +569,7 @@ spritechat::Courtroom::~Courtroom()
   Options::getInstance().setBlipVolume(ui_blip_slider->value());
 
   delete music_player;
+  delete ambient_player;
   delete sfx_player;
   delete objection_player;
   delete blip_player;
@@ -565,108 +599,49 @@ void spritechat::Courtroom::update_audio_volume()
     remaining_percent = 0;
   }
 
-  music_player->setStreamVolume(ui_music_slider->value() * remaining_percent, 0); // set music
+  music_player->setVolume(ui_music_slider->value() * remaining_percent); // set music
   // Set the ambience and other misc. music layers
-  for (int i = 1; i < music_player->STREAM_COUNT; ++i)
-  {
-    music_player->setStreamVolume(ui_sfx_slider->value() * remaining_percent, i);
-  }
+  ambient_player->setVolume(ui_sfx_slider->value() * remaining_percent);
   sfx_player->setVolume(ui_sfx_slider->value() * remaining_percent);
   objection_player->setVolume(ui_sfx_slider->value() * remaining_percent);
   blip_player->setVolume(ui_blip_slider->value() * remaining_percent);
 }
 
-void spritechat::Courtroom::append_char(CharacterSlot p_char)
+void spritechat::Courtroom::append_char(const QString &f_char)
 {
-  char_list.append(p_char);
+  char_list.append(f_char);
 }
 
-void spritechat::Courtroom::append_music(QString f_music)
+void spritechat::Courtroom::set_music(const QList<theory::MusicPlaylist> &f_playlists)
 {
-  music_list.append(f_music);
+  music_list = f_playlists;
 }
 
-void spritechat::Courtroom::append_area(QString f_area)
+std::optional<theory::MusicTrack> spritechat::Courtroom::find_track(const QString &f_file_name) const
 {
-  area_list.append(f_area);
+  for (const theory::MusicPlaylist &i_playlist : music_list)
+  {
+    for (const theory::MusicTrack &i_track : i_playlist.tracks)
+    {
+      if (i_track.fileName == f_file_name)
+      {
+        return i_track;
+      }
+    }
+  }
+
+  return std::nullopt;
 }
 
 void spritechat::Courtroom::clear_chars()
 {
   char_list.clear();
-}
-
-void spritechat::Courtroom::clear_music()
-{
-  music_list.clear();
-}
-
-void spritechat::Courtroom::clear_areas()
-{
-  area_list.clear();
+  taken_chars.clear();
 }
 
 spritechat::PlayerListWidget *spritechat::Courtroom::playerList()
 {
   return ui_player_list;
-}
-
-void spritechat::Courtroom::fix_last_area()
-{
-  if (area_list.size() > 0)
-  {
-    QString malplaced = area_list.last();
-    area_list.removeLast();
-    append_music(malplaced);
-  }
-}
-
-void spritechat::Courtroom::arup_append(int players, QString status, QString cm, QString locked)
-{
-  arup_players.append(players);
-  arup_statuses.append(status);
-  arup_cms.append(cm);
-  arup_locks.append(locked);
-}
-
-void spritechat::Courtroom::arup_clear()
-{
-  arup_players.clear();
-  arup_statuses.clear();
-  arup_cms.clear();
-  arup_locks.clear();
-}
-
-void spritechat::Courtroom::arup_modify(int type, int place, QString value)
-{
-  if (type == 0)
-  {
-    if (arup_players.size() > place)
-    {
-      arup_players[place] = value.toInt();
-    }
-  }
-  else if (type == 1)
-  {
-    if (arup_statuses.size() > place)
-    {
-      arup_statuses[place] = value;
-    }
-  }
-  else if (type == 2)
-  {
-    if (arup_cms.size() > place)
-    {
-      arup_cms[place] = value;
-    }
-  }
-  else if (type == 3)
-  {
-    if (arup_locks.size() > place)
-    {
-      arup_locks[place] = value;
-    }
-  }
 }
 
 void spritechat::Courtroom::set_courtroom_size()
@@ -676,7 +651,7 @@ void spritechat::Courtroom::set_courtroom_size()
 
   if (f_courtroom.width < 0 || f_courtroom.height < 0)
   {
-    qWarning() << "did not find courtroom width or height in " << filename;
+    zWarning(log::ui) << "did not find courtroom width or height in " << filename;
 
     this->setFixedSize(714, 668);
   }
@@ -697,16 +672,16 @@ void spritechat::Courtroom::set_mute_list()
   mute_map.clear();
 
   // maps which characters are muted based on cid, none are muted by default
-  for (int n_cid = 0; n_cid < char_list.size(); n_cid++)
+  for (theory::CharacterId n_cid = 0; n_cid < char_list.size(); n_cid++)
   {
     mute_map.insert(n_cid, false);
   }
 
   QStringList sorted_mute_list;
 
-  for (const CharacterSlot &i_char : std::as_const(char_list))
+  for (const QString &i_char : std::as_const(char_list))
   {
-    sorted_mute_list.append(i_char.name);
+    sorted_mute_list.append(i_char);
   }
 
   sorted_mute_list.sort();
@@ -722,9 +697,9 @@ void spritechat::Courtroom::set_pair_list()
 {
   QStringList sorted_pair_list;
 
-  for (const CharacterSlot &i_char : std::as_const(char_list))
+  for (const QString &i_char : std::as_const(char_list))
   {
-    sorted_pair_list.append(i_char.name);
+    sorted_pair_list.append(i_char);
   }
 
   sorted_pair_list.sort();
@@ -742,23 +717,13 @@ void spritechat::Courtroom::set_widgets()
   set_fonts();
   set_size_and_pos(ui_viewport, "viewport");
 
-  // If there is a point to it, show all CCCC features.
+  // Show all CCCC features.
   // We also do this this soon so that set_size_and_pos can hide them all later,
   // if needed.
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CCCC_IC_SUPPORT))
-  {
-    ui_pair_button->show();
-    ui_immediate->show();
-    ui_ic_chat_name->show();
-    ui_ic_chat_name->setEnabled(true);
-  }
-  else
-  {
-    ui_pair_button->hide();
-    ui_immediate->hide();
-    ui_ic_chat_name->hide();
-    ui_ic_chat_name->setEnabled(false);
-  }
+  ui_pair_button->show();
+  ui_immediate->show();
+  ui_ic_chat_name->show();
+  ui_ic_chat_name->setEnabled(true);
 
   // We also show the non-server-dependent client additions.
   // Once again, if the theme can't display it, set_move_and_pos will catch
@@ -811,10 +776,12 @@ void spritechat::Courtroom::set_widgets()
 
   log_maximum_blocks = Options::getInstance().maxLogSize();
 
-  bool regenerate = log_goes_downwards != Options::getInstance().logDirectionDownwards() || log_colors != Options::getInstance().colorLogEnabled() || log_newline != Options::getInstance().logNewline() || log_margin != Options::getInstance().logMargin() || log_timestamp != Options::getInstance().logTimestampEnabled() || log_timestamp_format != Options::getInstance().logTimestampFormat() || custom_shownames != Options::getInstance().customShownameEnabled();
+  bool regenerate = log_goes_downwards != Options::getInstance().logDirectionDownwards() || log_colors != Options::getInstance().colorLogEnabled() || log_newline != Options::getInstance().logNewline() || log_ic_actions != Options::getInstance().logIcActions() || log_margin != Options::getInstance().logMargin() || log_timestamp != Options::getInstance().logTimestampEnabled() || log_timestamp_format != Options::getInstance().logTimestampFormat() ||
+                    custom_shownames != Options::getInstance().customShownameEnabled();
   log_goes_downwards = Options::getInstance().logDirectionDownwards();
   log_colors = Options::getInstance().colorLogEnabled();
   log_newline = Options::getInstance().logNewline();
+  log_ic_actions = Options::getInstance().logIcActions();
   log_margin = Options::getInstance().logMargin();
   log_timestamp = Options::getInstance().logTimestampEnabled();
   log_timestamp_format = Options::getInstance().logTimestampFormat();
@@ -890,7 +857,7 @@ void spritechat::Courtroom::set_widgets()
 
   if (design_ini_result.width < 0 || design_ini_result.height < 0)
   {
-    qWarning() << "could not find \"music_display\" in courtroom_design.ini";
+    zWarning(log::ui) << "could not find \"music_display\" in courtroom_design.ini";
     ui_music_display->hide();
   }
   else
@@ -904,6 +871,7 @@ void spritechat::Courtroom::set_widgets()
   {
     set_size_and_pos(ui_clock[i], "clock_" + QString::number(i));
   }
+
   set_size_and_pos(ui_ic_chat_message, "ao2_ic_chat_message");
   set_size_and_pos(ui_ic_chat_name, "ao2_ic_chat_name");
 
@@ -911,10 +879,6 @@ void spritechat::Courtroom::set_widgets()
 
   ui_vp_sticker->move(ui_viewport->x(), ui_viewport->y());
   ui_vp_sticker->resize(ui_viewport->width(), ui_viewport->height());
-
-  ui_muted->resize(ui_ic_chat_message->width(), ui_ic_chat_message->height());
-  ui_muted->setImage("muted");
-  ui_muted->setToolTip(tr("Oops, you're muted!"));
 
   set_size_and_pos(ui_ooc_chat_message, "ooc_chat_message");
 
@@ -1150,8 +1114,6 @@ void spritechat::Courtroom::set_widgets()
   ui_back_to_lobby->setText(tr("Back to Lobby"));
   ui_back_to_lobby->setToolTip(tr("Return back to the server list."));
 
-  set_size_and_pos(ui_char_password, "char_password");
-
   set_size_and_pos(ui_char_buttons, "char_buttons");
 
   set_size_and_pos(ui_char_select_left, "char_select_left");
@@ -1186,7 +1148,7 @@ void spritechat::Courtroom::set_widgets()
   refresh_evidence();
 }
 
-void spritechat::Courtroom::set_fonts(QString p_char)
+void spritechat::Courtroom::set_fonts(const QString &p_char)
 {
   QFont new_font = ao_app->default_font;
   int new_font_size = new_font.pointSize() * Options::getInstance().themeScalingFactor();
@@ -1210,7 +1172,7 @@ void spritechat::Courtroom::set_fonts(QString p_char)
   set_stylesheets();
 }
 
-void spritechat::Courtroom::set_font(QWidget *widget, QString class_name, QString p_identifier, QString p_char, QString font_name, int f_pointsize)
+void spritechat::Courtroom::set_font(QWidget *widget, const QString &class_name, const QString &p_identifier, const QString &p_char, QString font_name, int f_pointsize)
 {
   QString design_file = "courtroom_fonts.ini";
   if (f_pointsize <= 0)
@@ -1321,12 +1283,7 @@ void spritechat::Courtroom::set_stylesheets()
                       this->styleSheet());
 }
 
-void spritechat::Courtroom::set_window_title(QString p_title)
-{
-  this->setWindowTitle(p_title);
-}
-
-void spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, QString p_identifier, QString p_misc)
+void spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, const QString &p_identifier, const QString &p_misc)
 {
   QString filename = "courtroom_design.ini";
 
@@ -1334,7 +1291,7 @@ void spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, QString p_identi
 
   if (design_ini_result.width < 0 || design_ini_result.height < 0)
   {
-    qWarning() << "could not find" << p_identifier << "in" << filename;
+    zWarning(log::ui) << "could not find" << p_identifier << "in" << filename;
     p_widget->hide();
   }
   else
@@ -1344,26 +1301,34 @@ void spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, QString p_identi
   }
 }
 
-void spritechat::Courtroom::set_taken(int n_char, bool p_taken)
+void spritechat::Courtroom::refresh_taken_chars()
 {
-  if (n_char >= char_list.size())
+  const auto me = player_registry.player(ao_app->client_id);
+  const theory::AreaId my_area = me ? me->areaId : 0;
+  const QList<PlayerInfo> in_area = player_registry.playersIf([my_area](const PlayerInfo &player) { return player.areaId == my_area && !player.character.isEmpty(); });
+
+  QSet<theory::CharacterId> f_taken;
+  for (const PlayerInfo &player : in_area)
   {
-    qWarning() << "set_taken attempted to set an index bigger than char_list size";
+    theory::CharacterId n_char = char_list.indexOf(player.character);
+    if (n_char != theory::NoCharacterId)
+    {
+      f_taken.insert(n_char);
+    }
+  }
+
+  if (f_taken == taken_chars)
+  {
     return;
   }
 
-  CharacterSlot f_char;
-  f_char.name = char_list.at(n_char).name;
-  f_char.description = char_list.at(n_char).description;
-  f_char.taken = p_taken;
-  f_char.evidence_string = char_list.at(n_char).evidence_string;
-
-  char_list.replace(n_char, f_char);
+  taken_chars = f_taken;
+  filter_character_list();
 }
 
-void spritechat::Courtroom::done_received()
+void spritechat::Courtroom::enter_char_select()
 {
-  m_cid = -1;
+  m_cid = theory::NoCharacterId;
 
   if (char_list.size() > 0)
   {
@@ -1378,16 +1343,13 @@ void spritechat::Courtroom::done_received()
 
   set_mute_list();
   set_pair_list();
-
-  show();
-
-  ui_spectator->show();
 }
 
-void spritechat::Courtroom::set_background(QString p_background, bool display)
+void spritechat::Courtroom::set_background(const QString &p_background, bool display)
 {
   ui_vp_testimony->stopPlayback();
   current_background = p_background;
+  ao_app->m_asset_lookup.setCurrentBackground(p_background);
 
   // Modern positions paired to their legacy counterparts for use in dropdown population
   // {"new", "old"}
@@ -1439,7 +1401,7 @@ void spritechat::Courtroom::set_background(QString p_background, bool display)
     // Show it if chatbox always shows
     if (Options::getInstance().characterStickerEnabled() && chatbox_always_show)
     {
-      ui_vp_sticker->loadAndPlayAnimation(m_chatmessage[CHAR_NAME]);
+      ui_vp_sticker->loadAndPlayAnimation(m_chatmessage.character);
     }
     // Hide the face sticker
     else
@@ -1448,10 +1410,6 @@ void spritechat::Courtroom::set_background(QString p_background, bool display)
     }
     // Stop the chat arrow from animating
     ui_vp_chat_arrow->hide();
-
-    // Clear the message queue
-    text_queue_timer->stop();
-    skip_chatmessage_queue();
 
     text_state = 2;
     anim_state = 3;
@@ -1462,12 +1420,12 @@ void spritechat::Courtroom::set_background(QString p_background, bool display)
   }
 }
 
-void spritechat::Courtroom::set_side(QString p_side)
+void spritechat::Courtroom::set_side(const QString &p_side)
 {
   ui_pos_dropdown->setCurrentText(p_side);
 }
 
-void spritechat::Courtroom::set_pos_dropdown(QStringList pos_dropdowns)
+void spritechat::Courtroom::set_pos_dropdown(const QStringList &pos_dropdowns)
 {
   QString current_pos = current_or_default_side();
 
@@ -1489,7 +1447,7 @@ void spritechat::Courtroom::set_pos_dropdown(QStringList pos_dropdowns)
   ui_pos_dropdown->setCurrentText(current_pos);
 }
 
-void spritechat::Courtroom::update_character(int p_cid, QString char_name, bool reset_emote)
+void spritechat::Courtroom::update_character(theory::CharacterId p_cid, const QString &char_name, bool reset_emote)
 {
   bool newchar = m_cid != p_cid;
 
@@ -1497,7 +1455,7 @@ void spritechat::Courtroom::update_character(int p_cid, QString char_name, bool 
 
   QString f_char;
 
-  if (m_cid == -1)
+  if (m_cid == theory::NoCharacterId)
   {
     f_char = "";
   }
@@ -1506,7 +1464,7 @@ void spritechat::Courtroom::update_character(int p_cid, QString char_name, bool 
     f_char = char_name;
     if (char_name.isEmpty())
     {
-      f_char = char_list.at(m_cid).name;
+      f_char = char_list.at(m_cid);
     }
   }
 
@@ -1522,7 +1480,7 @@ void spritechat::Courtroom::update_character(int p_cid, QString char_name, bool 
     current_emote = 0;
   }
 
-  if (m_cid == -1)
+  if (m_cid == theory::NoCharacterId)
   {
     ui_emotes->hide();
   }
@@ -1544,7 +1502,6 @@ void spritechat::Courtroom::update_character(int p_cid, QString char_name, bool 
   }
 
   ui_custom_objection->hide();
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CUSTOMOBJECTIONS)) // if setting is enabled
   {
     custom_obj_menu->clear();
     custom_objections_list.clear();
@@ -1600,16 +1557,16 @@ void spritechat::Courtroom::update_character(int p_cid, QString char_name, bool 
     }
   }
 
-  if (m_cid != -1)
+  if (m_cid != theory::NoCharacterId)
   {
-    ui_ic_chat_name->setPlaceholderText(char_list.at(m_cid).name);
+    ui_ic_chat_name->setPlaceholderText(char_list.at(m_cid));
   }
   else
   {
     ui_ic_chat_name->setPlaceholderText("Spectator");
   }
   ui_char_select_background->hide();
-  ui_ic_chat_message->setEnabled(m_cid != -1);
+  ui_ic_chat_message->setEnabled(m_cid != theory::NoCharacterId);
   focus_ic_input();
   update_audio_volume();
 }
@@ -1618,23 +1575,8 @@ void spritechat::Courtroom::enter_courtroom()
 {
   set_evidence_page();
 
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::FLIPPING))
-  {
-    ui_flip->show();
-  }
-  else
-  {
-    ui_flip->hide();
-  }
-
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::ADDITIVE))
-  {
-    ui_additive->show();
-  }
-  else
-  {
-    ui_additive->hide();
-  }
+  ui_flip->show();
+  ui_additive->show();
 
   list_music();
   list_areas();
@@ -1659,6 +1601,7 @@ void spritechat::Courtroom::enter_courtroom()
 
   // Unmute everything
   music_player->setMuted(false);
+  ambient_player->setMuted(false);
   objection_player->setMuted(false);
   sfx_player->setMuted(false);
   blip_player->setMuted(false);
@@ -1691,8 +1634,11 @@ void spritechat::Courtroom::list_music()
 
   QBrush found_brush(ao_app->get_color("found_song_color", f_file));
   QBrush missing_brush(ao_app->get_color("missing_song_color", f_file));
-
-  QTreeWidgetItem *parent = nullptr;
+  QBrush remote_brush = found_brush;
+  if (!ao_app->get_design_element("remote_song_color", f_file).isEmpty())
+  {
+    remote_brush = QBrush(ao_app->get_color("remote_song_color", f_file));
+  }
 
   // Handle favorites first so they're at the top of the list
   QSettings favorite_songs_ini(get_base_path() + "favorite_songs.ini", QSettings::IniFormat);
@@ -1702,13 +1648,12 @@ void spritechat::Courtroom::list_music()
     QTreeWidgetItem *favCategory;
     favCategory = new QTreeWidgetItem(ui_music_list);
     favCategory->setText(0, tr("== FAVORITES =="));
-    favCategory->setText(1, tr("== FAVORITES =="));
     favCategory->setText(2, "1");
     favCategory->setBackground(0, missing_brush);
     for (const QString &song : favorite_songs)
     {
       QTreeWidgetItem *favSong = new QTreeWidgetItem(favCategory);
-      QString f_song_listname = song.left(song.lastIndexOf("."));
+      QString f_song_listname = find_track(song).value_or(theory::MusicTrack{.fileName = song}).displayName();
 
       favSong->setText(0, f_song_listname);
       favSong->setText(1, song);
@@ -1716,7 +1661,11 @@ void spritechat::Courtroom::list_music()
 
       QString song_path = ao_app->get_real_path(ao_app->get_music_path(song));
 
-      if (file_exists(song_path))
+      if (song.startsWith("http"))
+      {
+        favSong->setBackground(0, remote_brush);
+      }
+      else if (file_exists(song_path))
       {
         favSong->setBackground(0, found_brush);
       }
@@ -1727,49 +1676,45 @@ void spritechat::Courtroom::list_music()
     }
   }
 
-  for (int n_song = 0; n_song < music_list.size(); ++n_song)
+  for (const theory::MusicPlaylist &i_playlist : std::as_const(music_list))
   {
-    QString i_song = music_list.at(n_song);
-    // It's a stop song or a stop category
-    // yes we cannot properly parse a stop song without a stop category cuz otherwise areas break
-    // I hate this program
-    // I hate qt5 for making .remove and .replace return a reference to the string (modify original var)
-    // instead of returning a new string
-    // please end my suffering
-    QString temp = i_song;
-    if (i_song == "~stop.mp3" || (temp.remove('=').toLower() == "stop"))
+    QTreeWidgetItem *category = nullptr;
+    if (!i_playlist.name.isEmpty())
     {
-      continue;
-    }
-    QString i_song_listname = i_song.left(i_song.lastIndexOf("."));
-    i_song_listname = i_song_listname.right(i_song_listname.length() - (i_song_listname.lastIndexOf("/") + 1));
-    QTreeWidgetItem *treeItem;
-    if (i_song_listname != i_song && parent != nullptr) // not a category, parent exists
-    {
-      treeItem = new QTreeWidgetItem(parent);
-    }
-    else
-    {
-      treeItem = new QTreeWidgetItem(ui_music_list);
-    }
-    treeItem->setText(0, i_song_listname);
-    treeItem->setText(1, i_song);
-    treeItem->setText(2, "0");
-
-    QString song_path = ao_app->get_real_path(ao_app->get_music_path(i_song));
-
-    if (file_exists(song_path))
-    {
-      treeItem->setBackground(0, found_brush);
-    }
-    else
-    {
-      treeItem->setBackground(0, missing_brush);
+      category = new QTreeWidgetItem(ui_music_list);
+      category->setText(0, i_playlist.name);
+      category->setText(2, "0");
     }
 
-    if (i_song_listname == i_song) // Not supposed to be a song to begin with - a category?
+    for (const theory::MusicTrack &i_track : i_playlist.tracks)
     {
-      parent = treeItem;
+      QTreeWidgetItem *treeItem;
+      if (category != nullptr)
+      {
+        treeItem = new QTreeWidgetItem(category);
+      }
+      else
+      {
+        treeItem = new QTreeWidgetItem(ui_music_list);
+      }
+      treeItem->setText(0, i_track.displayName());
+      treeItem->setText(1, i_track.fileName);
+      treeItem->setText(2, "0");
+
+      QString song_path = ao_app->get_real_path(ao_app->get_music_path(i_track.fileName));
+
+      if (i_track.fileName.startsWith("http"))
+      {
+        treeItem->setBackground(0, remote_brush);
+      }
+      else if (file_exists(song_path))
+      {
+        treeItem->setBackground(0, found_brush);
+      }
+      else
+      {
+        treeItem->setBackground(0, missing_brush);
+      }
     }
   }
 
@@ -1799,85 +1744,13 @@ void spritechat::Courtroom::list_music()
 // Todo: multithread this due to some servers having large as hell area list
 void spritechat::Courtroom::list_areas()
 {
-  int n_listed_areas = 0;
-
-  for (int n_area = 0; n_area < area_list.size(); ++n_area)
+  const QList<AreaInfo> areas = area_registry.areas();
+  for (const AreaInfo &area : areas)
   {
-    QString i_area;
-    i_area.append(area_list.at(n_area));
-
-    if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::ARUP))
-    {
-      i_area.append("\n  ");
-
-      i_area.append(arup_statuses.at(n_area));
-
-      if (arup_cms.at(n_area) != "FREE")
-      {
-        i_area.append(" | CM: ");
-        i_area.append(arup_cms.at(n_area));
-      }
-
-      i_area.append("\n  ");
-
-      if (arup_players.at(n_area) != -1)
-      {
-        i_area.append(QString::number(arup_players.at(n_area)));
-        i_area.append(" users | ");
-      }
-
-      i_area.append(arup_locks.at(n_area));
-    }
-
-    QTreeWidgetItem *treeItem = ui_area_list->topLevelItem(n_area);
-    if (treeItem == nullptr)
-    {
-      treeItem = new QTreeWidgetItem(ui_area_list);
-    }
-    treeItem->setText(0, area_list.at(n_area));
-    treeItem->setText(1, i_area);
-
-    if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::ARUP))
-    {
-      // Coloring logic here.
-      treeItem->setBackground(1, free_brush);
-      if (arup_locks.at(n_area) == "LOCKED")
-      {
-        treeItem->setBackground(1, locked_brush);
-      }
-      else
-      {
-        if (arup_statuses.at(n_area) == "LOOKING-FOR-PLAYERS")
-        {
-          treeItem->setBackground(1, lfp_brush);
-        }
-        else if (arup_statuses.at(n_area) == "CASING")
-        {
-          treeItem->setBackground(1, casing_brush);
-        }
-        else if (arup_statuses.at(n_area) == "RECESS")
-        {
-          treeItem->setBackground(1, recess_brush);
-        }
-        else if (arup_statuses.at(n_area) == "RP")
-        {
-          treeItem->setBackground(1, rp_brush);
-        }
-        else if (arup_statuses.at(n_area) == "GAMING")
-        {
-          treeItem->setBackground(1, gaming_brush);
-        }
-      }
-    }
-    else
-    {
-      treeItem->setBackground(1, free_brush);
-    }
-
-    ++n_listed_areas;
+    refresh_area(area.id);
   }
 
-  while (ui_area_list->topLevelItemCount() > n_listed_areas)
+  while (ui_area_list->topLevelItemCount() > areas.size())
   {
     ui_area_list->takeTopLevelItem(ui_area_list->topLevelItemCount() - 1);
   }
@@ -1888,18 +1761,89 @@ void spritechat::Courtroom::list_areas()
   }
 }
 
-void spritechat::Courtroom::debug_message_handler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+void spritechat::Courtroom::refresh_area(theory::AreaId n_area)
+{
+  const auto maybe_area = area_registry.area(n_area);
+  if (!maybe_area)
+  {
+    return;
+  }
+
+  const AreaInfo area = maybe_area.value();
+
+  QString i_area;
+  i_area.append(area.name);
+
+  i_area.append("\n  ");
+  i_area.append(theory::encodeString(area.status).toUpper());
+
+  if (!area.owners.isEmpty())
+  {
+    QStringList owner_labels;
+    for (theory::ClientId owner_id : area.owners)
+    {
+      const auto owner = player_registry.player(owner_id);
+      owner_labels.append("[" + QString::number(owner_id) + "] " + (owner ? owner->character : QString()));
+    }
+    i_area.append(" | CM: ");
+    i_area.append(owner_labels.join(", "));
+  }
+
+  i_area.append("\n  ");
+  i_area.append(QString::number(player_registry.playersIf([n_area](const PlayerInfo &player) { return player.areaId == n_area; }).size()));
+  i_area.append(" users | ");
+  i_area.append(theory::encodeString(area.lock).toUpper());
+
+  QTreeWidgetItem *treeItem = ui_area_list->topLevelItem(n_area);
+  if (treeItem == nullptr)
+  {
+    treeItem = new QTreeWidgetItem(ui_area_list);
+  }
+  treeItem->setText(0, area.name);
+  treeItem->setText(1, i_area);
+
+  // Coloring logic here.
+  if (area.lock == theory::AreaLockStatus::Locked)
+  {
+    treeItem->setBackground(1, locked_brush);
+  }
+  else
+  {
+    switch (area.status)
+    {
+    default:
+      treeItem->setBackground(1, free_brush);
+      break;
+    case theory::AreaStatus::LookingForPlayers:
+      treeItem->setBackground(1, lfp_brush);
+      break;
+    case theory::AreaStatus::Casing:
+      treeItem->setBackground(1, casing_brush);
+      break;
+    case theory::AreaStatus::Recess:
+      treeItem->setBackground(1, recess_brush);
+      break;
+    case theory::AreaStatus::Roleplay:
+      treeItem->setBackground(1, rp_brush);
+      break;
+    case theory::AreaStatus::Gaming:
+      treeItem->setBackground(1, gaming_brush);
+      break;
+    }
+  }
+}
+
+void spritechat::Courtroom::debug_message_handler(QtMsgType type, const QString &msg)
 {
 #ifdef QT_DEBUG
   return;
 #endif
-  Q_UNUSED(context);
   const QMap<QtMsgType, QString> colors = {{QtDebugMsg, "debug"}, {QtInfoMsg, "info"}, {QtWarningMsg, "warn"}, {QtCriticalMsg, "critical"}, {QtFatalMsg, "fatal"}};
   const QString color_id = QString("debug_log_%1_color").arg(colors.value(type, "info"));
   ui_debug_log->addMessage(colors.value(type, "info"), msg, QString(), ao_app->get_color(color_id, "courtroom_fonts.ini").name());
 }
 
-void spritechat::Courtroom::append_server_chatmessage(QString p_name, QString p_message, QString p_color)
+void spritechat::Courtroom::append_server_chatmessage(const QString &p_name, const QString &p_message, const QString &p_color)
 {
   QString color = "#000000";
 
@@ -1910,11 +1854,6 @@ void spritechat::Courtroom::append_server_chatmessage(QString p_name, QString p_
   if (p_color == "1")
   {
     color = ao_app->get_color("server_chatlog_sender_color", "courtroom_fonts.ini").name();
-  }
-  if (!ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::AUTH_PACKET) && p_message == "Logged in as a moderator.")
-  {
-    // Emulate successful authentication
-    on_authentication_state_received(1);
   }
 
   ui_server_chatlog->addMessage(p_name, p_message, color);
@@ -1946,16 +1885,6 @@ void spritechat::Courtroom::on_authentication_state_received(int p_state)
   }
 }
 
-spritechat::Courtroom::JudgeState spritechat::Courtroom::get_judge_state()
-{
-  return judge_state;
-}
-
-void spritechat::Courtroom::set_judge_state(JudgeState new_state)
-{
-  judge_state = new_state;
-}
-
 void spritechat::Courtroom::set_judge_buttons()
 {
   show_judge_controls(ao_app->get_pos_is_judge(current_or_default_side()));
@@ -1964,77 +1893,36 @@ void spritechat::Courtroom::set_judge_buttons()
 void spritechat::Courtroom::closeEvent(QCloseEvent *event)
 {
   Options::getInstance().setWindowPosition(objectName(), pos());
+
+  Q_EMIT aboutToClose();
+
   QMainWindow::closeEvent(event);
 }
 
 void spritechat::Courtroom::on_chat_return_pressed()
 {
-  if (is_muted)
-  {
-    return;
-  }
-
   ui_ic_chat_message->blockSignals(true);
   QTimer::singleShot(Options::getInstance().chatRateLimit(), this, [this] { ui_ic_chat_message->blockSignals(false); });
-  // MS#
-  // deskmod#
-  // pre-emote#
-  // character#
-  // emote#
-  // message#
-  // side#
-  // sfx-name#
-  // emote_modifier#
-  // char_id#
-  // sfx_delay#
-  // objection_modifier#
-  // evidence#
-  // placeholder#
-  // realization#
-  // text_color#%
 
-  // Additionally, in our case:
+  theory::IcMessagePacket packet;
 
-  // showname#
-  // other_charid#
-  // self_offset#
-  // immediate_preanim#%
-
-  QStringList packet_contents;
   // have to fetch this early for a workaround. i hate this system, but i am stuck with it for now
   int f_emote_mod = ao_app->get_emote_mod(current_char, current_emote);
 
-  int f_desk_mod = DESK_SHOW;
-
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::DESKMOD))
+  int f_desk_mod = ao_app->get_desk_mod(current_char, current_emote);
+  if (f_desk_mod == -1 && (f_emote_mod == 5 || f_emote_mod == 6)) // workaround for inis that broke after deprecating "chat"
   {
-    f_desk_mod = ao_app->get_desk_mod(current_char, current_emote);
-    {}
-    if (!ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EXPANDED_DESK_MODS))
-    {
-      if (f_desk_mod == DESK_PRE_ONLY_EX || f_desk_mod == DESK_PRE_ONLY)
-      {
-        f_desk_mod = DESK_HIDE;
-      }
-      else if (f_desk_mod == DESK_EMOTE_ONLY_EX || f_desk_mod == DESK_EMOTE_ONLY)
-      {
-        f_desk_mod = DESK_SHOW;
-      }
-    }
-    if (f_desk_mod == -1 && (f_emote_mod == 5 || f_emote_mod == 6)) // workaround for inis that broke after deprecating "chat"
-    {
-      f_desk_mod = DESK_HIDE;
-    }
-    else if (f_desk_mod == -1)
-    {
-      f_desk_mod = DESK_SHOW;
-    }
+    f_desk_mod = DESK_HIDE;
+  }
+  else if (f_desk_mod == -1)
+  {
+    f_desk_mod = DESK_SHOW;
   }
 
-  packet_contents.append(QString::number(f_desk_mod));
+  packet.deskMod = static_cast<theory::DeskMod>(f_desk_mod);
 
   QString f_pre = ao_app->get_pre_emote(current_char, current_emote);
-  QString f_sfx = "1";
+  QString f_sfx;
   int f_sfx_delay = get_char_sfx_delay();
 
   // EMOTE MOD OVERRIDES:
@@ -2062,7 +1950,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
       f_emote_mod = PREANIM;
     }
     // Turn zoom into preanim zoom
-    else if (f_emote_mod == ZOOM && ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::PREZOOM))
+    else if (f_emote_mod == ZOOM)
     {
       f_emote_mod = PREANIM_ZOOM;
     }
@@ -2107,36 +1995,53 @@ void spritechat::Courtroom::on_chat_return_pressed()
     }
   }
 
-  packet_contents.append(f_pre);
-
-  packet_contents.append(current_char);
-
-  packet_contents.append(ao_app->get_emote(current_char, current_emote));
-
-  packet_contents.append(ui_ic_chat_message->text());
-
-  packet_contents.append(current_or_default_side());
-
-  packet_contents.append(f_sfx);
-  packet_contents.append(QString::number(f_emote_mod));
-  packet_contents.append(QString::number(m_cid));
-
-  packet_contents.append(QString::number(f_sfx_delay));
-
-  QString f_obj_state;
-
-  if ((objection_state == 4 && !ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CUSTOMOBJECTIONS)) || (objection_state < 0))
+  if (!f_pre.isEmpty())
   {
-    f_obj_state = "0";
+    packet.preAnimation = f_pre;
   }
-  else if (objection_custom != "" && objection_state == 4)
+  packet.character = current_char;
+  packet.emote = ao_app->get_emote(current_char, current_emote);
+  packet.message = ui_ic_chat_message->text();
+  packet.side = current_or_default_side();
+
+  if (f_sfx == "1")
   {
-    f_obj_state = QString::number(objection_state) + "&" + objection_custom; // we add the name of the objection so the
-                                                                             // packet is like: 4&(name of custom obj)
+    f_sfx.clear();
   }
-  else
+  if (!f_sfx.isEmpty())
   {
-    f_obj_state = QString::number(objection_state);
+    packet.sound = theory::IcMessagePacket::Sound{.name = f_sfx, .delay = f_sfx_delay, .loop = ao_app->get_sfx_looping(current_char, current_emote) == "1"};
+  }
+
+  switch (f_emote_mod)
+  {
+  default:
+  case IDLE:
+    packet.emoteMode = theory::EmoteMode::Idle;
+    break;
+
+  case PREANIM:
+    packet.emoteMode = theory::EmoteMode::PreAnimation;
+    break;
+
+  case ZOOM:
+    packet.emoteMode = theory::EmoteMode::Zoom;
+    break;
+
+  case PREANIM_ZOOM:
+    packet.emoteMode = theory::EmoteMode::PreAnimationZoom;
+    break;
+  }
+
+  packet.characterId = m_cid;
+
+  if (objection_state >= static_cast<int>(theory::ShoutType::None) && objection_state <= static_cast<int>(theory::ShoutType::Custom))
+  {
+    packet.shout.type = static_cast<theory::ShoutType>(objection_state);
+  }
+  if (packet.shout.type == theory::ShoutType::Custom)
+  {
+    packet.shout.custom = objection_custom;
   }
 
   // We're doing an Objection (custom objections not yet supported)
@@ -2145,147 +2050,64 @@ void spritechat::Courtroom::on_chat_return_pressed()
     music_stop(true);
   }
 
-  packet_contents.append(f_obj_state);
-
-  if (is_presenting_evidence)
+  if (is_presenting_evidence && current_evidence < local_evidence_list.size())
   {
-    // the evidence index is shifted by 1 because 0 is no evidence per legacy
-    // standards besides, older clients crash if we pass -1
-    packet_contents.append(QString::number(current_evidence + 1));
+    packet.evidenceId = local_evidence_list.at(current_evidence).id;
+  }
+
+  packet.flip = ui_flip->isChecked();
+  packet.realization = realization_state != 0;
+
+  if (text_color >= 0 && text_color < max_colors)
+  {
+    packet.textColor = text_color;
+  }
+
+  // If there is a showname entered, use that -- else, just send the
+  // character's own.
+  QString f_showname;
+  if (!ui_ic_chat_name->text().isEmpty())
+  {
+    f_showname = ui_ic_chat_name->text();
   }
   else
   {
-    packet_contents.append("0");
+    f_showname = ao_app->get_showname(current_char, current_emote);
+  }
+  if (!f_showname.isEmpty())
+  {
+    packet.characterName = f_showname;
   }
 
-  QString f_flip;
-
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::FLIPPING))
+  // Similarly, we send over whom we're paired with, unless we have chosen
+  // ourselves. Or a charid of -1 or lower, through some means.
+  if (other_charid > theory::NoCharacterId && other_charid != m_cid)
   {
-    if (ui_flip->isChecked())
-    {
-      f_flip = "1";
-    }
-    else
-    {
-      f_flip = "0";
-    }
-  }
-  else
-  {
-    f_flip = QString::number(m_cid);
+    packet.pair = theory::IcMessagePacket::Pair{.characterId = other_charid, .order = pair_order == 0 ? theory::PairOrder::InFront : theory::PairOrder::Behind};
   }
 
-  packet_contents.append(f_flip);
+  packet.offsetX = char_offset;
+  packet.offsetY = char_vert_offset;
 
-  packet_contents.append(QString::number(realization_state));
+  // Finally, we send over if we want our pres to not interrupt.
+  packet.immediate = ui_immediate->isChecked() && ui_pre->isChecked();
 
-  QString f_text_color;
+  packet.screenshake = screenshake_state != 0;
 
-  if (text_color < 0)
+  if (Options::getInstance().networkedFrameSfxEnabled())
   {
-    f_text_color = "0";
-  }
-  else if (text_color >= max_colors)
-  {
-    f_text_color = "0";
-  }
-  else
-  {
-    f_text_color = QString::number(text_color);
-  }
-
-  packet_contents.append(f_text_color);
-
-  // If the server we're on supports CCCC stuff, we should use it!
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CCCC_IC_SUPPORT))
-  {
-    // If there is a showname entered, use that -- else, just send an empty
-    // packet-part.
-    if (!ui_ic_chat_name->text().isEmpty())
-    {
-      packet_contents.append(ui_ic_chat_name->text());
-    }
-    else
-    {
-      packet_contents.append(ao_app->get_showname(current_char, current_emote));
-    }
-
-    // Similarly, we send over whom we're paired with, unless we have chosen
-    // ourselves. Or a charid of -1 or lower, through some means.
-    if (other_charid > -1 && other_charid != m_cid)
-    {
-      QString packet = QString::number(other_charid);
-      if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EFFECTS)) // Only servers with effects
-      // enabled will support pair
-      // reordering
-      {
-        packet += "^" + QString::number(pair_order);
-      }
-      packet_contents.append(packet);
-    }
-    else
-    {
-      packet_contents.append("-1");
-    }
-    // Send the offset as it's gonna be used regardless
-    if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::Y_OFFSET))
-    {
-      packet_contents.append(QString::number(char_offset) + "&" + QString::number(char_vert_offset));
-    }
-    else
-    {
-      packet_contents.append(QString::number(char_offset));
-    }
-
-    // Finally, we send over if we want our pres to not interrupt.
-    if (ui_immediate->isChecked() && ui_pre->isChecked())
-    {
-      packet_contents.append("1");
-    }
-    else
-    {
-      packet_contents.append("0");
-    }
-  }
-
-  // If the server we're on supports Looping SFX and Screenshake, use it if the
-  // emote uses it.
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::LOOPING_SFX))
-  {
-    packet_contents.append(ao_app->get_sfx_looping(current_char, current_emote));
-    packet_contents.append(QString::number(screenshake_state));
-
     QString pre_emote = ao_app->get_pre_emote(current_char, current_emote);
     QString emote = ao_app->get_emote(current_char, current_emote);
     QStringList emotes_to_check = {pre_emote, "(b)" + emote, "(a)" + emote};
-    QStringList effects_to_check = {"_FrameScreenshake", "_FrameRealization", "_FrameSFX"};
-
-    for (const QString &f_effect : std::as_const(effects_to_check))
+    for (const QString &f_emote : std::as_const(emotes_to_check))
     {
-      QString packet;
-      for (QString f_emote : std::as_const(emotes_to_check))
-      {
-        packet += f_emote;
-        if (Options::getInstance().networkedFrameSfxEnabled())
-        {
-          QString sfx_frames = ao_app->read_ini_tags(ao_app->get_character_path(current_char, "char.ini"), f_emote.append(f_effect)).join("|");
-          if (sfx_frames != "")
-          {
-            packet += "|" + sfx_frames;
-          }
-        }
-        packet += "^";
-      }
-      packet_contents.append(packet);
+      packet.cues += ao_app->get_emote_cues(current_char, f_emote);
     }
   }
 
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::ADDITIVE))
-  {
-    packet_contents.append(ui_additive->isChecked() ? "1" : "0");
-  }
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EFFECTS))
+  packet.additive = ui_additive->isChecked();
+
+  if (!effect.isEmpty())
   {
     QString p_effect_folder = ao_app->read_char_ini(current_char, "effects", "Options");
     QString fx_sound = ao_app->get_effect_property(effect, current_char, p_effect_folder, "sound");
@@ -2296,17 +2118,13 @@ void spritechat::Courtroom::on_chat_return_pressed()
       fx_sound = "0";
     }
 
-    packet_contents.append(effect + "|" + p_effect_folder + "|" + fx_sound);
+    packet.effect = theory::IcMessagePacket::Effect{.name = effect, .folder = p_effect_folder, .sound = fx_sound};
   }
 
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CUSTOM_BLIPS))
-  {
-    packet_contents.append(ao_app->get_blipname(current_char, current_emote));
+  packet.blips = ao_app->get_blipname(current_char, current_emote);
+  packet.slide = ui_slide_enable->isChecked();
 
-    packet_contents.append(ui_slide_enable->isChecked() ? "1" : "0"); // just let the server figure out what to do with this
-  }
-
-  ao_app->send_server_packet(AOPacket("MS", packet_contents));
+  ao_app->shipPacket(packet);
 }
 
 void spritechat::Courtroom::reset_ui()
@@ -2355,145 +2173,38 @@ void spritechat::Courtroom::reset_ui()
   ui_slide_enable->setChecked(false);
 }
 
-void spritechat::Courtroom::chatmessage_enqueue(QStringList p_contents)
+void spritechat::Courtroom::unpack_chatmessage(theory::IcMessagePacket packet)
 {
-  // Instead of checking for whether a message has at least chatmessage_size
-  // amount of packages, we'll check if it has at least 15.
-  // That was the original chatmessage_size.
-  if (p_contents.size() < MS_MINIMUM)
-  {
-    return;
-  }
-
   // Check the validity of the character ID we got
-  int f_char_id = p_contents[CHAR_ID].toInt();
-  if (f_char_id < -1 || f_char_id >= char_list.size())
+  if (packet.characterId < theory::NoCharacterId || packet.characterId >= char_list.size())
   {
     return;
   }
 
   // We muted this char, gtfo
-  if (mute_map.value(f_char_id))
+  if (mute_map.value(packet.characterId))
   {
     return;
   }
 
-  // Use null showname if packet does not support 2.6+ extensions
-  QString showname = QString();
-  if (SHOWNAME < p_contents.size())
-  {
-    showname = p_contents[SHOWNAME];
-  }
-
-  // if the char ID matches our client's char ID (most likely, this is our message coming back to us)
-  bool sender = f_char_id == m_cid;
-
-  // Record the log I/O, log files should be accurate.
-  LogMode log_mode = IO_ONLY;
-
   // User-created blankpost
-  if (p_contents[MESSAGE].trimmed().isEmpty())
+  if (packet.message.trimmed().isEmpty())
   {
     // Turn it into true blankpost
-    p_contents[MESSAGE] = "";
+    packet.message = "";
   }
 
   // If we determine we sent this message
-  if (sender)
+  if (packet.characterId == m_cid)
   {
     // Reset input UI elements, clear input box, etc.
     reset_ui();
   }
-  // If we determine we sent this message, or we have desync enabled
-  if (sender || Options::getInstance().desynchronisedLogsEnabled())
-  {
-    // Initialize operation "message queue ghost"
-    log_chatmessage(p_contents[MESSAGE], f_char_id, p_contents[SHOWNAME], p_contents[CHAR_NAME], p_contents[OBJECTION_MOD], p_contents[EVIDENCE_ID].toInt(), p_contents[TEXT_COLOR].toInt(), QUEUED, sender || Options::getInstance().desynchronisedLogsEnabled());
-  }
 
-  bool is_objection = false;
-  // If the user wants to clear queue on objection
-  if (Options::getInstance().objectionSkipQueueEnabled())
-  {
-    int objection_mod = p_contents[OBJECTION_MOD].split("&")[0].toInt();
-    is_objection = objection_mod >= 1 && objection_mod <= 5;
-    // If this is an objection, nuke the queue
-    if (is_objection)
-    {
-      text_queue_timer->stop();
-      skip_chatmessage_queue();
-    }
-  }
-  // Log the IO file
-  log_chatmessage(p_contents[MESSAGE], f_char_id, p_contents[SHOWNAME], p_contents[CHAR_NAME], p_contents[OBJECTION_MOD], p_contents[EVIDENCE_ID].toInt(), p_contents[TEXT_COLOR].toInt(), log_mode, sender);
+  m_previous_chatmessage = m_chatmessage;
+  m_chatmessage = packet;
 
-  // Send this boi into the queue
-  chatmessage_queue.enqueue(p_contents);
-
-  // Our settings disabled queue, or no message is being parsed right now and we're not waiting on one
-  bool start_queue = Options::getInstance().textStayTime() <= 0 || (text_state >= 2 && !text_queue_timer->isActive());
-  // Objections also immediately play the message
-  if (start_queue || is_objection)
-  {
-    chatmessage_dequeue(); // Process the message instantly
-  }
-  // Otherwise, since a message is being parsed, chat_tick() should be called which will call dequeue once it's done.
-}
-
-void spritechat::Courtroom::chatmessage_dequeue()
-{
-  // Nothing to parse in the queue
-  if (chatmessage_queue.isEmpty())
-  {
-    return;
-  }
-
-  // Stop the text queue timer
-  if (text_queue_timer->isActive())
-  {
-    text_queue_timer->stop();
-  }
-
-  unpack_chatmessage(chatmessage_queue.dequeue());
-}
-
-void spritechat::Courtroom::skip_chatmessage_queue()
-{
-  while (!chatmessage_queue.isEmpty())
-  {
-    QStringList p_contents = chatmessage_queue.dequeue();
-    // if the char ID matches our client's char ID (most likely, this is our message coming back to us)
-    bool sender = Options::getInstance().desynchronisedLogsEnabled() || p_contents[CHAR_ID].toInt() == m_cid;
-    log_chatmessage(p_contents[MESSAGE], p_contents[CHAR_ID].toInt(), p_contents[SHOWNAME], p_contents[CHAR_NAME], p_contents[OBJECTION_MOD], p_contents[EVIDENCE_ID].toInt(), p_contents[TEXT_COLOR].toInt(), DISPLAY_ONLY, sender);
-  }
-}
-
-void spritechat::Courtroom::unpack_chatmessage(QStringList p_contents)
-{
-  for (int n_string = 0; n_string < MS_MAXIMUM; ++n_string)
-  {
-    m_previous_chatmessage[n_string] = m_chatmessage[n_string];
-
-    // Note that we have added stuff that vanilla clients and servers simply
-    // won't send. So now, we have to check if the thing we want even exists
-    // amongst the packet's content. We also have to check if the server even
-    // supports CCCC's IC features, or if it's just japing us. Also, don't
-    // forget! A size 15 message will have indices from 0 to 14.
-    if (n_string < p_contents.size() && (n_string < MS_MINIMUM || ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CCCC_IC_SUPPORT)))
-    {
-      m_chatmessage[n_string] = p_contents.at(n_string);
-    }
-    else
-    {
-      m_chatmessage[n_string] = "";
-    }
-  }
-
-  // if the char ID matches our client's char ID (most likely, this is our message coming back to us)
-  bool sender = Options::getInstance().desynchronisedLogsEnabled() || m_chatmessage[CHAR_ID].toInt() == m_cid;
-
-  // We have logs displaying as soon as we reach the message in our queue, which is a less confusing but also less accurate experience for the user.
-  log_chatmessage(m_chatmessage[MESSAGE], m_chatmessage[CHAR_ID].toInt(), p_contents[SHOWNAME], m_chatmessage[CHAR_NAME], m_chatmessage[OBJECTION_MOD], m_chatmessage[EVIDENCE_ID].toInt(), m_chatmessage[TEXT_COLOR].toInt(), DISPLAY_ONLY, sender);
+  log_chatmessage();
 
   // Process the callwords for this message
   handle_callwords();
@@ -2514,188 +2225,93 @@ void spritechat::Courtroom::unpack_chatmessage(QStringList p_contents)
   }
 }
 
-void spritechat::Courtroom::log_chatmessage(QString f_message, int f_char_id, QString f_showname, QString f_char, QString f_objection_mod, int f_evi_id, int f_color, LogMode f_log_mode, bool sender)
+void spritechat::Courtroom::log_chatmessage()
 {
-  // Display name will use the showname
-  QString f_displayname = f_showname;
-  if (f_char_id != -1)
-  {
-    // Grab the char.ini showname
-    f_showname = ao_app->get_showname(char_list.at(f_char_id).name);
-  }
-  // If display name is just whitespace, use the char.ini showname.
-  if (f_displayname.trimmed().isEmpty())
-  {
-    f_displayname = f_showname;
-  }
+  QString f_displayname = current_showname();
+  QString f_char = m_chatmessage.character;
+  bool selfname = m_chatmessage.characterId == m_cid;
 
-  bool ghost = f_log_mode == QUEUED;
   // Detect if we're trying to log a blankpost
-  bool blankpost = (f_log_mode != IO_ONLY &&                                                    // if we're not in I/O only mode,
-                    f_message.isEmpty() &&                                                      // our current message is a blankpost,
+  bool blankpost = (m_chatmessage.message.isEmpty() &&                                          // our current message is a blankpost,
                     !ic_chatlog_history.isEmpty() &&                                            // the chat log isn't empty,
                     last_ic_message == f_displayname + ":" &&                                   // the chat log's last message is a blank post, and
                     last_ic_message.mid(0, last_ic_message.lastIndexOf(":")) == f_displayname); // the blankpost's showname is the same as ours
-  bool selfname = f_char_id == m_cid;
 
   if (log_ic_actions)
   {
-    // Check if a custom objection is in use
-    int objection_mod = 0;
-    QString custom_objection;
-    if (f_objection_mod.contains("4&"))
-    {
-      objection_mod = 4;
-      custom_objection = f_objection_mod.split("4&")[1]; // takes the name of custom objection.
-    }
-    else
-    {
-      objection_mod = f_objection_mod.toInt();
-    }
-
     // QString f_custom_theme = ao_app->get_chat(f_char);
-    if (objection_mod <= 4 && objection_mod >= 1)
+    if (m_chatmessage.shout.type != theory::ShoutType::None)
     {
       blankpost = false;
-      QString shout_message;
-      switch (objection_mod)
+      QString shout_text;
+      switch (m_chatmessage.shout.type)
       {
-      case 1:
-        shout_message = ao_app->read_char_ini(f_char, "holdit_message", "Shouts");
-        if (shout_message == "")
-        {
-          shout_message = tr("HOLD IT!");
-        }
+      default:
         break;
-      case 2:
-        shout_message = ao_app->read_char_ini(f_char, "objection_message", "Shouts");
-        if (shout_message == "")
-        {
-          shout_message = tr("OBJECTION!");
-        }
+      case theory::ShoutType::HoldIt:
+        shout_text = tr("HOLD IT!");
         break;
-      case 3:
-        shout_message = ao_app->read_char_ini(f_char, "takethat_message", "Shouts");
-        if (shout_message == "")
-        {
-          shout_message = tr("TAKE THAT!");
-        }
+      case theory::ShoutType::Objection:
+        shout_text = tr("OBJECTION!");
         break;
-      // case 4 is AO2 only
-      case 4:
-        if (custom_objection != "")
+      case theory::ShoutType::TakeThat:
+        shout_text = tr("TAKE THAT!");
+        break;
+      case theory::ShoutType::Custom:
+        if (!m_chatmessage.shout.custom.isEmpty())
         {
-          shout_message = ao_app->read_char_ini(f_char, custom_objection.split('.')[0] + "_message", "Shouts");
-          if (shout_message == "")
-          {
-            shout_message = custom_objection.split('.')[0];
-          }
+          shout_text = m_chatmessage.shout.custom.left(m_chatmessage.shout.custom.lastIndexOf("."));
         }
         else
         {
-          shout_message = ao_app->read_char_ini(f_char, "custom_message", "Shouts");
-          if (shout_message == "")
-          {
-            shout_message = tr("CUSTOM OBJECTION!");
-          }
+          shout_text = "custom";
         }
         break;
       }
-      switch (f_log_mode)
-      {
-      case IO_ONLY:
-        log_ic_text(f_char, f_displayname, shout_message, tr("shouts"), 0, selfname);
-        break;
-      case DISPLAY_AND_IO:
-        log_ic_text(f_char, f_displayname, shout_message, tr("shouts"));
-        append_ic_text(shout_message, f_displayname, f_char, tr("shouts"), 0, selfname, QDateTime::currentDateTime(), false);
-        break;
-      case DISPLAY_ONLY:
-      case QUEUED:
-        if (!ghost && sender)
-        {
-          pop_ic_ghost();
-        }
-        append_ic_text(shout_message, f_displayname, f_char, tr("shouts"), 0, selfname, QDateTime::currentDateTime(), ghost);
-        break;
-      }
+      log_ic_text(f_char, f_displayname, shout_text, tr("shouts"), 0, selfname);
+      append_ic_text(shout_text, f_displayname, f_char, tr("shouts"), 0, selfname);
     }
 
     // If the evidence ID is in the valid range
-    if (f_evi_id > 0 && f_evi_id <= global_evidence_list.size())
+    int f_evi_idx = global_evidence_index(m_chatmessage.evidenceId);
+    if (f_evi_idx != -1)
     {
       blankpost = false;
       // Obtain the evidence name
-      QString f_evi_name = global_evidence_list.at(f_evi_id - 1).name;
-      switch (f_log_mode)
-      {
-      case IO_ONLY:
-        log_ic_text(f_char, f_displayname, f_evi_name, tr("has presented evidence"), 0, selfname);
-        break;
-      case DISPLAY_AND_IO:
-        log_ic_text(f_char, f_displayname, f_evi_name, tr("has presented evidence"));
-        append_ic_text(f_evi_name, f_displayname, f_char, tr("has presented evidence"), 0, selfname, QDateTime::currentDateTime(), false);
-        break;
-      case DISPLAY_ONLY:
-      case QUEUED:
-        if (!ghost && sender)
-        {
-          pop_ic_ghost();
-        }
-        append_ic_text(f_evi_name, f_displayname, f_char, tr("has presented evidence"), 0, selfname, QDateTime::currentDateTime(), ghost);
-        break;
-      }
+      QString f_evi_name = global_evidence_list.at(f_evi_idx).evidence.name;
+      log_ic_text(f_char, f_displayname, f_evi_name, tr("has presented evidence"), 0, selfname);
+      append_ic_text(f_evi_name, f_displayname, f_char, tr("has presented evidence"), 0, selfname);
     }
   }
 
-  // Do not display anything on a repeated blankpost if it's not a ghost
-  if (blankpost && !ghost)
+  log_ic_text(f_char, f_displayname, m_chatmessage.message, "", m_chatmessage.textColor, selfname);
+
+  // Do not display anything on a repeated blankpost
+  if (blankpost)
   {
-    // Don't forget to clear the ghost if it's us
-    if (sender)
-    {
-      pop_ic_ghost();
-    }
     return;
   }
 
-  switch (f_log_mode)
+  append_ic_text(m_chatmessage.message, f_displayname, f_char, "", m_chatmessage.textColor, selfname);
+}
+
+QString spritechat::Courtroom::current_showname()
+{
+  if (Options::getInstance().customShownameEnabled() && m_chatmessage.characterName && !m_chatmessage.characterName->trimmed().isEmpty())
   {
-  case IO_ONLY:
-    log_ic_text(f_char, f_displayname, f_message, "", f_color, selfname);
-    break;
-  case DISPLAY_AND_IO:
-    log_ic_text(f_char, f_displayname, f_message, "", f_color, selfname);
-    append_ic_text(f_message, f_displayname, f_char, "", f_color, selfname, QDateTime::currentDateTime(), false);
-    break;
-  case DISPLAY_ONLY:
-  case QUEUED:
-    if (!ghost && sender)
-    {
-      pop_ic_ghost();
-    }
-    append_ic_text(f_message, f_displayname, f_char, "", f_color, selfname, QDateTime::currentDateTime(), ghost);
-    break;
+    return m_chatmessage.characterName.value();
   }
+  if (m_chatmessage.characterId >= 0 && m_chatmessage.characterId < char_list.size())
+  {
+    return ao_app->get_showname(char_list.at(m_chatmessage.characterId));
+  }
+  return m_chatmessage.characterName.value_or(QString());
 }
 
 bool spritechat::Courtroom::handle_objection()
 {
-  // Check if a custom objection is in use
-  int objection_mod = 0;
-  QString custom_objection;
-  if (m_chatmessage[OBJECTION_MOD].contains("4&"))
-  {
-    objection_mod = 4;
-    custom_objection = m_chatmessage[OBJECTION_MOD].split("4&")[1]; // takes the name of custom objection.
-  }
-  else
-  {
-    objection_mod = m_chatmessage[OBJECTION_MOD].toInt();
-  }
-
   // if an objection is used
-  if (objection_mod <= 4 && objection_mod >= 1)
+  if (m_chatmessage.shout.type != theory::ShoutType::None)
   {
     ui_vp_chatbox->setVisible(chatbox_always_show);
     ui_vp_message->setVisible(chatbox_always_show);
@@ -2703,41 +2319,45 @@ bool spritechat::Courtroom::handle_objection()
     ui_vp_showname->setVisible(chatbox_always_show);
     ui_vp_objection->setMaximumDurationPerFrame(shout_max_time);
     QString filename;
-    switch (objection_mod)
+    switch (m_chatmessage.shout.type)
     {
-    case 1:
+    default:
+      break;
+
+    case theory::ShoutType::HoldIt:
       filename = "holdit_bubble";
-      objection_player->findAndPlayCharacterShout("holdit", m_chatmessage[CHAR_NAME], ao_app->get_chat(m_chatmessage[CHAR_NAME]));
+      objection_player->findAndPlayCharacterShout("holdit", m_chatmessage.character, ao_app->get_chat(m_chatmessage.character));
       break;
-    case 2:
+
+    case theory::ShoutType::Objection:
       filename = "objection_bubble";
-      objection_player->findAndPlayCharacterShout("objection", m_chatmessage[CHAR_NAME], ao_app->get_chat(m_chatmessage[CHAR_NAME]));
+      objection_player->findAndPlayCharacterShout("objection", m_chatmessage.character, ao_app->get_chat(m_chatmessage.character));
       break;
-    case 3:
+
+    case theory::ShoutType::TakeThat:
       filename = "takethat_bubble";
-      objection_player->findAndPlayCharacterShout("takethat", m_chatmessage[CHAR_NAME], ao_app->get_chat(m_chatmessage[CHAR_NAME]));
+      objection_player->findAndPlayCharacterShout("takethat", m_chatmessage.character, ao_app->get_chat(m_chatmessage.character));
       break;
-    // case 4 is AO2 only
-    case 4:
-      if (custom_objection != "")
+
+    case theory::ShoutType::Custom:
+      if (!m_chatmessage.shout.custom.isEmpty())
       {
-        filename = "custom_objections/" + custom_objection.left(custom_objection.lastIndexOf("."));
-        objection_player->findAndPlayCharacterShout(filename, m_chatmessage[CHAR_NAME], ao_app->get_chat(m_chatmessage[CHAR_NAME]));
+        filename = "custom_objections/" + m_chatmessage.shout.custom.left(m_chatmessage.shout.custom.lastIndexOf("."));
+        objection_player->findAndPlayCharacterShout(filename, m_chatmessage.character, ao_app->get_chat(m_chatmessage.character));
       }
       else
       {
         filename = "custom";
-        objection_player->findAndPlayCharacterShout("custom", m_chatmessage[CHAR_NAME], ao_app->get_chat(m_chatmessage[CHAR_NAME]));
+        objection_player->findAndPlayCharacterShout("custom", m_chatmessage.character, ao_app->get_chat(m_chatmessage.character));
       }
       break;
-      m_chatmessage[EMOTE_MOD] = QChar((int)PREANIM);
     }
-    ui_vp_objection->loadAndPlayAnimation(filename, m_chatmessage[CHAR_NAME], ao_app->get_chat(m_chatmessage[CHAR_NAME]));
+    ui_vp_objection->loadAndPlayAnimation(filename, m_chatmessage.character, ao_app->get_chat(m_chatmessage.character));
     sfx_player->stopAll(); // Objection played! Cut all sfx.
     ui_vp_player_char->setPlayOnce(true);
     return true;
   }
-  if (m_chatmessage[EMOTE] != "")
+  if (!m_chatmessage.emote.isEmpty())
   {
     display_character();
   }
@@ -2759,7 +2379,7 @@ void spritechat::Courtroom::display_character()
   // Show it if chatbox always shows
   if (Options::getInstance().characterStickerEnabled() && chatbox_always_show)
   {
-    ui_vp_sticker->loadAndPlayAnimation(m_chatmessage[CHAR_NAME]);
+    ui_vp_sticker->loadAndPlayAnimation(m_chatmessage.character);
   }
   // Hide the face sticker
   else
@@ -2767,127 +2387,66 @@ void spritechat::Courtroom::display_character()
     ui_vp_sticker->stopPlayback();
   }
 
-  // Arrange the netstrings of the frame SFX for the character to know about
-  if (!m_chatmessage[FRAME_SFX].isEmpty() && Options::getInstance().networkedFrameSfxEnabled())
+  if (!m_chatmessage.cues.isEmpty() && Options::getInstance().networkedFrameSfxEnabled())
   {
-    // ORDER IS IMPORTANT!!
-    QStringList netstrings = {m_chatmessage[FRAME_SCREENSHAKE], m_chatmessage[FRAME_REALIZATION], m_chatmessage[FRAME_SFX]};
-    ui_vp_player_char->setFrameEffects(netstrings);
+    ui_vp_player_char->setFrameEffects(m_chatmessage.cues);
   }
   else
   {
-    ui_vp_player_char->setFrameEffects(QStringList());
+    ui_vp_player_char->setFrameEffects({});
   }
 
   // Determine if we should flip the character or not
-  ui_vp_player_char->setFlipped(m_chatmessage[FLIP].toInt() == 1);
+  ui_vp_player_char->setFlipped(m_chatmessage.flip);
 }
 
-void spritechat::Courtroom::display_pair_character(QString other_charid, QString other_offset)
+void spritechat::Courtroom::display_pair_character()
 {
   // If pair information exists
-  if (!other_charid.isEmpty())
+  if (m_chatmessage.pair && !m_chatmessage.pair->character.isEmpty())
   {
-    // Initialize the "ok" bool check to see if the toInt conversion succeeded
-    bool ok;
-    // Grab the charid of the pair
-    int charid = other_charid.split("^")[0].toInt(&ok);
-    // If the charid is an int and is valid...
-    if (ok && charid > -1)
+    const theory::IcMessagePacket::Pair &pair = m_chatmessage.pair.value();
+    // Show the pair character
+    ui_vp_sideplayer_char->show();
+    // Move pair character according to the offsets
+    ui_vp_sideplayer_char->move(ui_viewport->width() * pair.offsetX / 100, ui_viewport->height() * pair.offsetY / 100);
+    // Change the order of appearance based on the pair order variable
+    switch (pair.order)
     {
-      // Show the pair character
-      ui_vp_sideplayer_char->show();
-      // Obtain the offsets, splitting it up by & char
-      QStringList offsets = other_offset.split("&");
-      int offset_x;
-      int offset_y;
-      // If we only got one number...
-      if (offsets.length() <= 1)
-      {
-        // That's just the X offset. Make Y offset 0.
-        offset_x = other_offset.toInt();
-        offset_y = 0;
-      }
-      else
-      {
-        // We got two numbers, set x and y offsets!
-        offset_x = offsets[0].toInt();
-        offset_y = offsets[1].toInt();
-      }
-      // Move pair character according to the offsets
-      ui_vp_sideplayer_char->move(ui_viewport->width() * offset_x / 100, ui_viewport->height() * offset_y / 100);
-      // Split the charid according to the ^ to determine if we have "ordering" info
-      QStringList args = other_charid.split("^");
-      if (args.size() > 1) // This ugly workaround is so we don't make an extra packet just
-                           // for this purpose. Rewrite pairing when?
-      {
-        // Change the order of appearance based on the pair order variable
-        int order = args.at(1).toInt();
-        switch (order)
-        {
-        case 0: // Our character is in front
-          ui_vp_sideplayer_char->stackUnder(ui_vp_player_char);
-          break;
-        case 1: // Our character is behind
-          ui_vp_player_char->stackUnder(ui_vp_sideplayer_char);
-          break;
-        default:
-          break;
-        }
-      }
-
-      // Play the other pair character's idle animation
-      ui_vp_sideplayer_char->loadCharacterEmote(m_chatmessage[OTHER_NAME], m_chatmessage[OTHER_EMOTE], CharacterAnimationLayer::IdleEmote);
-      ui_vp_sideplayer_char->show();
-      ui_vp_sideplayer_char->setPlayOnce(false);
-
-      // Flip the pair character
-      if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::FLIPPING) && m_chatmessage[OTHER_FLIP].toInt() == 1)
-      {
-        ui_vp_sideplayer_char->setFlipped(true);
-      }
-      else
-      {
-        ui_vp_sideplayer_char->setFlipped(false);
-      }
-
-      ui_vp_sideplayer_char->startPlayback();
+    default:
+    case theory::PairOrder::InFront: // Our character is in front
+      ui_vp_sideplayer_char->stackUnder(ui_vp_player_char);
+      break;
+    case theory::PairOrder::Behind: // Our character is behind
+      ui_vp_player_char->stackUnder(ui_vp_sideplayer_char);
+      break;
     }
+
+    // Play the other pair character's idle animation
+    ui_vp_sideplayer_char->loadCharacterEmote(pair.character, pair.emote, CharacterAnimationLayer::IdleEmote);
+    ui_vp_sideplayer_char->show();
+    ui_vp_sideplayer_char->setPlayOnce(false);
+
+    // Flip the pair character
+    ui_vp_sideplayer_char->setFlipped(pair.flip);
+
+    ui_vp_sideplayer_char->startPlayback();
   }
 }
 
-void spritechat::Courtroom::handle_emote_mod(int emote_mod, bool p_immediate)
+void spritechat::Courtroom::handle_emote_mod(theory::EmoteMode emote_mode, bool p_immediate)
 {
-  // Deal with invalid emote modifiers
-  if (emote_mod != IDLE && emote_mod != PREANIM && emote_mod != ZOOM && emote_mod != PREANIM_ZOOM)
-  {
-    // If emote mod is 4...
-    if (emote_mod == 4)
-    {
-      emote_mod = PREANIM_ZOOM; // Addresses issue with an old bug that sent the wrong
-                                // emote modifier for zoompre
-    }
-    else if (emote_mod == 2)
-    {
-      // Addresses the deprecated "objection preanim"
-      emote_mod = PREANIM;
-    }
-    else
-    {
-      emote_mod = IDLE; // Reset emote mod to 0
-    }
-  }
-
   // Handle the emote mod
-  switch (emote_mod)
+  switch (emote_mode)
   {
-  case PREANIM:
-  case PREANIM_ZOOM:
+  case theory::EmoteMode::PreAnimation:
+  case theory::EmoteMode::PreAnimationZoom:
     // play preanim that makes the chatbox wait for it to finish.
     play_preanim(false);
     break;
-  case IDLE:
-  case ZOOM:
+  default:
+  case theory::EmoteMode::Idle:
+  case theory::EmoteMode::Zoom:
     // If immediate is not ticked on...
     if (!p_immediate)
     {
@@ -2896,14 +2455,11 @@ void spritechat::Courtroom::handle_emote_mod(int emote_mod, bool p_immediate)
     }
     else
     {
-      // IDLE, ZOOM both play preanim alongside the chatbox, not waiting for the animation to finish.
+      // Idle, Zoom both play preanim alongside the chatbox, not waiting for the animation to finish.
       // This behavior is a bit jank (why is emote mod affected by immediate?) but eh it functions
       play_preanim(true);
     }
     break;
-  default:
-    // This should never happen, but if it does anyway, yell in the console about it.
-    qWarning() << "invalid emote mod: " << QString::number(emote_mod);
   }
 }
 
@@ -2916,27 +2472,14 @@ void spritechat::Courtroom::handle_ic_message()
 {
   // Update the chatbox information
   initialize_chatbox();
-  if (m_chatmessage[EMOTE] != "")
+  if (m_chatmessage.emote != "")
   {
-    do_transition(m_chatmessage[DESK_MOD], last_side, m_chatmessage[SIDE]);
+    do_transition(m_chatmessage.deskMod, last_side, m_chatmessage.side);
   }
   else
   {
     play_sfx();
     start_chat_ticking();
-  }
-
-  // if we have instant objections disabled, and queue is not empty, check if next message after this is an objection.
-  if (!Options::getInstance().objectionSkipQueueEnabled() && chatmessage_queue.size() > 0)
-  {
-    QStringList p_contents = chatmessage_queue.head();
-    int objection_mod = p_contents[OBJECTION_MOD].split("&")[0].toInt();
-    bool is_objection = objection_mod >= 1 && objection_mod <= 5;
-    // If this is an objection, we'll need to interrupt our current message.
-    if (is_objection)
-    {
-      text_queue_timer->start(objection_threshold);
-    }
   }
 }
 
@@ -2985,7 +2528,7 @@ void spritechat::Courtroom::do_screenshake()
   m_screenshake_anim_group->start();
 }
 
-void spritechat::Courtroom::do_transition(QString p_desk_mod, QString oldPosId, QString newPosId)
+void spritechat::Courtroom::do_transition(theory::DeskMod p_desk_mod, const QString &oldPosId, const QString &newPosId)
 {
   display_character();
 
@@ -3010,10 +2553,10 @@ void spritechat::Courtroom::do_transition(QString p_desk_mod, QString oldPosId, 
   int duration = ao_app->get_pos_transition_duration(t_old_pos, t_new_pos);
 
   // conditions to stop slide
-  if (oldPosId == newPosId || old_pos.background != new_pos.background || !old_pos.origin.has_value() || !new_pos.origin.has_value() || !Options::getInstance().slidesEnabled() || m_chatmessage[SLIDE] != "1" || duration == -1 || m_chatmessage[EMOTE_MOD].toInt() == ZOOM || m_chatmessage[EMOTE_MOD].toInt() == PREANIM_ZOOM)
+  if (oldPosId == newPosId || old_pos.background != new_pos.background || !old_pos.origin || !new_pos.origin || !Options::getInstance().slidesEnabled() || !m_chatmessage.slide || duration == -1 || m_chatmessage.emoteMode == theory::EmoteMode::Zoom || m_chatmessage.emoteMode == theory::EmoteMode::PreAnimationZoom)
   {
 #ifdef DEBUG_TRANSITION
-    qDebug() << "skipping transition - not applicable";
+    zDebug(log::viewport) << "skipping transition - not applicable";
 #endif
     post_transition_cleanup();
     return;
@@ -3024,10 +2567,10 @@ void spritechat::Courtroom::do_transition(QString p_desk_mod, QString oldPosId, 
   ui_vp_dummy_char->setStyleSheet("background-color:rgba(255, 0, 0, 128);");
   ui_vp_sidedummy_char->setStyleSheet("background-color:rgba(0, 255, 0, 128);");
 
-  qDebug() << "STARTING TRANSITION";
+  zDebug(log::viewport) << "STARTING TRANSITION";
 #endif
 
-  set_scene(p_desk_mod.toInt(), oldPosId);
+  set_scene(p_desk_mod != theory::DeskMod::Hidden, oldPosId);
 
   int viewport_width = ui_viewport->width();
   int viewport_height = ui_viewport->height();
@@ -3049,14 +2592,10 @@ void spritechat::Courtroom::do_transition(QString p_desk_mod, QString oldPosId, 
     m_screenslide_timer->addAnimation(transition_animation);
   }
 
-  auto calculate_offset_and_setup_layer = [&, this](CharacterAnimationLayer *layer, QPoint newPos, QString rawOffset) {
+  auto calculate_offset_and_setup_layer = [&, this](CharacterAnimationLayer *layer, QPoint newPos, int offsetX, int offsetY) {
     QPoint offset;
-    QStringList offset_data = rawOffset.split("&");
-    offset.setX(viewport_width * offset_data.at(0).toInt() * 0.01);
-    if (offset_data.size() > 1)
-    {
-      offset.setY(viewport_height * offset_data.at(1).toInt() * 0.01);
-    }
+    offset.setX(viewport_width * offsetX * 0.01);
+    offset.setY(viewport_height * offsetY * 0.01);
 
     layer->setParent(ui_vp_background);
     layer->setPlayOnce(false);
@@ -3066,30 +2605,27 @@ void spritechat::Courtroom::do_transition(QString p_desk_mod, QString oldPosId, 
     layer->show();
   };
 
-  ui_vp_player_char->loadCharacterEmote(m_chatmessage[CHAR_NAME], m_chatmessage[EMOTE], CharacterAnimationLayer::IdleEmote);
+  ui_vp_player_char->loadCharacterEmote(m_chatmessage.character, m_chatmessage.emote, CharacterAnimationLayer::IdleEmote);
   ui_vp_player_char->show();
-  ui_vp_player_char->setFlipped(m_chatmessage[FLIP].toInt() == 1);
-  calculate_offset_and_setup_layer(ui_vp_player_char, scaled_new_pos, m_chatmessage[SELF_OFFSET]);
+  ui_vp_player_char->setFlipped(m_chatmessage.flip);
+  calculate_offset_and_setup_layer(ui_vp_player_char, scaled_new_pos, m_chatmessage.offsetX, m_chatmessage.offsetY);
 
-  auto is_pairing = [](QString *data) {
-    return (data[OTHER_CHARID].toInt() != -1 && !data[OTHER_NAME].isEmpty());
-  };
-  auto is_pair_under = [](QString data) -> bool {
-    QStringList pair_data = data.split("^");
-    return (pair_data.size() > 1) ? (pair_data.at(1).toInt() == 1) : false;
+  auto is_pairing = [](const theory::IcMessagePacket &message) {
+    return message.pair && !message.pair->character.isEmpty();
   };
 
-  ui_vp_dummy_char->loadCharacterEmote(m_previous_chatmessage[CHAR_NAME], m_previous_chatmessage[EMOTE], CharacterAnimationLayer::IdleEmote);
-  ui_vp_dummy_char->setFlipped(m_previous_chatmessage[FLIP].toInt() == 1);
-  calculate_offset_and_setup_layer(ui_vp_dummy_char, scaled_old_pos, m_previous_chatmessage[SELF_OFFSET]);
+  ui_vp_dummy_char->loadCharacterEmote(m_previous_chatmessage.character, m_previous_chatmessage.emote, CharacterAnimationLayer::IdleEmote);
+  ui_vp_dummy_char->setFlipped(m_previous_chatmessage.flip);
+  calculate_offset_and_setup_layer(ui_vp_dummy_char, scaled_old_pos, m_previous_chatmessage.offsetX, m_previous_chatmessage.offsetY);
 
   if (is_pairing(m_previous_chatmessage))
   {
-    qDebug() << "last message WAS paired";
-    ui_vp_sidedummy_char->loadCharacterEmote(m_previous_chatmessage[OTHER_NAME], m_previous_chatmessage[OTHER_EMOTE], CharacterAnimationLayer::IdleEmote);
-    ui_vp_sidedummy_char->setFlipped(m_previous_chatmessage[OTHER_FLIP].toInt() == 1);
-    calculate_offset_and_setup_layer(ui_vp_sidedummy_char, scaled_old_pos, m_previous_chatmessage[OTHER_OFFSET]);
-    if (is_pair_under(m_previous_chatmessage[OTHER_CHARID]))
+    zDebug(log::viewport) << "last message WAS paired";
+    const theory::IcMessagePacket::Pair &previous_pair = m_previous_chatmessage.pair.value();
+    ui_vp_sidedummy_char->loadCharacterEmote(previous_pair.character, previous_pair.emote, CharacterAnimationLayer::IdleEmote);
+    ui_vp_sidedummy_char->setFlipped(previous_pair.flip);
+    calculate_offset_and_setup_layer(ui_vp_sidedummy_char, scaled_old_pos, previous_pair.offsetX, previous_pair.offsetY);
+    if (previous_pair.order == theory::PairOrder::Behind)
     {
       ui_vp_dummy_char->stackUnder(ui_vp_sidedummy_char);
     }
@@ -3101,9 +2637,10 @@ void spritechat::Courtroom::do_transition(QString p_desk_mod, QString oldPosId, 
 
   if (is_pairing(m_chatmessage))
   {
-    ui_vp_sideplayer_char->loadCharacterEmote(m_chatmessage[OTHER_NAME], m_chatmessage[OTHER_EMOTE], CharacterAnimationLayer::IdleEmote);
-    calculate_offset_and_setup_layer(ui_vp_sideplayer_char, scaled_new_pos, m_chatmessage[OTHER_OFFSET]);
-    if (is_pair_under(m_chatmessage[OTHER_CHARID]))
+    const theory::IcMessagePacket::Pair &pair = m_chatmessage.pair.value();
+    ui_vp_sideplayer_char->loadCharacterEmote(pair.character, pair.emote, CharacterAnimationLayer::IdleEmote);
+    calculate_offset_and_setup_layer(ui_vp_sideplayer_char, scaled_new_pos, pair.offsetX, pair.offsetY);
+    if (pair.order == theory::PairOrder::Behind)
     {
       ui_vp_player_char->stackUnder(ui_vp_sideplayer_char);
     }
@@ -3140,23 +2677,20 @@ void spritechat::Courtroom::post_transition_cleanup()
   ui_vp_sideplayer_char->hide();
   ui_vp_sideplayer_char->move(0, 0);
 
-  set_scene(m_chatmessage[DESK_MOD].toInt(), m_chatmessage[SIDE]);
+  set_scene(m_chatmessage.deskMod != theory::DeskMod::Hidden, m_chatmessage.side);
 
   // Move the character on the viewport according to the offsets
-  set_self_offset(m_chatmessage[SELF_OFFSET], ui_vp_player_char);
+  set_self_offset(m_chatmessage.offsetX, m_chatmessage.offsetY, ui_vp_player_char);
 
-  int emote_mod = m_chatmessage[EMOTE_MOD].toInt();
-  bool immediate = m_chatmessage[IMMEDIATE].toInt() == 1;
-
-  // If the emote_mod is not zooming
-  if (emote_mod != ZOOM && emote_rows != PREANIM_ZOOM)
+  // If the emote mode is not zooming
+  if (m_chatmessage.emoteMode != theory::EmoteMode::Zoom && m_chatmessage.emoteMode != theory::EmoteMode::PreAnimationZoom)
   {
     // Display the pair character
-    display_pair_character(m_chatmessage[OTHER_CHARID], m_chatmessage[OTHER_OFFSET]);
+    display_pair_character();
   }
 
-  // Parse the emote_mod part of the chat message
-  handle_emote_mod(emote_mod, immediate);
+  // Parse the emote mode part of the chat message
+  handle_emote_mod(m_chatmessage.emoteMode, m_chatmessage.immediate);
 }
 
 void spritechat::Courtroom::do_flash()
@@ -3166,12 +2700,12 @@ void spritechat::Courtroom::do_flash()
     return;
   }
 
-  QString f_char = m_chatmessage[CHAR_NAME];
+  QString f_char = m_chatmessage.character;
   QString f_custom_theme = ao_app->get_chat(f_char);
   do_effect("realization", "", f_char, f_custom_theme);
 }
 
-void spritechat::Courtroom::do_effect(QString fx_path, QString fx_sound, QString p_char, QString p_folder)
+void spritechat::Courtroom::do_effect(const QString &fx_path, const QString &fx_sound, const QString &p_char, const QString &p_folder)
 {
   if (fx_path == "")
   {
@@ -3197,7 +2731,7 @@ void spritechat::Courtroom::do_effect(QString fx_path, QString fx_sound, QString
   }
   ui_vp_effect->setStretchToFit(ao_app->get_effect_property(fx_path, p_char, p_folder, "stretch").startsWith("true"));
   ui_vp_effect->setResizeMode(ao_app->get_scaling(ao_app->get_effect_property(fx_path, p_char, p_folder, "scaling")));
-  ui_vp_effect->setFlipped(ao_app->get_effect_property(fx_path, p_char, p_folder, "respect_flip").startsWith("true") && m_chatmessage[FLIP].toInt() == 1);
+  ui_vp_effect->setFlipped(ao_app->get_effect_property(fx_path, p_char, p_folder, "respect_flip").startsWith("true") && m_chatmessage.flip);
 
   bool looping = ao_app->get_effect_property(fx_path, p_char, p_folder, "loop").startsWith("true");
 
@@ -3240,22 +2774,10 @@ void spritechat::Courtroom::do_effect(QString fx_path, QString fx_sound, QString
   // This effect respects the character offset settings
   if (ao_app->get_effect_property(fx_path, p_char, p_folder, "respect_offset") == "true")
   {
-    QStringList self_offsets = m_chatmessage[SELF_OFFSET].split("&");
-    int self_offset = self_offsets[0].toInt();
-    int self_offset_v;
-    if (self_offsets.length() <= 1)
-    {
-      self_offset_v = 0;
-    }
-    else
-    {
-      self_offset_v = self_offsets[1].toInt();
-    }
-
     // Move the effects layer to match the position of our character
     const int percent = 100;
-    effect_x += ui_viewport->width() * self_offset / percent;
-    effect_y += ui_viewport->height() * self_offset_v / percent;
+    effect_x += ui_viewport->width() * m_chatmessage.offsetX / percent;
+    effect_y += ui_viewport->height() * m_chatmessage.offsetY / percent;
   }
   ui_vp_effect->move(effect_x, effect_y);
 
@@ -3264,29 +2786,18 @@ void spritechat::Courtroom::do_effect(QString fx_path, QString fx_sound, QString
   ui_vp_effect->setHideWhenStopped(cull);
 }
 
-void spritechat::Courtroom::play_char_sfx(QString sfx_name)
+void spritechat::Courtroom::play_char_sfx(const QString &sfx_name)
 {
   sfx_player->findAndPlaySfx(sfx_name);
 }
 
 void spritechat::Courtroom::initialize_chatbox()
 {
-  int f_charid = m_chatmessage[CHAR_ID].toInt();
-  if (f_charid >= 0 && f_charid < char_list.size() && (m_chatmessage[SHOWNAME].isEmpty() || !custom_shownames))
-  {
-    QString real_name = char_list.at(f_charid).name;
-    QString f_showname = ao_app->get_showname(real_name);
-
-    ui_vp_showname->setText(f_showname);
-  }
-  else
-  {
-    ui_vp_showname->setText(m_chatmessage[SHOWNAME]);
-  }
+  ui_vp_showname->setText(current_showname());
   QString customchar;
   if (Options::getInstance().customChatboxEnabled())
   {
-    customchar = m_chatmessage[CHAR_NAME];
+    customchar = m_chatmessage.character;
   }
   QString p_misc = ao_app->get_chat(customchar);
 
@@ -3375,7 +2886,7 @@ void spritechat::Courtroom::initialize_chatbox()
   pos_size_type design_ini_result = ao_app->get_element_dimensions("chat_arrow", "courtroom_design.ini", p_misc);
   if (design_ini_result.width < 0 || design_ini_result.height < 0)
   {
-    qWarning() << "could not find \"chat_arrow\" in courtroom_design.ini";
+    zWarning(log::ui) << "could not find \"chat_arrow\" in courtroom_design.ini";
     ui_vp_chat_arrow->hide();
   }
   else
@@ -3385,14 +2896,14 @@ void spritechat::Courtroom::initialize_chatbox()
   }
 
   QString font_name;
-  QString chatfont = ao_app->get_chat_font(m_chatmessage[CHAR_NAME]);
+  QString chatfont = ao_app->get_chat_font(m_chatmessage.character);
   if (chatfont != "")
   {
     font_name = chatfont;
   }
 
   int f_pointsize = 0;
-  int chatsize = ao_app->get_chat_size(m_chatmessage[CHAR_NAME]);
+  int chatsize = ao_app->get_chat_size(m_chatmessage.character);
   if (chatsize > 0)
   {
     f_pointsize = chatsize;
@@ -3403,7 +2914,7 @@ void spritechat::Courtroom::initialize_chatbox()
 void spritechat::Courtroom::handle_callwords()
 {
   // Quickly check through the message for the word_call (callwords) sfx
-  QString f_message = m_chatmessage[MESSAGE];
+  QString f_message = m_chatmessage.message;
   // No more file IO on every message.
   QStringList call_words = Options::getInstance().callwords();
   // Loop through each word in the call words list
@@ -3433,15 +2944,14 @@ void spritechat::Courtroom::handle_callwords()
 
 void spritechat::Courtroom::display_evidence_image()
 {
-  QString side = m_chatmessage[SIDE];
-  int f_evi_id = m_chatmessage[EVIDENCE_ID].toInt();
-  if (f_evi_id > 0 && f_evi_id <= global_evidence_list.size())
+  QString side = m_chatmessage.side;
+  int f_evi_idx = global_evidence_index(m_chatmessage.evidenceId);
+  if (f_evi_idx != -1)
   {
-    // shifted by 1 because 0 is no evidence per legacy standards
-    QString f_image = global_evidence_list.at(f_evi_id - 1).image;
+    QString f_image = global_evidence_list.at(f_evi_idx).evidence.image;
     //  def jud and hlp should display the evidence icon on the RIGHT side
     bool is_left_side = !(side.startsWith("def") || side == "hlp"); // FIXME : Hardcoded
-    ui_vp_evidence_display->show_evidence(f_evi_id, f_image, is_left_side, sfx_player->volume());
+    ui_vp_evidence_display->show_evidence(f_evi_idx, f_image, is_left_side, sfx_player->volume());
   }
   else
   {
@@ -3451,10 +2961,8 @@ void spritechat::Courtroom::display_evidence_image()
 
 void spritechat::Courtroom::handle_ic_speaking()
 {
-  QString side = m_chatmessage[SIDE];
-  int emote_mod = m_chatmessage[EMOTE_MOD].toInt();
-  // emote_mod 5 is zoom and emote_mod 6 is zoom w/ preanim.
-  if (emote_mod == ZOOM || emote_mod == PREANIM_ZOOM)
+  QString side = m_chatmessage.side;
+  if (m_chatmessage.emoteMode == theory::EmoteMode::Zoom || m_chatmessage.emoteMode == theory::EmoteMode::PreAnimationZoom)
   {
     // Hide the desks
     ui_vp_desk->hide();
@@ -3474,19 +2982,19 @@ void spritechat::Courtroom::handle_ic_speaking()
     // We're zooming, so hide the pair character and ignore pair offsets. This ain't about them.
     ui_vp_sideplayer_char->hide();
     ui_vp_player_char->move(0, 0);
-    ui_vp_speedlines->loadAndPlayAnimation(filename, m_chatmessage[CHAR_NAME], ao_app->get_chat(m_chatmessage[CHAR_NAME]));
+    ui_vp_speedlines->loadAndPlayAnimation(filename, m_chatmessage.character, ao_app->get_chat(m_chatmessage.character));
   }
 
   // Check if this is a talking color (white text, etc.)
-  color_is_talking = color_markdown_talking_list.at(m_chatmessage[TEXT_COLOR].toInt());
+  color_is_talking = color_markdown_talking_list.at(m_chatmessage.textColor);
   QString filename;
   // If color is talking, and our state isn't already talking
   if (color_is_talking && text_state == 1 && anim_state < 2)
   {
     // Play the talking animation
     anim_state = 2;
-    filename = m_chatmessage[EMOTE];
-    ui_vp_player_char->loadCharacterEmote(m_chatmessage[CHAR_NAME], m_chatmessage[EMOTE], CharacterAnimationLayer::TalkEmote);
+    filename = m_chatmessage.emote;
+    ui_vp_player_char->loadCharacterEmote(m_chatmessage.character, m_chatmessage.emote, CharacterAnimationLayer::TalkEmote);
     ui_vp_player_char->setPlayOnce(false);
     ui_vp_player_char->show();
     ui_vp_player_char->startPlayback();
@@ -3496,8 +3004,8 @@ void spritechat::Courtroom::handle_ic_speaking()
   {
     // Play the idle animation
     anim_state = 3;
-    filename = m_chatmessage[EMOTE];
-    ui_vp_player_char->loadCharacterEmote(m_chatmessage[CHAR_NAME], m_chatmessage[EMOTE], CharacterAnimationLayer::IdleEmote);
+    filename = m_chatmessage.emote;
+    ui_vp_player_char->loadCharacterEmote(m_chatmessage.character, m_chatmessage.emote, CharacterAnimationLayer::IdleEmote);
     ui_vp_player_char->setPlayOnce(false);
     ui_vp_player_char->show();
     ui_vp_player_char->startPlayback();
@@ -3817,7 +3325,7 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
   return p_text_escaped;
 }
 
-void spritechat::Courtroom::log_ic_text(QString p_name, QString p_showname, QString p_message, QString p_action, int p_color, bool p_selfname)
+void spritechat::Courtroom::log_ic_text(const QString &p_name, const QString &p_showname, const QString &p_message, const QString &p_action, int p_color, bool p_selfname)
 {
   ChatLogPiece log_entry;
   log_entry.character = p_name;
@@ -3840,7 +3348,7 @@ void spritechat::Courtroom::log_ic_text(QString p_name, QString p_showname, QStr
   }
 }
 
-void spritechat::Courtroom::append_ic_text(QString p_text, QString p_name, QString p_char, QString p_action, int color, bool selfname, QDateTime timestamp, bool ghost)
+void spritechat::Courtroom::append_ic_text(const QString &p_text, const QString &p_name, const QString &p_char, const QString &p_action, int color, bool selfname, const QDateTime &timestamp)
 {
   QColor chatlog_color = ao_app->get_color("ic_chatlog_color", "courtroom_fonts.ini");
   QTextCharFormat bold;
@@ -3868,29 +3376,9 @@ void spritechat::Courtroom::append_ic_text(QString p_text, QString p_name, QStri
 
   QString displayname = custom_shownames ? p_name : ao_app->get_showname(p_char);
 
-  if (ghost)
-  {
-    ghost_blocks++;
-    chatlog_color.setAlpha(128);
-    bold.setForeground(chatlog_color);
-    normal.setForeground(chatlog_color);
-    italics.setForeground(chatlog_color);
-  }
-  else
-  {
-    last_ic_message = displayname + ":" + p_text;
-  }
+  last_ic_message = displayname + ":" + p_text;
 
   ui_ic_chatlog->moveCursor(log_goes_downwards ? QTextCursor::End : QTextCursor::Start);
-
-  if (!ghost && ghost_blocks > 0)
-  {
-    for (int i = 0; i < ghost_blocks; ++i)
-    {
-      ui_ic_chatlog->moveCursor(log_goes_downwards ? QTextCursor::PreviousBlock : QTextCursor::NextBlock);
-    }
-    ui_ic_chatlog->moveCursor(log_goes_downwards ? QTextCursor::EndOfBlock : QTextCursor::StartOfBlock);
-  }
 
   // Only prepend with newline if log goes downwards
   if (log_goes_downwards && need_newline)
@@ -3909,7 +3397,7 @@ void spritechat::Courtroom::append_ic_text(QString p_text, QString p_name, QStri
     }
     else
     {
-      qCritical() << "could not insert invalid timestamp" << timestamp;
+      zCritical(log::ic) << "could not insert invalid timestamp" << timestamp;
     }
   }
 
@@ -3925,7 +3413,7 @@ void spritechat::Courtroom::append_ic_text(QString p_text, QString p_name, QStri
   else if (p_action == tr("shouts") && log_ic_actions)
   {
     ui_ic_chatlog->textCursor().insertText(" " + p_action + " ", normal);
-    if (log_colors && !ghost)
+    if (log_colors)
     {
       ui_ic_chatlog->textCursor().insertHtml("<b>" + filter_ic_text(p_text, true, -1, 0).replace("$c0", chatlog_color.name(QColor::HexArgb)) + "</b>");
     }
@@ -3974,10 +3462,6 @@ void spritechat::Courtroom::append_ic_text(QString p_text, QString p_name, QStri
       for (int c = 1; c < max_colors; ++c)
       {
         QColor color_result = default_color_rgb_list.at(c);
-        if (ghost)
-        {
-          color_result.setAlpha(128);
-        }
         p_text_filtered = p_text_filtered.replace("$c" + QString::number(c), color_result.name(QColor::HexArgb));
       }
       ui_ic_chatlog->textCursor().insertHtml(p_text_filtered);
@@ -4025,36 +3509,22 @@ void spritechat::Courtroom::append_ic_text(QString p_text, QString p_name, QStri
   }
 }
 
-void spritechat::Courtroom::pop_ic_ghost()
-{
-  QTextCursor ghost = ui_ic_chatlog->textCursor();
-  ghost.movePosition(log_goes_downwards ? QTextCursor::End : QTextCursor::Start);
-  for (int i = 1; i < ghost_blocks; ++i)
-  {
-    ghost.movePosition(log_goes_downwards ? QTextCursor::PreviousBlock : QTextCursor::NextBlock);
-  }
-  ghost.select(QTextCursor::BlockUnderCursor);
-  ghost.removeSelectedText();
-  if (ghost_blocks <= 1 && !log_goes_downwards)
-  {
-    ghost.deleteChar();
-  }
-  ghost_blocks--;
-}
-
 void spritechat::Courtroom::play_preanim(bool immediate)
 {
-  QString f_char = m_chatmessage[CHAR_NAME];
-  QString f_preanim = m_chatmessage[PRE_EMOTE];
-  // all time values in char.inis are multiplied by a constant(time_mod) to get
-  // the actual time
-  int preanim_duration = ao_app->get_preanim_duration(f_char, f_preanim);
-  int stay_time = ao_app->get_text_delay(f_char, f_preanim) * time_mod;
-  int sfx_delay = m_chatmessage[SFX_DELAY].toInt() * time_mod;
+  QString f_char = m_chatmessage.character;
+  sfx_delay_timer->start(m_chatmessage.sound ? m_chatmessage.sound->delay : 0);
 
-  sfx_delay_timer->start(sfx_delay);
-  QString anim_to_find = ao_app->get_image_suffix(ao_app->get_character_path(f_char, f_preanim));
-  if (!file_exists(anim_to_find))
+  bool preanim_found = false;
+  if (m_chatmessage.preAnimation)
+  {
+    QString anim_to_find = ao_app->get_image_suffix(ao_app->get_character_path(f_char, m_chatmessage.preAnimation.value()));
+    preanim_found = file_exists(anim_to_find);
+    if (!preanim_found)
+    {
+      zWarning(log::ic) << "could not find preanim" << m_chatmessage.preAnimation.value() << "for character" << f_char;
+    }
+  }
+  if (!preanim_found)
   {
     if (immediate)
     {
@@ -4065,29 +3535,29 @@ void spritechat::Courtroom::play_preanim(bool immediate)
       anim_state = 1;
     }
     preanim_done();
-    qWarning() << "could not find preanim" << f_preanim << "for character" << f_char;
     return;
   }
 
-  ui_vp_player_char->loadCharacterEmote(f_char, f_preanim, CharacterAnimationLayer::PreEmote, preanim_duration);
+  ui_vp_player_char->loadCharacterEmote(f_char, m_chatmessage.preAnimation.value(), CharacterAnimationLayer::PreEmote);
   ui_vp_player_char->setPlayOnce(true);
   ui_vp_player_char->startPlayback();
 
-  switch (m_chatmessage[DESK_MOD].toInt())
+  switch (m_chatmessage.deskMod)
   {
-  case DESK_EMOTE_ONLY_EX:
+  case theory::DeskMod::EmoteOnlyExpanded:
     ui_vp_sideplayer_char->hide();
     ui_vp_player_char->move(0, 0);
     [[fallthrough]];
-  case DESK_EMOTE_ONLY:
-  case DESK_HIDE:
-    set_scene(false, m_chatmessage[SIDE]);
+  case theory::DeskMod::EmoteOnly:
+  case theory::DeskMod::Hidden:
+    set_scene(false, m_chatmessage.side);
     break;
 
-  case DESK_PRE_ONLY_EX:
-  case DESK_PRE_ONLY:
-  case DESK_SHOW:
-    set_scene(true, m_chatmessage[SIDE]);
+  default:
+  case theory::DeskMod::PreAnimationOnlyExpanded:
+  case theory::DeskMod::PreAnimationOnly:
+  case theory::DeskMod::Shown:
+    set_scene(true, m_chatmessage.side);
     break;
   }
 
@@ -4099,10 +3569,6 @@ void spritechat::Courtroom::play_preanim(bool immediate)
   else
   {
     anim_state = 1;
-    if (stay_time >= 0)
-    {
-      text_delay_timer->start(stay_time);
-    }
   }
 }
 
@@ -4120,7 +3586,6 @@ void spritechat::Courtroom::preanim_done()
 
 void spritechat::Courtroom::start_chat_ticking()
 {
-  text_delay_timer->stop();
   // we need to ensure that the text isn't already ticking because this function
   // can be called by two logic paths
   if (text_state != 0)
@@ -4132,60 +3597,45 @@ void spritechat::Courtroom::start_chat_ticking()
   display_evidence_image();
 
   // handle expanded desk mods
-  switch (m_chatmessage[DESK_MOD].toInt())
+  switch (m_chatmessage.deskMod)
   {
-  case DESK_EMOTE_ONLY_EX:
-    set_self_offset(m_chatmessage[SELF_OFFSET], ui_vp_player_char);
+  case theory::DeskMod::EmoteOnlyExpanded:
+    set_self_offset(m_chatmessage.offsetX, m_chatmessage.offsetY, ui_vp_player_char);
     [[fallthrough]];
-  case DESK_EMOTE_ONLY:
-  case DESK_SHOW:
-    set_scene(true, m_chatmessage[SIDE]);
+  default:
+  case theory::DeskMod::EmoteOnly:
+  case theory::DeskMod::Shown:
+    set_scene(true, m_chatmessage.side);
     break;
 
-  case DESK_PRE_ONLY_EX:
+  case theory::DeskMod::PreAnimationOnlyExpanded:
     ui_vp_sideplayer_char->hide();
     ui_vp_player_char->move(0, 0);
     [[fallthrough]];
-  case DESK_PRE_ONLY:
-  case DESK_HIDE:
-    set_scene(false, m_chatmessage[SIDE]);
+  case theory::DeskMod::PreAnimationOnly:
+  case theory::DeskMod::Hidden:
+    set_scene(false, m_chatmessage.side);
     break;
   }
 
-  if (m_chatmessage[EFFECTS] != "")
+  if (m_chatmessage.effect)
   {
-    QStringList fx_list = m_chatmessage[EFFECTS].split("|");
-    QString fx = fx_list[0];
-    QString fx_sound;
-    QString fx_folder;
-
-    if (fx_list.length() > 1)
-    {
-      fx_sound = fx_list[1];
-    }
-
-    if (fx_list.length() > 2)
-    {
-      fx_folder = fx_list[1];
-      fx_sound = fx_list[2];
-    }
-    this->do_effect(fx, fx_sound, m_chatmessage[CHAR_NAME], fx_folder);
+    this->do_effect(m_chatmessage.effect->name, m_chatmessage.effect->sound, m_chatmessage.character, m_chatmessage.effect->folder);
   }
-  else if (m_chatmessage[REALIZATION] == "1")
+  else if (m_chatmessage.realization)
   {
     this->do_flash();
-    sfx_player->findAndPlaySfx(ao_app->get_custom_realization(m_chatmessage[CHAR_NAME]));
+    sfx_player->findAndPlaySfx(ao_app->get_custom_realization(m_chatmessage.character));
   }
-  int emote_mod = m_chatmessage[EMOTE_MOD].toInt(); // text meme bonanza
-  if ((emote_mod == IDLE || emote_mod == ZOOM) && m_chatmessage[SCREENSHAKE] == "1")
+  if ((m_chatmessage.emoteMode == theory::EmoteMode::Idle || m_chatmessage.emoteMode == theory::EmoteMode::Zoom) && m_chatmessage.screenshake)
   {
     this->do_screenshake();
   }
-  if (m_chatmessage[MESSAGE].isEmpty())
+  if (m_chatmessage.message.isEmpty())
   {
     // since the message is empty, it's technically done ticking
     text_state = 2;
-    if (m_chatmessage[ADDITIVE] == "1")
+    if (m_chatmessage.additive)
     {
       // Cool behavior
       ui_vp_chatbox->show();
@@ -4198,19 +3648,13 @@ void spritechat::Courtroom::start_chat_ticking()
       // Show it if chatbox always shows
       if (Options::getInstance().characterStickerEnabled() && chatbox_always_show)
       {
-        ui_vp_sticker->loadAndPlayAnimation(m_chatmessage[CHAR_NAME]);
+        ui_vp_sticker->loadAndPlayAnimation(m_chatmessage.character);
       }
       // Hide the face sticker
       else
       {
         ui_vp_sticker->stopPlayback();
       }
-    }
-    // If we're not already waiting on the next message, start the timer. We could be overriden if there's an objection planned.
-    int delay = Options::getInstance().textStayTime();
-    if (delay > 0 && !text_queue_timer->isActive())
-    {
-      text_queue_timer->start(delay);
     }
     return;
   }
@@ -4220,10 +3664,10 @@ void spritechat::Courtroom::start_chat_ticking()
 
   if (Options::getInstance().characterStickerEnabled())
   {
-    ui_vp_sticker->loadAndPlayAnimation(m_chatmessage[CHAR_NAME]);
+    ui_vp_sticker->loadAndPlayAnimation(m_chatmessage.character);
   }
 
-  if (m_chatmessage[ADDITIVE] != "1")
+  if (!m_chatmessage.additive)
   {
     ui_vp_message->clear();
     real_tick_pos = 0;
@@ -4241,17 +3685,17 @@ void spritechat::Courtroom::start_chat_ticking()
   chat_tick_timer->start(0); // Display the first char right away
 
   last_misc = current_misc;
-  current_misc = ao_app->get_chat(m_chatmessage[CHAR_NAME]);
+  current_misc = ao_app->get_chat(m_chatmessage.character);
   if ((last_misc != current_misc || char_color_rgb_list.size() < max_colors) && Options::getInstance().customChatboxEnabled())
   {
     gen_char_rgb_list(current_misc);
   }
 
-  QString f_blips = ao_app->get_blipname(m_chatmessage[CHAR_NAME]);
+  QString f_blips = ao_app->get_blipname(m_chatmessage.character);
   f_blips = ao_app->get_blips(f_blips);
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CUSTOM_BLIPS) && !m_chatmessage[BLIPNAME].isEmpty())
+  if (!m_chatmessage.blips.isEmpty())
   {
-    f_blips = ao_app->get_blips(m_chatmessage[BLIPNAME]);
+    f_blips = ao_app->get_blips(m_chatmessage.blips);
   }
   blip_player->setBlip(f_blips);
 
@@ -4266,7 +3710,7 @@ void spritechat::Courtroom::chat_tick()
   // note: this is called fairly often
   // do not perform heavy operations here
 
-  QString f_message = m_chatmessage[MESSAGE];
+  QString f_message = m_chatmessage.message;
 
   // Due to our new text speed system, we always need to stop the timer now.
   chat_tick_timer->stop();
@@ -4275,24 +3719,24 @@ void spritechat::Courtroom::chat_tick()
   {
     text_state = 2;
     // Check if we're a narrator msg
-    if (m_chatmessage[EMOTE] != "")
+    if (m_chatmessage.emote != "")
     {
       if (anim_state < 3)
       {
-        QStringList c_paths = {ao_app->get_image_suffix(ao_app->get_character_path(m_chatmessage[CHAR_NAME], "(c)" + m_chatmessage[EMOTE])), ao_app->get_image_suffix(ao_app->get_character_path(m_chatmessage[CHAR_NAME], "(c)/" + m_chatmessage[EMOTE]))};
+        QStringList c_paths = {ao_app->get_image_suffix(ao_app->get_character_path(m_chatmessage.character, "(c)" + m_chatmessage.emote)), ao_app->get_image_suffix(ao_app->get_character_path(m_chatmessage.character, "(c)/" + m_chatmessage.emote))};
         // if there is a (c) animation for this emote and we haven't played it already
         if (file_exists(ao_app->find_image(c_paths)) && (!c_played))
         {
           anim_state = 5;
           c_played = true;
-          ui_vp_player_char->loadCharacterEmote(m_chatmessage[CHAR_NAME], m_chatmessage[EMOTE], CharacterAnimationLayer::PostEmote);
+          ui_vp_player_char->loadCharacterEmote(m_chatmessage.character, m_chatmessage.emote, CharacterAnimationLayer::PostEmote);
           ui_vp_player_char->setPlayOnce(true);
           ui_vp_player_char->startPlayback();
         }
         else
         {
           anim_state = 3;
-          ui_vp_player_char->loadCharacterEmote(m_chatmessage[CHAR_NAME], m_chatmessage[EMOTE], CharacterAnimationLayer::IdleEmote);
+          ui_vp_player_char->loadCharacterEmote(m_chatmessage.character, m_chatmessage.emote, CharacterAnimationLayer::IdleEmote);
           ui_vp_player_char->setPlayOnce(false);
           ui_vp_player_char->startPlayback();
         }
@@ -4306,12 +3750,12 @@ void spritechat::Courtroom::chat_tick()
     QString f_custom_theme;
     if (Options::getInstance().customChatboxEnabled())
     {
-      f_char = m_chatmessage[CHAR_NAME];
+      f_char = m_chatmessage.character;
       f_custom_theme = ao_app->get_chat(f_char);
     }
     ui_vp_chat_arrow->setResizeMode(ao_app->get_misc_scaling(f_custom_theme));
     ui_vp_chat_arrow->loadAndPlayAnimation("chat_arrow", f_custom_theme); // Chat stopped being processed, indicate that.
-    QString f_message_filtered = filter_ic_text(f_message, true, -1, m_chatmessage[TEXT_COLOR].toInt());
+    QString f_message_filtered = filter_ic_text(f_message, true, -1, m_chatmessage.textColor);
     if (Options::getInstance().customChatboxEnabled())
     { // chatbox colors
       for (int c = 0; c < max_colors; ++c)
@@ -4330,26 +3774,6 @@ void spritechat::Courtroom::chat_tick()
     }
     additive_previous = additive_previous + f_message_filtered;
     real_tick_pos = ui_vp_message->toPlainText().size();
-
-    // If we're not already waiting on the next message, start the timer. We could be overriden if there's an objection planned.
-    int delay = Options::getInstance().textStayTime();
-    if (delay > 0 && !text_queue_timer->isActive())
-    {
-      text_queue_timer->start(delay);
-    }
-
-    // if we have instant objections disabled, and queue is not empty, check if next message after this is an objection.
-    if (!Options::getInstance().objectionSkipQueueEnabled() && chatmessage_queue.size() > 0)
-    {
-      QStringList p_contents = chatmessage_queue.head();
-      int objection_mod = p_contents[OBJECTION_MOD].split("&")[0].toInt();
-      bool is_objection = objection_mod >= 1 && objection_mod <= 5;
-      // If this is an objection, we'll need to interrupt our current message.
-      if (is_objection)
-      {
-        chatmessage_dequeue();
-      }
-    }
     return;
   }
 
@@ -4492,7 +3916,7 @@ void spritechat::Courtroom::chat_tick()
   else
   {
     // Do the colors, gradual showing, etc. in here
-    QString f_message_filtered = filter_ic_text(f_message, true, tick_pos, m_chatmessage[TEXT_COLOR].toInt());
+    QString f_message_filtered = filter_ic_text(f_message, true, tick_pos, m_chatmessage.textColor);
     if (Options::getInstance().customChatboxEnabled())
     { // use chatbox colors
       for (int c = 0; c < max_colors; ++c)
@@ -4564,21 +3988,21 @@ void spritechat::Courtroom::chat_tick()
       msg_delay = qMin(max_delay, msg_delay * punctuation_modifier);
     }
 
-    if (m_chatmessage[EMOTE] != "")
+    if (m_chatmessage.emote != "")
     {
       // If this color is talking
       if (color_is_talking && anim_state != 2 && anim_state < 4) // Set it to talking as we're not on that already (though we have
       // to avoid interrupting a non-interrupted preanim)
       {
         anim_state = 2;
-        ui_vp_player_char->loadCharacterEmote(m_chatmessage[CHAR_NAME], m_chatmessage[EMOTE], CharacterAnimationLayer::TalkEmote);
+        ui_vp_player_char->loadCharacterEmote(m_chatmessage.character, m_chatmessage.emote, CharacterAnimationLayer::TalkEmote);
         ui_vp_player_char->setPlayOnce(false);
         ui_vp_player_char->startPlayback();
       }
       else if (!color_is_talking && anim_state < 3 && anim_state != 3) // Set it to idle as we're not on that already
       {
         anim_state = 3;
-        ui_vp_player_char->loadCharacterEmote(m_chatmessage[CHAR_NAME], m_chatmessage[EMOTE], CharacterAnimationLayer::IdleEmote);
+        ui_vp_player_char->loadCharacterEmote(m_chatmessage.character, m_chatmessage.emote, CharacterAnimationLayer::IdleEmote);
         ui_vp_player_char->setPlayOnce(false);
         ui_vp_player_char->startPlayback();
       }
@@ -4590,24 +4014,20 @@ void spritechat::Courtroom::chat_tick()
 
 void spritechat::Courtroom::play_sfx()
 {
-  QString sfx_name = m_chatmessage[SFX_NAME];
-  if (m_chatmessage[SCREENSHAKE] == "1") // Screenshake dependant on preanim sfx delay meme
+  if (m_chatmessage.screenshake) // Screenshake dependant on preanim sfx delay meme
   {
     this->do_screenshake();
   }
-  if (sfx_name == "1")
+  if (!m_chatmessage.sound || m_chatmessage.sound->name == "1")
   {
     return;
   }
 
-  sfx_player->findAndPlaySfx(sfx_name);
-  if (Options::getInstance().loopingSfx())
-  {
-    sfx_player->setLooping(m_chatmessage[LOOPING_SFX] == "1");
-  }
+  sfx_player->findAndPlaySfx(m_chatmessage.sound->name);
+  sfx_player->setLooping(m_chatmessage.sound->loop && Options::getInstance().loopingSfx());
 }
 
-void spritechat::Courtroom::set_scene(bool show_desk, const QString f_side)
+void spritechat::Courtroom::set_scene(bool show_desk, const QString &f_side)
 {
   BackgroundPosition pos = ao_app->get_pos_path(f_side);
 
@@ -4664,20 +4084,9 @@ void spritechat::Courtroom::set_scene(bool show_desk, const QString f_side)
   }
 }
 
-void spritechat::Courtroom::set_self_offset(const QString &p_list, AnimationLayer *p_layer)
+void spritechat::Courtroom::set_self_offset(int offset_x, int offset_y, AnimationLayer *p_layer)
 {
-  QStringList self_offsets = p_list.split("&");
-  int self_offset = self_offsets[0].toInt();
-  int self_offset_v;
-  if (self_offsets.length() <= 1)
-  {
-    self_offset_v = 0;
-  }
-  else
-  {
-    self_offset_v = self_offsets[1].toInt();
-  }
-  p_layer->move(ui_viewport->width() * self_offset / 100, ui_viewport->height() * self_offset_v / 100);
+  p_layer->move(ui_viewport->width() * offset_x / 100, ui_viewport->height() * offset_y / 100);
 }
 
 void spritechat::Courtroom::set_ip_list(QString p_list)
@@ -4687,28 +4096,9 @@ void spritechat::Courtroom::set_ip_list(QString p_list)
   ui_server_chatlog->append(f_list);
 }
 
-void spritechat::Courtroom::set_mute(bool p_muted, int p_cid)
+theory::CharacterId spritechat::Courtroom::get_character_id()
 {
-  if (p_cid != m_cid && p_cid != -1)
-  {
-    return;
-  }
-
-  if (p_muted)
-  {
-    ui_muted->show();
-  }
-  else
-  {
-    ui_muted->hide();
-    focus_ic_input();
-  }
-
-  ui_muted->resize(ui_ic_chat_message->width(), ui_ic_chat_message->height());
-  ui_muted->setImage("muted");
-
-  is_muted = p_muted;
-  ui_ic_chat_message->setEnabled(!p_muted);
+  return m_cid;
 }
 
 QString spritechat::Courtroom::get_current_char()
@@ -4738,71 +4128,36 @@ QString spritechat::Courtroom::current_or_default_side()
   return side;
 }
 
-void spritechat::Courtroom::handle_song(QStringList *p_contents)
+void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet)
 {
-  QStringList f_contents = *p_contents;
+  const theory::MusicChannel channel = packet.channel;
+  const theory::MusicEffects effects = packet.effects;
+  const bool looping = packet.loop;
 
-  if (f_contents.size() < 2)
+  const bool is_stop = !packet.track || packet.track->trimmed().isEmpty();
+
+  QString f_song;
+  QString f_song_clear;
+  if (!is_stop)
   {
-    return;
+    f_song = packet.track.value();
+    f_song_clear = find_track(f_song).value_or(theory::MusicTrack{.fileName = f_song}).displayName();
   }
 
-  bool ok;              // Used for charID, channel, effect check
-  bool looping = false; // No loop due to outdated server using serverside looping
-  int channel = 0;      // Channel 0 is 'master music', other for ambient
-  int effect_flags = 0; // No effects by default - vanilla functionality
+  theory::CharacterId n_char = packet.characterId;
 
-  QString f_song = f_contents.at(0);
-  QString f_song_clear = QUrl(f_song).fileName();
-  f_song_clear = f_song_clear.left(f_song_clear.lastIndexOf('.'));
-
-  int n_char = f_contents.at(1).toInt(&ok);
-  if (!ok)
-  {
-    return;
-  }
-
-  if (p_contents->length() > 3 && p_contents->at(3) == "1")
-  {
-    looping = true;
-  }
-
-  if (p_contents->length() > 4)
-  {
-    // eyyy we want to change this song's CHANNEL huh
-    // let the music player handle it if it's bigger than the channel list
-    channel = p_contents->at(4).toInt(&ok);
-    if (!ok)
-    {
-      return;
-    }
-  }
-  if (p_contents->length() > 5)
-  {
-    // Flags provided to us by server such as Fade In, Fade Out, Sync Pos etc.
-    effect_flags = p_contents->at(5).toInt(&ok);
-    if (!ok)
-    {
-      return;
-    }
-  }
-
-  if (!file_exists(ao_app->get_sfx_suffix(ao_app->get_music_path(f_song))) && !f_song.startsWith("http") && f_song != "~stop.mp3" && !ao_app->m_serverdata.get_asset_url().isEmpty())
+  if (!is_stop && !file_exists(ao_app->get_sfx_suffix(ao_app->get_music_path(f_song))) && !f_song.startsWith("http") && !ao_app->m_serverdata.get_asset_url().isEmpty())
   {
     f_song = (ao_app->m_serverdata.get_asset_url() + "sounds/music/" + f_song).toLower();
   }
 
-  bool is_stop = (f_song == "~stop.mp3");
   if (n_char >= 0 && n_char < char_list.size())
   {
-    QString str_char = char_list.at(n_char).name;
+    QString str_char = char_list.at(n_char);
     QString str_show = ao_app->get_showname(str_char);
-    if (p_contents->length() > 2)
+    if (packet.characterName)
     {
-      if (p_contents->at(2) != "")
-      {
-        str_show = p_contents->at(2);
-      }
+      str_show = packet.characterName.value();
     }
     if (!mute_map.value(n_char))
     {
@@ -4820,46 +4175,61 @@ void spritechat::Courtroom::handle_song(QStringList *p_contents)
     }
   }
 
-  if (channel == 0)
+  // Current song UI only displays the song playing, not other channels.
+  // Any other music playing is irrelevant.
+  if (channel == theory::MusicChannel::Music)
   {
-    // Current song UI only displays the song playing, not other channels.
-    // Any other music playing is irrelevant.
-    if (music_player->m_watcher.isRunning())
+    if (is_stop)
     {
-      music_player->m_watcher.cancel();
+      ui_music_name->setText(tr("None"));
     }
-    ui_music_name->setText(tr("[LOADING] %1").arg(f_song_clear));
+    else
+    {
+      ui_music_name->setText(f_song_clear);
+    }
   }
 
-  music_player->m_watcher.setFuture(QtConcurrent::run([=, this]() -> QString { return music_player->playStream(f_song, channel, looping, effect_flags); }));
-}
-
-void spritechat::Courtroom::update_ui_music_name()
-{
-  QString result = music_player->m_watcher.result();
-  if (result.isEmpty())
+  if (is_stop)
   {
+    if (channel == theory::MusicChannel::Music)
+    {
+      music_player->stop(effects);
+    }
+    else if (channel == theory::MusicChannel::Ambient)
+    {
+      ambient_player->stop(effects);
+    }
     return;
   }
-  ui_music_name->setText(result);
+
+  const AOMusicTrack track = ao_app->get_music_track(f_song);
+  if (channel == theory::MusicChannel::Music)
+  {
+    QtConcurrent::run([=, this] { music_player->play(track, effects, looping); });
+  }
+  else if (channel == theory::MusicChannel::Ambient)
+  {
+    QtConcurrent::run([=, this] { ambient_player->play(track, effects, looping); });
+  }
 }
 
-void spritechat::Courtroom::handle_wtce(QString p_wtce, int variant)
+void spritechat::Courtroom::handle_wtce(const theory::SplashPacket &packet)
 {
   // QString sfx_file = "courtroom_sounds.ini";
   QString bg_misc = ao_app->read_design_ini("misc", ao_app->get_background_path("design.ini"));
   QString sfx_name;
   QString filename;
   ui_vp_wtce->setMaximumDurationPerFrame(wtce_max_time);
-  // witness testimony
-  if (p_wtce == "testimony1")
+
+  switch (packet.type)
   {
-    // End testimony indicator
-    if (variant == 1)
-    {
-      ui_vp_testimony->stopPlayback();
-      return;
-    }
+  default:
+  // End testimony indicator
+  case theory::SplashType::None:
+    ui_vp_testimony->stopPlayback();
+    return;
+
+  case theory::SplashType::WitnessTestimony:
     sfx_name = ao_app->get_court_sfx("witness_testimony", bg_misc);
     if (sfx_name == "")
     {
@@ -4867,10 +4237,9 @@ void spritechat::Courtroom::handle_wtce(QString p_wtce, int variant)
     }
     filename = "witnesstestimony_bubble";
     ui_vp_testimony->loadAndPlayAnimation("testimony", "", bg_misc);
-  }
-  // cross examination
-  else if (p_wtce == "testimony2")
-  {
+    break;
+
+  case theory::SplashType::CrossExamination:
     sfx_name = ao_app->get_court_sfx("cross_examination", bg_misc);
     if (sfx_name == "")
     {
@@ -4878,57 +4247,53 @@ void spritechat::Courtroom::handle_wtce(QString p_wtce, int variant)
     }
     filename = "crossexamination_bubble";
     ui_vp_testimony->stopPlayback();
-  }
-  else
-  {
+    break;
+
+  case theory::SplashType::NotGuilty:
     ui_vp_wtce->setMaximumDurationPerFrame(verdict_max_time);
-    // Verdict?
-    if (p_wtce == "judgeruling")
+    sfx_name = ao_app->get_court_sfx("not_guilty", bg_misc);
+    if (sfx_name == "")
     {
-      if (variant == 0)
-      {
-        sfx_name = ao_app->get_court_sfx("not_guilty", bg_misc);
-        if (sfx_name == "")
-        {
-          sfx_name = ao_app->get_court_sfx("notguilty", bg_misc);
-        }
-        filename = "notguilty_bubble";
-        ui_vp_testimony->stopPlayback();
-      }
-      else if (variant == 1)
-      {
-        sfx_name = ao_app->get_court_sfx("guilty", bg_misc);
-        filename = "guilty_bubble";
-        ui_vp_testimony->stopPlayback();
-      }
+      sfx_name = ao_app->get_court_sfx("notguilty", bg_misc);
     }
-    // Completely custom WTCE
-    else
-    {
-      sfx_name = p_wtce;
-      filename = p_wtce;
-    }
+    filename = "notguilty_bubble";
+    ui_vp_testimony->stopPlayback();
+    break;
+
+  case theory::SplashType::Guilty:
+    ui_vp_wtce->setMaximumDurationPerFrame(verdict_max_time);
+    sfx_name = ao_app->get_court_sfx("guilty", bg_misc);
+    filename = "guilty_bubble";
+    ui_vp_testimony->stopPlayback();
+    break;
+
+  case theory::SplashType::Custom:
+    ui_vp_wtce->setMaximumDurationPerFrame(verdict_max_time);
+    sfx_name = packet.custom.value_or(QString());
+    filename = packet.custom.value_or(QString());
+    break;
   }
+
   sfx_player->findAndPlaySfx(sfx_name);
   ui_vp_wtce->loadAndPlayAnimation(filename, "", bg_misc);
   ui_vp_wtce->setPlayOnce(true);
 }
 
-void spritechat::Courtroom::set_hp_bar(int p_bar, int p_state)
+void spritechat::Courtroom::set_hp_bar(theory::HealthBar p_bar, int p_state)
 {
-  if (p_state < 0 || p_state > 10)
+  if (p_state < theory::MinimumHealth || p_state > theory::MaximumHealth)
   {
     return;
   }
 
   int prev_state = p_state;
-  if (p_bar == 1)
+  if (p_bar == theory::HealthBar::Defense)
   {
     ui_defense_bar->setImage("defensebar" + QString::number(p_state));
     prev_state = defense_bar_state;
     defense_bar_state = p_state;
   }
-  else if (p_bar == 2)
+  else if (p_bar == theory::HealthBar::Prosecution)
   {
     ui_prosecution_bar->setImage("prosecutionbar" + QString::number(p_state));
     prev_state = prosecution_bar_state;
@@ -4973,10 +4338,6 @@ void spritechat::Courtroom::set_hp_bar(int p_bar, int p_state)
 
 void spritechat::Courtroom::show_judge_controls(bool visible)
 {
-  if (judge_state != POS_DEPENDENT)
-  {
-    visible = judge_state == SHOW_CONTROLS; // Server-side override
-  }
   QList<QWidget *> judge_controls = {ui_witness_testimony, ui_cross_examination, ui_guilty, ui_not_guilty, ui_defense_minus, ui_defense_plus, ui_prosecution_minus, ui_prosecution_plus};
 
   for (QWidget *control : judge_controls)
@@ -4992,7 +4353,7 @@ void spritechat::Courtroom::show_judge_controls(bool visible)
   }
 }
 
-void spritechat::Courtroom::mod_called(QString p_ip)
+void spritechat::Courtroom::mod_called(const QString &p_ip)
 {
   ui_server_chatlog->append(p_ip);
   if (!ui_guard->isChecked())
@@ -5006,9 +4367,7 @@ void spritechat::Courtroom::on_ooc_return_pressed()
 {
   QString ooc_message = ui_ooc_chat_message->text();
 
-  // We ignore it when the server is compatible with 2.8
-  // Using an arbitrary 2.8 feature flag certainly won't cause issues someday.
-  if (ooc_message.startsWith("/pos") && ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EFFECTS))
+  if (ooc_message.startsWith("/pos"))
   {
     if (ooc_message == "/pos jud")
     {
@@ -5075,11 +4434,17 @@ void spritechat::Courtroom::on_ooc_return_pressed()
     }
     if (!casedoc.isEmpty())
     {
-      ao_app->send_server_packet(AOPacket("CT", {ui_ooc_chat_name->text(), "/doc " + casedoc}));
+      theory::OocMessagePacket packet;
+      packet.name = ui_ooc_chat_name->text();
+      packet.message = "/doc " + casedoc;
+      ao_app->shipPacket(packet);
     }
     if (!casestatus.isEmpty())
     {
-      ao_app->send_server_packet(AOPacket("CT", {ui_ooc_chat_name->text(), "/status " + casestatus}));
+      theory::OocMessagePacket packet;
+      packet.name = ui_ooc_chat_name->text();
+      packet.message = "/status " + casestatus;
+      ao_app->shipPacket(packet);
     }
     if (!cmdoc.isEmpty())
     {
@@ -5088,7 +4453,9 @@ void spritechat::Courtroom::on_ooc_return_pressed()
 
     for (int i = local_evidence_list.size() - 1; i >= 0; i--)
     {
-      ao_app->send_server_packet(AOPacket("DE", {QString::number(i)}));
+      theory::DeleteEvidencePacket packet;
+      packet.evidenceId = local_evidence_list.at(i).id;
+      ao_app->shipPacket(packet);
     }
 
     // sort the case_evidence numerically
@@ -5103,13 +4470,12 @@ void spritechat::Courtroom::on_ooc_return_pressed()
         continue;
       }
 
-      QStringList f_contents;
+      theory::AddEvidencePacket packet;
+      packet.evidence.name = casefile.value(evi + "/name", tr("UNKNOWN")).value<QString>();
+      packet.evidence.description = casefile.value(evi + "/description", tr("UNKNOWN")).value<QString>();
+      packet.evidence.image = casefile.value(evi + "/image", "UNKNOWN.png").value<QString>();
 
-      f_contents.append(casefile.value(evi + "/name", tr("UNKNOWN")).value<QString>());
-      f_contents.append(casefile.value(evi + "/description", tr("UNKNOWN")).value<QString>());
-      f_contents.append(casefile.value(evi + "/image", "UNKNOWN.png").value<QString>());
-
-      ao_app->send_server_packet(AOPacket("PE", f_contents));
+      ao_app->shipPacket(packet);
     }
 
     append_server_chatmessage("CLIENT", tr("Your case \"%1\" was loaded!").arg(command[1]), "1");
@@ -5164,13 +4530,13 @@ void spritechat::Courtroom::on_ooc_return_pressed()
     static QRegularExpression owner_regexp("<owner = ...>...");
     for (int i = 0; i < local_evidence_list.size(); i++)
     {
-      QString clean_evidence_dsc = local_evidence_list[i].description.replace(owner_regexp, "");
+      QString clean_evidence_dsc = local_evidence_list[i].evidence.description.replace(owner_regexp, "");
       clean_evidence_dsc = clean_evidence_dsc.replace(clean_evidence_dsc.lastIndexOf(">"), 1, "");
       casefile.beginGroup(QString::number(i));
       casefile.sync();
-      casefile.setValue("name", local_evidence_list[i].name);
-      casefile.setValue("description", local_evidence_list[i].description);
-      casefile.setValue("image", local_evidence_list[i].image);
+      casefile.setValue("name", local_evidence_list[i].evidence.name);
+      casefile.setValue("description", local_evidence_list[i].evidence.description);
+      casefile.setValue("image", local_evidence_list[i].evidence.image);
       casefile.endGroup();
     }
     casefile.sync();
@@ -5179,15 +4545,13 @@ void spritechat::Courtroom::on_ooc_return_pressed()
     return;
   }
 
-  QStringList packet_contents;
-  packet_contents.append(ui_ooc_chat_name->text());
-  packet_contents.append(ooc_message);
-
-  AOPacket f_packet("CT", packet_contents);
+  theory::OocMessagePacket packet;
+  packet.name = ui_ooc_chat_name->text();
+  packet.message = ooc_message;
 
   if (server_ooc)
   {
-    ao_app->send_server_packet(f_packet);
+    ao_app->shipPacket(packet);
   }
 
   ui_ooc_chat_message->clear();
@@ -5216,7 +4580,7 @@ void spritechat::Courtroom::on_ooc_toggle_clicked()
 }
 
 // Todo: multithread this due to some servers having large as hell music list
-void spritechat::Courtroom::on_music_search_edited(QString p_text)
+void spritechat::Courtroom::on_music_search_edited(const QString &p_text)
 {
   // Iterate through all QTreeWidgetItem items
   if (!ui_music_list->isHidden())
@@ -5281,7 +4645,7 @@ void spritechat::Courtroom::on_music_search_return_pressed()
   }
 }
 
-void spritechat::Courtroom::on_pos_dropdown_changed(QString p_side)
+void spritechat::Courtroom::on_pos_dropdown_changed(const QString &p_side)
 {
   if (p_side.isEmpty() || p_side == default_side())
   {
@@ -5321,15 +4685,15 @@ void spritechat::Courtroom::set_iniswap_dropdown()
 {
   ui_iniswap_dropdown->blockSignals(true);
   ui_iniswap_dropdown->clear();
-  if (m_cid == -1)
+  if (m_cid == theory::NoCharacterId)
   {
     ui_iniswap_dropdown->hide();
     ui_iniswap_remove->hide();
     return;
   }
-  QStringList iniswaps = ao_app->get_list_file(ao_app->get_character_path(char_list.at(m_cid).name, "iniswaps.ini")) + ao_app->get_list_file(VPath("iniswaps.ini"));
+  QStringList iniswaps = ao_app->get_list_file(ao_app->get_character_path(char_list.at(m_cid), "iniswaps.ini")) + ao_app->get_list_file(VPath("iniswaps.ini"));
 
-  iniswaps.prepend(char_list.at(m_cid).name);
+  iniswaps.prepend(char_list.at(m_cid));
   iniswaps.removeDuplicates();
   if (iniswaps.size() <= 0)
   {
@@ -5365,11 +4729,11 @@ void spritechat::Courtroom::on_iniswap_dropdown_changed(int p_index)
   QString iniswap = ui_iniswap_dropdown->itemText(p_index);
 
   QStringList swaplist;
-  QStringList defswaplist = ao_app->get_list_file(ao_app->get_character_path(char_list.at(m_cid).name, "iniswaps.ini"));
+  QStringList defswaplist = ao_app->get_list_file(ao_app->get_character_path(char_list.at(m_cid), "iniswaps.ini"));
   for (int i = 0; i < ui_iniswap_dropdown->count(); ++i)
   {
     QString entry = ui_iniswap_dropdown->itemText(i);
-    if (!swaplist.contains(entry) && entry != char_list.at(m_cid).name && !defswaplist.contains(entry))
+    if (!swaplist.contains(entry) && entry != char_list.at(m_cid) && !defswaplist.contains(entry))
     {
       swaplist.append(entry);
     }
@@ -5406,7 +4770,7 @@ void spritechat::Courtroom::on_iniswap_context_menu_requested(const QPoint &pos)
   {
     menu->addAction(QString("Edit " + current_char + "/char.ini"), this, &Courtroom::on_iniswap_edit_requested);
   }
-  if (ui_iniswap_dropdown->itemText(ui_iniswap_dropdown->currentIndex()) != char_list.at(m_cid).name)
+  if (ui_iniswap_dropdown->itemText(ui_iniswap_dropdown->currentIndex()) != char_list.at(m_cid))
   {
     menu->addAction(QString("Remove " + current_char), this, &Courtroom::on_iniswap_remove_clicked);
   }
@@ -5442,9 +4806,9 @@ void spritechat::Courtroom::on_iniswap_remove_clicked()
                                // client will crash
     return;
   }
-  QStringList defswaplist = ao_app->get_list_file(ao_app->get_character_path(char_list.at(m_cid).name, "iniswaps.ini"));
+  QStringList defswaplist = ao_app->get_list_file(ao_app->get_character_path(char_list.at(m_cid), "iniswaps.ini"));
   QString iniswap = ui_iniswap_dropdown->itemText(ui_iniswap_dropdown->currentIndex());
-  if (iniswap != char_list.at(m_cid).name && !defswaplist.contains(iniswap))
+  if (iniswap != char_list.at(m_cid) && !defswaplist.contains(iniswap))
   {
     ui_iniswap_dropdown->removeItem(ui_iniswap_dropdown->currentIndex());
   }
@@ -5456,7 +4820,7 @@ void spritechat::Courtroom::set_sfx_dropdown()
 {
   ui_sfx_dropdown->blockSignals(true);
   ui_sfx_dropdown->clear();
-  if (m_cid == -1)
+  if (m_cid == theory::NoCharacterId)
   {
     ui_sfx_dropdown->hide();
     ui_sfx_remove->hide();
@@ -5506,7 +4870,7 @@ void spritechat::Courtroom::on_sfx_dropdown_changed(int p_index)
   }
 }
 
-void spritechat::Courtroom::on_sfx_dropdown_custom(QString p_sfx)
+void spritechat::Courtroom::on_sfx_dropdown_custom(const QString &p_sfx)
 {
   ui_sfx_remove->show();
   custom_sfx = p_sfx;
@@ -5584,7 +4948,7 @@ void spritechat::Courtroom::set_effects_dropdown()
 {
   ui_effects_dropdown->blockSignals(true);
   ui_effects_dropdown->clear();
-  if (m_cid == -1)
+  if (m_cid == theory::NoCharacterId)
   {
     ui_effects_dropdown->hide();
     return;
@@ -5657,7 +5021,7 @@ void spritechat::Courtroom::on_effects_dropdown_changed(int p_index)
   focus_ic_input();
 }
 
-bool spritechat::Courtroom::effects_dropdown_find_and_set(QString effect)
+bool spritechat::Courtroom::effects_dropdown_find_and_set(const QString &effect)
 {
   for (int i = 0; i < ui_effects_dropdown->count(); ++i)
   {
@@ -5714,11 +5078,11 @@ void spritechat::Courtroom::on_mute_list_clicked(QModelIndex p_index)
     real_char = f_char;
   }
 
-  int f_cid = -1;
+  theory::CharacterId f_cid = theory::NoCharacterId;
 
-  for (int n_char = 0; n_char < char_list.size(); n_char++)
+  for (theory::CharacterId n_char = 0; n_char < char_list.size(); n_char++)
   {
-    if (char_list.at(n_char).name == real_char)
+    if (char_list.at(n_char) == real_char)
     {
       f_cid = n_char;
     }
@@ -5726,7 +5090,7 @@ void spritechat::Courtroom::on_mute_list_clicked(QModelIndex p_index)
 
   if (f_cid < 0 || f_cid >= char_list.size())
   {
-    qWarning() << "" << real_char << " not present in char_list";
+    zWarning(log::character) << "" << real_char << " not present in char_list";
     return;
   }
 
@@ -5747,7 +5111,7 @@ void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
   QListWidgetItem *f_item = ui_pair_list->item(p_index.row());
   QString f_char = f_item->text();
   QString real_char;
-  int f_cid = -1;
+  theory::CharacterId f_cid = theory::NoCharacterId;
 
   if (f_char.endsWith(" [x]"))
   {
@@ -5757,9 +5121,9 @@ void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
   else
   {
     real_char = f_char;
-    for (int n_char = 0; n_char < char_list.size(); n_char++)
+    for (theory::CharacterId n_char = 0; n_char < char_list.size(); n_char++)
     {
-      if (char_list.at(n_char).name == real_char)
+      if (char_list.at(n_char) == real_char)
       {
         f_cid = n_char;
       }
@@ -5768,7 +5132,7 @@ void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
 
   if (f_cid < -2 || f_cid >= char_list.size())
   {
-    qWarning() << "" << real_char << " not present in char_list";
+    zWarning(log::character) << "" << real_char << " not present in char_list";
     return;
   }
 
@@ -5777,9 +5141,9 @@ void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
   // Redo the character list.
   QStringList sorted_pair_list;
 
-  for (const CharacterSlot &i_char : std::as_const(char_list))
+  for (const QString &i_char : std::as_const(char_list))
   {
-    sorted_pair_list.append(i_char.name);
+    sorted_pair_list.append(i_char);
   }
 
   sorted_pair_list.sort();
@@ -5788,7 +5152,7 @@ void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
   {
     ui_pair_list->item(i)->setText(sorted_pair_list.at(i));
   }
-  if (other_charid != -1)
+  if (other_charid != theory::NoCharacterId)
   {
     f_item->setText(real_char + " [x]");
   }
@@ -5796,28 +5160,24 @@ void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
 
 void spritechat::Courtroom::on_music_list_double_clicked(QTreeWidgetItem *p_item, int column)
 {
-  if (is_muted)
-  {
-    return;
-  }
-  if (!Options::getInstance().stopMusicOnCategoryEnabled() && p_item->parent() == nullptr)
-  {
-    return;
-  }
   column = 1; // Column 1 is always the metadata (which we want)
   QString p_song = p_item->text(column);
-  QStringList packet_contents;
-  packet_contents.append(p_song);
-  packet_contents.append(QString::number(m_cid));
-  if ((!ui_ic_chat_name->text().isEmpty() && ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CCCC_IC_SUPPORT)) || ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EFFECTS))
+  if (p_song.isEmpty()) // a playlist heading, not a track
   {
-    packet_contents.append(ui_ic_chat_name->text());
+    if (Options::getInstance().stopMusicOnCategoryEnabled())
+    {
+      music_stop(false);
+    }
+    return;
   }
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EFFECTS))
-  {
-    packet_contents.append(QString::number(music_flags));
-  }
-  ao_app->send_server_packet(AOPacket("MC", packet_contents));
+
+  theory::PlayMusicPacket packet;
+  packet.track = p_song;
+  packet.effects.setFlag(theory::FadeIn, music_flags & FADE_IN);
+  packet.effects.setFlag(theory::FadeOut, music_flags & FADE_OUT);
+  packet.effects.setFlag(theory::SynchronizePosition, music_flags & SYNC_POS);
+  packet.noRepeat = music_flags & NO_REPEAT;
+  ao_app->shipPacket(packet);
 }
 
 void spritechat::Courtroom::on_music_list_context_menu_requested(const QPoint &pos)
@@ -5987,63 +5347,31 @@ void spritechat::Courtroom::music_list_collapse_all()
 
 void spritechat::Courtroom::music_stop(bool no_effects)
 {
-  if (is_muted)
+  theory::PlayMusicPacket packet;
+  if (!no_effects)
   {
-    return;
+    packet.effects.setFlag(theory::FadeIn, music_flags & FADE_IN);
+    packet.effects.setFlag(theory::FadeOut, music_flags & FADE_OUT);
+    packet.effects.setFlag(theory::SynchronizePosition, music_flags & SYNC_POS);
+    packet.noRepeat = music_flags & NO_REPEAT;
   }
 
-  // Default fake song is a song present in Vanilla content, the ~stop.mp3
-  QString fake_song = "~stop.mp3";
-  // If the fake song is not present in the music list
-  if (!music_list.contains(fake_song))
-  {
-    // Loop through our music list
-    for (const QString &song : std::as_const(music_list))
-    {
-      // Pick first song that does not contain a file extension
-      if (!song.contains('.'))
-      {
-        // Use it as a fake song as the server we're working with must recognize song categories
-        fake_song = song;
-        break;
-      }
-    }
-  }
-
-  QStringList packet_contents;       // its music list
-  packet_contents.append(fake_song); // this is our fake song, playing it triggers special code
-  packet_contents.append(QString::number(m_cid));
-
-  if ((!ui_ic_chat_name->text().isEmpty() && ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::CCCC_IC_SUPPORT)) || ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EFFECTS))
-  {
-    packet_contents.append(ui_ic_chat_name->text());
-  }
-
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::EFFECTS))
-  {
-    if (no_effects)
-    {
-      packet_contents.append("0");
-    }
-    else
-    {
-      packet_contents.append(QString::number(music_flags));
-    }
-
-    ao_app->send_server_packet(AOPacket("MC", packet_contents));
-  }
+  ao_app->shipPacket(packet);
 }
 
 void spritechat::Courtroom::on_area_list_double_clicked(QTreeWidgetItem *p_item, int column)
 {
-  column = 0;       // The metadata
-  Q_UNUSED(column); // so gcc shuts up
-  QString p_area = p_item->text(0);
+  Q_UNUSED(column);
 
-  QStringList packet_contents;
-  packet_contents.append(p_area);
-  packet_contents.append(QString::number(m_cid));
-  ao_app->send_server_packet(AOPacket("MC", packet_contents));
+  int n_area = ui_area_list->indexOfTopLevelItem(p_item);
+  if (n_area == -1)
+  {
+    return;
+  }
+
+  theory::ChangeAreaPacket packet;
+  packet.areaId = n_area;
+  ao_app->shipPacket(packet);
 }
 
 void spritechat::Courtroom::on_hold_it_clicked()
@@ -6220,10 +5548,7 @@ void spritechat::Courtroom::on_pair_clicked()
   {
     ui_pair_list->show();
     ui_pair_offset_spinbox->show();
-    if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::Y_OFFSET))
-    {
-      ui_pair_vert_offset_spinbox->show();
-    }
+    ui_pair_vert_offset_spinbox->show();
     ui_pair_order_dropdown->show();
     ui_mute_list->hide();
     ui_mute->setImage("mute");
@@ -6248,9 +5573,12 @@ void spritechat::Courtroom::on_defense_minus_clicked()
 {
   int f_state = defense_bar_state - 1;
 
-  if (f_state >= 0)
+  if (f_state >= theory::MinimumHealth)
   {
-    ao_app->send_server_packet(AOPacket("HP", {"1", QString::number(f_state)}));
+    theory::PenaltyPacket packet;
+    packet.bar = theory::HealthBar::Defense;
+    packet.value = f_state;
+    ao_app->shipPacket(packet);
   }
 }
 
@@ -6258,9 +5586,12 @@ void spritechat::Courtroom::on_defense_plus_clicked()
 {
   int f_state = defense_bar_state + 1;
 
-  if (f_state <= 10)
+  if (f_state <= theory::MaximumHealth)
   {
-    ao_app->send_server_packet(AOPacket("HP", {"1", QString::number(f_state)}));
+    theory::PenaltyPacket packet;
+    packet.bar = theory::HealthBar::Defense;
+    packet.value = f_state;
+    ao_app->shipPacket(packet);
   }
 }
 
@@ -6268,9 +5599,12 @@ void spritechat::Courtroom::on_prosecution_minus_clicked()
 {
   int f_state = prosecution_bar_state - 1;
 
-  if (f_state >= 0)
+  if (f_state >= theory::MinimumHealth)
   {
-    ao_app->send_server_packet(AOPacket("HP", {"2", QString::number(f_state)}));
+    theory::PenaltyPacket packet;
+    packet.bar = theory::HealthBar::Prosecution;
+    packet.value = f_state;
+    ao_app->shipPacket(packet);
   }
 }
 
@@ -6278,9 +5612,12 @@ void spritechat::Courtroom::on_prosecution_plus_clicked()
 {
   int f_state = prosecution_bar_state + 1;
 
-  if (f_state <= 10)
+  if (f_state <= theory::MaximumHealth)
   {
-    ao_app->send_server_packet(AOPacket("HP", {"2", QString::number(f_state)}));
+    theory::PenaltyPacket packet;
+    packet.bar = theory::HealthBar::Prosecution;
+    packet.value = f_state;
+    ao_app->shipPacket(packet);
   }
 }
 
@@ -6352,7 +5689,7 @@ void spritechat::Courtroom::set_text_color_dropdown()
   }
 }
 
-void spritechat::Courtroom::gen_char_rgb_list(QString p_misc)
+void spritechat::Courtroom::gen_char_rgb_list(const QString &p_misc)
 {
   char_color_rgb_list.clear();
   for (int c = 0; c < max_colors; ++c)
@@ -6370,8 +5707,8 @@ void spritechat::Courtroom::on_text_color_changed(int p_color)
     QString markdown_start = color_markdown_start_list.at(c);
     if (markdown_start.isEmpty())
     {
-      qWarning() << "Color list dropdown selected a non-existent markdown "
-                    "start character";
+      zWarning(log::ic) << "Color list dropdown selected a non-existent markdown "
+                           "start character";
       return;
     }
     QString markdown_end = color_markdown_end_list.at(c);
@@ -6405,7 +5742,7 @@ void spritechat::Courtroom::on_text_color_changed(int p_color)
 
 void spritechat::Courtroom::on_music_slider_moved(int p_value)
 {
-  music_player->setStreamVolume(p_value, 0); // Set volume on music layer
+  music_player->setVolume(p_value); // Set volume on music layer
   focus_ic_input();
 }
 
@@ -6413,10 +5750,7 @@ void spritechat::Courtroom::on_sfx_slider_moved(int p_value)
 {
   sfx_player->setVolume(p_value);
   // Set the ambience and other misc. music layers
-  for (int i = 1; i < music_player->STREAM_COUNT; ++i)
-  {
-    music_player->setStreamVolume(p_value, i);
-  }
+  ambient_player->setVolume(p_value);
   objection_player->setVolume(p_value);
   focus_ic_input();
 }
@@ -6444,48 +5778,36 @@ void spritechat::Courtroom::on_pair_vert_offset_changed(int value)
 
 void spritechat::Courtroom::on_witness_testimony_clicked()
 {
-  if (is_muted)
-  {
-    return;
-  }
-
-  ao_app->send_server_packet(AOPacket("RT", {"testimony1"}));
+  theory::SplashPacket packet;
+  packet.type = theory::SplashType::WitnessTestimony;
+  ao_app->shipPacket(packet);
 
   focus_ic_input();
 }
 
 void spritechat::Courtroom::on_cross_examination_clicked()
 {
-  if (is_muted)
-  {
-    return;
-  }
-
-  ao_app->send_server_packet(AOPacket("RT", {"testimony2"}));
+  theory::SplashPacket packet;
+  packet.type = theory::SplashType::CrossExamination;
+  ao_app->shipPacket(packet);
 
   focus_ic_input();
 }
 
 void spritechat::Courtroom::on_not_guilty_clicked()
 {
-  if (is_muted)
-  {
-    return;
-  }
-
-  ao_app->send_server_packet(AOPacket("RT", {"judgeruling", "0"}));
+  theory::SplashPacket packet;
+  packet.type = theory::SplashType::NotGuilty;
+  ao_app->shipPacket(packet);
 
   focus_ic_input();
 }
 
 void spritechat::Courtroom::on_guilty_clicked()
 {
-  if (is_muted)
-  {
-    return;
-  }
-
-  ao_app->send_server_packet(AOPacket("RT", {"judgeruling", "1"}));
+  theory::SplashPacket packet;
+  packet.type = theory::SplashType::Guilty;
+  ao_app->shipPacket(packet);
 
   focus_ic_input();
 }
@@ -6515,12 +5837,6 @@ void spritechat::Courtroom::on_reload_theme_clicked()
   set_background(current_background, true);
 }
 
-void spritechat::Courtroom::on_back_to_lobby_clicked()
-{
-  ao_app->construct_lobby();
-  ao_app->destruct_courtroom();
-}
-
 void spritechat::Courtroom::on_char_select_left_clicked()
 {
   --current_char_page;
@@ -6535,22 +5851,17 @@ void spritechat::Courtroom::on_char_select_right_clicked()
 
 void spritechat::Courtroom::on_spectator_clicked()
 {
-  char_clicked(-1);
+  char_clicked(theory::NoCharacterId);
 }
 
 void spritechat::Courtroom::on_call_mod_clicked()
 {
-  if (ao_app->m_serverdata.get_feature(BASE_FEATURE_SET::MODCALL_REASON))
+  auto maybe_reason = call_moderator_support();
+  if (maybe_reason)
   {
-    auto maybe_reason = call_moderator_support();
-    if (maybe_reason)
-    {
-      ao_app->send_server_packet(AOPacket("ZZ", {maybe_reason.value(), "-1"}));
-    }
-  }
-  else
-  {
-    ao_app->send_server_packet(AOPacket("ZZ"));
+    theory::ModCallPacket packet;
+    packet.reason = maybe_reason.value();
+    ao_app->shipPacket(packet);
   }
 
   focus_ic_input();
@@ -6637,63 +5948,17 @@ void spritechat::Courtroom::on_switch_area_music_clicked()
 
 void spritechat::Courtroom::ping_server()
 {
-  ping_timer.start();
-  is_pinging = true;
-  ao_app->send_server_packet(AOPacket("CH", {QString::number(m_cid)}));
+  ao_app->net_manager->ping();
 }
 
-qint64 spritechat::Courtroom::pong()
+void spritechat::Courtroom::refresh_clock(Timer *timer)
 {
-  if (!is_pinging)
-  {
-    return -1;
-  }
-
-  is_pinging = false;
-  return ping_timer.elapsed();
+  AOClockLabel *clock = ui_clock[timer->id()];
+  clock->set(timer->state(), timer->remaining());
+  clock->setVisible(timer->isVisible());
 }
 
-void spritechat::Courtroom::start_clock(int id, qint64 msecs)
-{
-  if (id >= 0 && id < max_clocks && ui_clock[id] != nullptr)
-  {
-    ui_clock[id]->start(msecs);
-  }
-}
-
-void spritechat::Courtroom::set_clock(int id, qint64 msecs)
-{
-  if (id >= 0 && id < max_clocks && ui_clock[id] != nullptr)
-  {
-    ui_clock[id]->set(msecs, true);
-  }
-}
-
-void spritechat::Courtroom::pause_clock(int id)
-{
-  if (id >= 0 && id < max_clocks && ui_clock[id] != nullptr)
-  {
-    ui_clock[id]->pause();
-  }
-}
-
-void spritechat::Courtroom::stop_clock(int id)
-{
-  if (id >= 0 && id < max_clocks && ui_clock[id] != nullptr)
-  {
-    ui_clock[id]->stop();
-  }
-}
-
-void spritechat::Courtroom::set_clock_visibility(int id, bool visible)
-{
-  if (id >= 0 && id < max_clocks && ui_clock[id] != nullptr)
-  {
-    ui_clock[id]->setVisible(visible);
-  }
-}
-
-void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, QString p_identifier)
+void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, const QString &p_identifier)
 {
   QString filename = "courtroom_design.ini";
   pos_size_type design_ini_result = ao_app->get_element_dimensions(p_identifier, filename);
@@ -6705,14 +5970,14 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, QString p_ide
 
   if (p_checkbox == nullptr && p_label == nullptr)
   { // i.e. the given p_widget isn't a QLabel or a QCheckBox
-    qWarning() << "Tried to truncate an unsupported widget:" << p_identifier;
+    zWarning(log::ui) << "Tried to truncate an unsupported widget:" << p_identifier;
     return;
   }
   // translate the text for the widget we're working with so we truncate the right string
   QString label_text_tr = QCoreApplication::translate(p_widget->metaObject()->className(), "%1").arg((p_label != nullptr ? p_label->text() : p_checkbox->text()));
   if (label_text_tr.endsWith("…") || label_text_tr.endsWith("…"))
   {
-    qInfo() << "Truncation aborted for label text" << label_text_tr << ", label text was already truncated!";
+    zInfo(log::ui) << "Truncation aborted for label text" << label_text_tr << ", label text was already truncated!";
     return;
   }
 
@@ -6729,7 +5994,7 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, QString p_ide
   // the theme gives us enough space
   if (label_theme_width <= 0 || label_px_width < label_theme_width)
   {
-    qDebug().nospace() << "Truncation aborted for label text " << label_text_tr << ", either theme width <= 0 or label width < theme width.";
+    zDebug(log::ui) << "Truncation aborted for label text" << label_text_tr << "- either theme width <= 0 or label width < theme width.";
     return;
   }
 
@@ -6746,7 +6011,7 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, QString p_ide
     // Safeguard against edge case where label text is shorter in px than '…',
     // causing an infinite loop. Additionally, having just an ellipse for a
     // label looks strange, so we don't set the new label.
-    qWarning() << "Potential infinite loop prevented: Label text " << label_text_tr << "truncated to '…', so truncation was aborted.";
+    zWarning(log::ui) << "Potential infinite loop prevented: Label text " << label_text_tr << "truncated to '…', so truncation was aborted.";
     return;
   }
   if (p_label != nullptr)
@@ -6757,5 +6022,5 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, QString p_ide
   {
     p_checkbox->setText(truncated_label);
   }
-  qDebug().nospace() << "Truncated label text from " << label_text_tr << " (" << label_px_width << "px) to " << truncated_label << " (" << truncated_px_width << "px)";
+  zDebug(log::ui) << "Truncated label text from" << label_text_tr << "at" << label_px_width << "px to" << truncated_label << "at" << truncated_px_width << "px";
 }

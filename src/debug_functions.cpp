@@ -3,31 +3,38 @@
 #include <QCoreApplication>
 #include <QDialogButtonBox>
 #include <QElapsedTimer>
-#include <QMessageBox>
+#include <QEventLoop>
 #include <QPushButton>
 #include <QTimer>
 
 #include <functional>
 
-void spritechat::call_error(QString p_message)
+namespace
 {
-  QMessageBox *msgBox = new QMessageBox;
-
-  msgBox->setAttribute(Qt::WA_DeleteOnClose);
-  msgBox->setText(QCoreApplication::translate("debug_functions", "Error: %1").arg(p_message));
-  msgBox->setWindowTitle(QCoreApplication::translate("debug_functions", "Error"));
-
-  // msgBox->setWindowModality(Qt::NonModal);
-  msgBox->exec();
-}
-
-void spritechat::call_notice(QString p_message)
+void call_message(QMessageBox::Icon icon, const QString &p_message)
 {
+  QString title;
+  switch (icon)
+  {
+  default:
+    title = QCoreApplication::translate("debug_functions", "Notice");
+    break;
+
+  case QMessageBox::Warning:
+    title = QCoreApplication::translate("debug_functions", "Warning");
+    break;
+
+  case QMessageBox::Critical:
+    title = QCoreApplication::translate("debug_functions", "Error");
+    break;
+  }
+
   auto *msgBox = new QMessageBox;
 
   msgBox->setAttribute(Qt::WA_DeleteOnClose);
+  msgBox->setIcon(icon);
   msgBox->setText(p_message);
-  msgBox->setWindowTitle(QCoreApplication::translate("debug_functions", "Notice"));
+  msgBox->setWindowTitle(title);
 
   msgBox->setStandardButtons(QMessageBox::Ok);
   msgBox->setDefaultButton(QMessageBox::Ok);
@@ -56,5 +63,28 @@ void spritechat::call_notice(QString p_message)
     intervalTimer.stop();
   });
 
-  msgBox->exec();
+  QEventLoop loop;
+  QObject::connect(msgBox, &QDialog::finished, &loop, &QEventLoop::quit);
+  QObject::connect(msgBox, &QObject::destroyed, &loop, &QEventLoop::quit);
+
+  msgBox->setWindowModality(Qt::ApplicationModal);
+  msgBox->show();
+
+  loop.exec(QEventLoop::ExcludeSocketNotifiers);
+}
+} // namespace
+
+void spritechat::call_notice(const QString &p_message)
+{
+  call_message(QMessageBox::Information, p_message);
+}
+
+void spritechat::call_warning(const QString &p_message)
+{
+  call_message(QMessageBox::Warning, QCoreApplication::translate("debug_functions", "Warning: %1").arg(p_message));
+}
+
+void spritechat::call_error(const QString &p_message)
+{
+  call_message(QMessageBox::Critical, QCoreApplication::translate("debug_functions", "Error: %1").arg(p_message));
 }

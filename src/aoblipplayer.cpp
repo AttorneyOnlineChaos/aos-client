@@ -16,7 +16,7 @@ void spritechat::AOBlipPlayer::setMuted(bool enabled)
   updateInternalVolume();
 }
 
-void spritechat::AOBlipPlayer::setBlip(QString blip)
+void spritechat::AOBlipPlayer::setBlip(const QString &blip)
 {
   QString path = ao_app->get_sfx_suffix(ao_app->get_sounds_path(blip));
   for (int i = 0; i < STREAM_COUNT; ++i)

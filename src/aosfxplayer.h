@@ -20,14 +20,14 @@ public:
   int volume();
   void setVolume(int value);
 
-  void play(QString path);
+  void play(const QString &path);
   void stop(int streamId = -1);
   void stopAll();
   void stopAllLoopingStream();
 
-  void findAndPlaySfx(QString sfx);
-  void findAndPlayCharacterSfx(QString sfx, QString character);
-  void findAndPlayCharacterShout(QString shout, QString character, QString group);
+  void findAndPlaySfx(const QString &sfx);
+  void findAndPlayCharacterSfx(const QString &sfx, const QString &character);
+  void findAndPlayCharacterShout(const QString &shout, const QString &character, const QString &group);
 
   void setMuted(bool toggle);
   void setLooping(bool toggle, int streamId = -1);

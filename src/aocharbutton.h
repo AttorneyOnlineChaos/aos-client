@@ -18,7 +18,7 @@ class AOCharButton : public QPushButton
 public:
   AOCharButton(AOApplication *ao_app, QWidget *parent);
 
-  void setCharacter(QString character);
+  void setCharacter(const QString &character);
 
   void setTaken(bool enabled);
 

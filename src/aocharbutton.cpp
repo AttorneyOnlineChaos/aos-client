@@ -37,7 +37,7 @@ void spritechat::AOCharButton::setTaken(bool enabled)
   }
 }
 
-void spritechat::AOCharButton::setCharacter(QString character)
+void spritechat::AOCharButton::setCharacter(const QString &character)
 {
   QString image_path = ao_app->get_image_suffix(ao_app->get_character_path(character, "char_icon"), true);
 

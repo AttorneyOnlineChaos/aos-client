@@ -19,8 +19,8 @@ public:
 
   QString image();
 
-  bool setImage(QString fileName, QString miscellaneous);
-  bool setImage(QString fileName);
+  bool setImage(const QString &fileName, const QString &miscellaneous);
+  bool setImage(const QString &fileName);
 
 private:
   AOApplication *ao_app;

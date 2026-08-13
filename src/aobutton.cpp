@@ -19,7 +19,7 @@ spritechat::AOButton::~AOButton()
   deleteMovie();
 }
 
-void spritechat::AOButton::setImage(QString image_name)
+void spritechat::AOButton::setImage(const QString &image_name)
 {
   deleteMovie();
 
@@ -67,7 +67,7 @@ void spritechat::AOButton::handleNextFrame()
   updateIcon(m_movie->currentPixmap());
 }
 
-void spritechat::AOButton::updateIcon(QPixmap icon)
+void spritechat::AOButton::updateIcon(const QPixmap &icon)
 {
   const QSize current_size = size();
   setIcon(icon.scaled(current_size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));

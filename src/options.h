@@ -1,7 +1,7 @@
 #pragma once
 
 #include "datatypes.h"
-#include "network/serverinfo.h"
+#include "network/server_bookmark.h"
 
 #include <QCoreApplication>
 #include <QSettings>
@@ -30,7 +30,7 @@ public:
   // Reads the theme from config.ini and loads it into the currenttheme
   // variable
   QString theme() const;
-  void setTheme(QString value);
+  void setTheme(const QString &value);
 
   double themeScalingFactor() const;
   void setThemeScalingFactor(double value);
@@ -70,16 +70,6 @@ public:
   // Returns the value of suppressaudio in config.ini
   int defaultSuppressAudio() const;
   void setDefaultSupressedAudio(int value);
-
-  // Returns the value if objections interrupt and skip the message queue
-  // from the config.ini.
-  bool objectionSkipQueueEnabled() const;
-  void setObjectionSkipQueueEnabled(bool value);
-
-  // returns if log will show messages as-received, while viewport will parse
-  // according to the queue (Text Stay Time) from the config.ini
-  bool desynchronisedLogsEnabled() const;
-  void setDesynchronisedLogsEnabled(bool value);
 
   // Returns the value of whether shaking should be enabled.
   // from the config.ini.
@@ -147,10 +137,6 @@ public:
   int maxLogSize() const;
   void setMaxLogSize(int value);
 
-  // Current wait time between messages for the queue system
-  int textStayTime() const;
-  void setTextStayTime(int value);
-
   // Returns the letter display speed during text crawl in in-character messages
   int textCrawlSpeed() const;
   void setTextCrawlSpeed(int value);
@@ -179,7 +165,7 @@ public:
 
   // Returns the format string for the log timestamp
   QString logTimestampFormat() const;
-  void setLogTimestampFormat(QString value);
+  void setLogTimestampFormat(const QString &value);
 
   // Returns whether to log IC actions.
   bool logIcActions() const;
@@ -187,11 +173,11 @@ public:
 
   // Returns the username the user may have set in config.ini.
   QString username() const;
-  void setUsername(QString value);
+  void setUsername(const QString &value);
 
   // Returns the audio device used for the client.
   QString audioOutputDevice() const;
-  void setAudioOutputDevice(QString value);
+  void setAudioOutputDevice(const QString &value);
 
   // Returns whether the user would like to have custom shownames on by default.
   bool customShownameEnabled() const;
@@ -199,7 +185,7 @@ public:
 
   // Returns the showname the user may have set in config.ini.
   QString shownameOnJoin() const;
-  void setShownameOnJoin(QString value);
+  void setShownameOnJoin(const QString &value);
 
   // Get if text file logging is Enabled
   bool logToTextFileEnabled() const;
@@ -208,11 +194,11 @@ public:
   // Get the subtheme from settings
   QString subTheme() const;
   QString settingsSubTheme() const;
-  void setSettingsSubTheme(QString value);
+  void setSettingsSubTheme(const QString &value);
 
   // Returns the server-
   QString serverSubTheme() const;
-  void setServerSubTheme(QString value);
+  void setServerSubTheme(const QString &value);
 
   // Get if the theme is animated
   bool animatedThemeEnabled() const;
@@ -220,7 +206,7 @@ public:
 
   // Get a list of custom mount paths
   QStringList mountPaths() const;
-  void setMountPaths(QStringList value);
+  void setMountPaths(const QStringList &value);
 
   // Get whether to opt out of player count metrics sent to the master server
   bool playerCountOptout() const;
@@ -234,13 +220,13 @@ public:
   bool evidenceDoubleClickEdit() const;
   void setEvidenceDoubleClickEdit(bool value);
 
-  // Supplies an alternative masterserver URL
-  QString alternativeMasterserver() const;
-  void setAlternativeMasterserver(QString value);
+  // The masterserver URL.
+  QString masterServerUrl() const;
+  void setMasterServerUrl(const QString &value);
 
   // Language the client loads on start.
   QString language() const;
-  void setLanguage(QString value);
+  void setLanguage(const QString &value);
 
   // The scaling algorithm to use on images.
   RESIZE_MODE resizeMode() const;
@@ -248,31 +234,31 @@ public:
 
   // Callwords notify the user when the word/words are used in a game message.
   QStringList callwords() const;
-  void setCallwords(QStringList value);
+  void setCallwords(const QStringList &value);
 
   QString callwordSfx() const;
-  void setCallwordSfx(QString value);
+  void setCallwordSfx(const QString &value);
 
   QString playerlistFormatString() const;
-  void setPlayerlistFormatString(QString value);
+  void setPlayerlistFormatString(const QString &value);
 
   // Clears the configuration file. Essentially restoring it to default.
   void clearConfig();
 
   // Loads the favorite servers
-  QVector<ServerInfo> favorites();
-  void setFavorites(QVector<ServerInfo> value);
+  QList<ServerBookmark> favorites();
+  void setFavorites(const QList<ServerBookmark> &value);
 
   // Interactions with favorite servers
   void removeFavorite(int index);
-  void addFavorite(ServerInfo server);
-  void updateFavorite(ServerInfo server, int index);
+  void addFavorite(const ServerBookmark &server);
+  void updateFavorite(const ServerBookmark &server, int index);
 
   // Theming Nonesense!
-  QString getUIAsset(QString f_asset_name);
+  QString getUIAsset(const QString &f_asset_name);
 
-  void setWindowPosition(QString widget, QPoint position);
-  std::optional<QPoint> windowPosition(QString widget);
+  void setWindowPosition(const QString &widget, QPoint position);
+  std::optional<QPoint> windowPosition(const QString &widget);
 
   bool restoreWindowPositionEnabled() const;
   void setRestoreWindowPositionEnabled(bool state);

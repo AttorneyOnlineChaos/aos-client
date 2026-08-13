@@ -20,7 +20,7 @@ QString spritechat::ScrollText::text() const
   return m_text;
 }
 
-void spritechat::ScrollText::setText(QString text)
+void spritechat::ScrollText::setText(const QString &text)
 {
   m_text = text;
   updateText();
@@ -32,7 +32,7 @@ QString spritechat::ScrollText::separator() const
   return _separator;
 }
 
-void spritechat::ScrollText::setSeparator(QString separator)
+void spritechat::ScrollText::setSeparator(const QString &separator)
 {
   _separator = separator;
   updateText();

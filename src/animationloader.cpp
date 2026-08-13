@@ -1,5 +1,8 @@
 #include "animationloader.h"
 
+#include "core/logging.h"
+#include "spritechat_log.h"
+
 #include <QMutexLocker>
 #include <QtConcurrent/QtConcurrent>
 
@@ -65,7 +68,7 @@ spritechat::AnimationFrame spritechat::AnimationLoader::frame(int frameNumber)
   while (m_frames.size() < frameNumber + 1)
   {
 #ifdef DEBUG_MOVIE
-    qDebug().noquote() << "Waiting for frame" << frameNumber << QString("(file: %1, frame count: %2)").arg(m_file_name).arg(m_frame_count);
+    zDebug(log::viewport) << "Waiting for frame" << frameNumber << QString("(file: %1, frame count: %2)").arg(m_file_name).arg(m_frame_count);
 #endif
     m_task_signal.wait(&m_task_lock);
   }

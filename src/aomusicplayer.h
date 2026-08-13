@@ -1,41 +1,45 @@
 #pragma once
 
-#include "aoapplication.h"
+#include "aomusictrack.h"
 
-#include <QFutureWatcher>
+#include "game/game_defs.h"
+
+#include <bass.h>
+
+#include <QString>
 
 namespace spritechat
 {
 class AOMusicPlayer
 {
 public:
-  // 0 = music
-  // 1 = ambience
-  static constexpr int STREAM_COUNT = 2;
-
-  explicit AOMusicPlayer(AOApplication *ao_app);
+  explicit AOMusicPlayer();
   virtual ~AOMusicPlayer();
 
   void setMuted(bool enabled);
 
-  QString playStream(QString song, int streamId, bool loopEnabled, int effectFlags);
+  bool play(const AOMusicTrack &track, theory::MusicEffects effects, bool loopEnabled);
+  void stop(theory::MusicEffects effects);
 
-  void setStreamVolume(int value, int streamId);
-  void setStreamLooping(bool enabled, int streamId);
+  void setVolume(int value);
+  void setLoop(bool enabled);
 
-  QFutureWatcher<QString> m_watcher;
+  static void CALLBACK loopProc(HSYNC handle, DWORD channel, DWORD data, void *user);
 
 private:
-  AOApplication *ao_app;
+  struct Stream
+  {
+    int volume = 0;
+    HSTREAM handle = 0;
+    HSYNC loopSync = 0;
+    quint64 byteLoopStart = 0;
+    quint64 byteLoopEnd = 0;
+  };
 
+  Stream m_stream;
   bool m_muted = false;
 
-  int m_volume[STREAM_COUNT]{};
-  HSTREAM m_stream_list[STREAM_COUNT]{};
-  HSYNC m_loop_sync[STREAM_COUNT]{};
-  quint32 m_loop_start[STREAM_COUNT]{};
-  quint32 m_loop_end[STREAM_COUNT]{};
-
-  bool ensureValidStreamId(int streamId);
+  static void stopStream(const Stream &stream, bool fadeOut);
+  static quint64 loopPosition(HSTREAM stream, const AOMusicTrack &track, double value);
 };
 } // namespace spritechat

@@ -26,8 +26,8 @@ public:
   double outlineThickness();
   void setOutlineThickness(double w);
 
-  void setBrush(QBrush brush);
-  void setPen(QPen pen);
+  void setBrush(const QBrush &brush);
+  void setPen(const QPen &pen);
 
   QSize sizeHint();
   QSize minimumSizeHint();

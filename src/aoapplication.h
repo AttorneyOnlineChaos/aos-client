@@ -1,9 +1,35 @@
 #pragma once
 
-#include "aopacket.h"
+#include "aomusictrack.h"
+#include "area_registry.h"
+#include "asset_lookup.h"
+#include "console_logger.h"
 #include "datatypes.h"
+#include "network/master_gateway.h"
+#include "network_manager.h"
+#include "options.h"
+#include "player_registry.h"
 #include "serverdata.h"
+#include "timer.h"
 #include "widgets/aooptionsdialog.h"
+
+#include "core/log.h"
+#include "game/emote_cue.h"
+#include "network/packet.h"
+#include "network/packet_factory.h"
+#include "network/packet_router.h"
+#include "network/packet_transmitter.h"
+#include "protocol/packets/area_packets.h"
+#include "protocol/packets/chat_packets.h"
+#include "protocol/packets/court_packets.h"
+#include "protocol/packets/evidence_packets.h"
+#include "protocol/packets/handshake_packets.h"
+#include "protocol/packets/ic_packets.h"
+#include "protocol/packets/moderation_packets.h"
+#include "protocol/packets/music_packets.h"
+#include "protocol/packets/roster_packets.h"
+#include "protocol/packets/session_packets.h"
+#include "protocol/server_info.h"
 
 #include <bass.h>
 
@@ -12,6 +38,8 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <QHash>
+#include <QList>
 #include <QObject>
 #include <QRect>
 #include <QScreen>
@@ -20,42 +48,27 @@
 #include <QStringList>
 #include <QTextStream>
 #include <QTime>
-#include <QVector>
+#include <QUrl>
 
 namespace spritechat
 {
-class NetworkManager;
+// TODO: fix cyclic dependency
 class Lobby;
 class Courtroom;
-class Options;
 
-class VPath : QString
-{
-  using QString::QString;
-
-public:
-  explicit VPath(const QString &str)
-      : QString(str)
-  {}
-  inline const QString &toQString() const { return *this; }
-  inline bool operator==(const VPath &str) const { return this->toQString() == str.toQString(); }
-  inline VPath operator+(const VPath &str) const { return VPath(this->toQString() + str.toQString()); }
-};
-
-inline size_t qHash(const VPath &key, uint seed = QHashSeed::globalSeed())
-{
-  return qHash(key.toQString(), seed);
-}
-
-class AOApplication : public QObject
+class AOApplication : public QObject, public theory::PacketTransmitter
 {
   Q_OBJECT
 
 public:
-  AOApplication(QObject *parent = nullptr);
+  explicit AOApplication(const theory::PacketFactory &packet_factory, QObject *parent = nullptr);
   ~AOApplication();
 
+  const theory::PacketFactory &m_packet_factory;
+
   NetworkManager *net_manager;
+  MasterGateway *master_gateway;
+  ConsoleLogger console_logger;
   Lobby *w_lobby = nullptr;
   Courtroom *w_courtroom = nullptr;
 
@@ -69,11 +82,12 @@ public:
   void construct_courtroom();
   void destruct_courtroom();
 
-  void server_packet_received(AOPacket p_packet);
+  void shipPacket(const theory::Packet &packet) override;
 
-  void send_server_packet(AOPacket p_packet);
+  void connect_to_server(const ServerBookmark &server, const theory::ServerInfo &info);
 
   void call_settings_menu();
+  void apply_master_options();
 
   qint64 latency = 0;
   QString window_title;
@@ -82,157 +96,133 @@ public:
   /// any.
   ServerData m_serverdata;
 
+  AssetLookup m_asset_lookup;
+
   ///////////////loading info///////////////////
 
   // client ID. Not useful, to be removed eventually
   int client_id = 0;
 
-  /// Used for a fancy loading bar upon joining a server.
-  int generated_chars = 0;
-
-  bool courtroom_loaded = false;
-
-  /**
-   * @brief Returns the version string of the software.
-   *
-   * @return The string "X.Y.Z", where X is the release of the software (usually
-   * '2'), Y is the major version, and Z is the minor version.
-   */
-  static QString get_version_string();
-
-  static const int RELEASE = 2;
-  static const int MAJOR_VERSION = 11;
-  static const int MINOR_VERSION = 0;
-
-  void set_server_list(QVector<ServerInfo> &servers) { server_list = servers; }
-  QVector<ServerInfo> &get_server_list() { return server_list; }
-
-  // implementation in path_functions.cpp
-  VPath get_theme_path(QString p_file, QString p_theme = QString());
-  VPath get_character_path(QString p_char, QString p_file);
-  VPath get_misc_path(QString p_misc, QString p_file);
-  VPath get_sounds_path(QString p_file);
-  VPath get_music_path(QString p_song);
-  VPath get_background_path(QString p_file);
-  VPath get_default_background_path(QString p_file);
-  VPath get_evidence_path(QString p_file);
-  QVector<VPath> get_asset_paths(QString p_element, QString p_theme = QString(), QString p_subtheme = QString(), QString p_default_theme = QString(), QString p_misc = QString(), QString p_character = QString(), QString p_placeholder = QString());
-  QString get_asset_path(QVector<VPath> pathlist);
-  QString get_image_path(QVector<VPath> pathlist, int &index, bool static_image = false);
-  QString get_image_path(QVector<VPath> pathlist, bool static_image = false);
-  QString get_sfx_path(QVector<VPath> pathlist);
-  QString get_config_value(QString p_identifier, QString p_config, QString p_theme = QString(), QString p_subtheme = QString(), QString p_default_theme = QString(), QString p_misc = QString());
-  QString get_asset(QString p_element, QString p_theme = QString(), QString p_subtheme = QString(), QString p_default_theme = QString(), QString p_misc = QString(), QString p_character = QString(), QString p_placeholder = QString());
-  QString get_image(QString p_element, QString p_theme = QString(), QString p_subtheme = QString(), QString p_default_theme = QString(), QString p_misc = QString(), QString p_character = QString(), QString p_placeholder = QString(), bool static_image = false);
-  QString get_sfx(QString p_sfx, QString p_misc = QString(), QString p_character = QString());
+  VPath get_theme_path(const QString &p_file, const QString &p_theme = QString());
+  VPath get_character_path(const QString &p_char, const QString &p_file);
+  VPath get_misc_path(const QString &p_misc, const QString &p_file);
+  VPath get_sounds_path(const QString &p_file);
+  VPath get_music_path(const QString &p_song);
+  VPath get_background_path(const QString &p_file);
+  VPath get_default_background_path(const QString &p_file);
+  VPath get_evidence_path(const QString &p_file);
+  QList<VPath> get_asset_paths(const QString &p_element, const QString &p_theme = QString(), const QString &p_subtheme = QString(), const QString &p_default_theme = QString(), const QString &p_misc = QString(), const QString &p_character = QString(), const QString &p_placeholder = QString());
+  QString get_asset_path(const QList<VPath> &pathlist);
+  QString get_image_path(const QList<VPath> &pathlist, int &index, bool static_image = false);
+  QString get_image_path(const QList<VPath> &pathlist, bool static_image = false);
+  QString get_sfx_path(const QList<VPath> &pathlist);
+  QString get_config_value(const QString &p_identifier, const QString &p_config, const QString &p_theme = QString(), const QString &p_subtheme = QString(), const QString &p_default_theme = QString(), const QString &p_misc = QString());
+  QString get_asset(const QString &p_element, const QString &p_theme = QString(), const QString &p_subtheme = QString(), const QString &p_default_theme = QString(), const QString &p_misc = QString(), const QString &p_character = QString(), const QString &p_placeholder = QString());
+  QString get_image(const QString &p_element, const QString &p_theme = QString(), const QString &p_subtheme = QString(), const QString &p_default_theme = QString(), const QString &p_misc = QString(), const QString &p_character = QString(), const QString &p_placeholder = QString(), bool static_image = false);
+  QString get_sfx(const QString &p_sfx, const QString &p_misc = QString(), const QString &p_character = QString());
 
   BackgroundPosition get_pos_path(const QString &pos);
 
-  QString get_case_sensitive_path(QString p_file);
+  QString get_case_sensitive_path(const QString &p_file);
   QString get_real_path(const VPath &vpath, const QStringList &suffixes = {""});
 
-  QString find_image(QStringList p_list);
+  QString find_image(const QStringList &p_list);
 
   ////// Functions for reading and writing files //////
-  // Implementations file_functions.cpp
 
   // returns all of the file's lines in a QStringList
-  QStringList get_list_file(VPath path);
-  QStringList get_list_file(QString p_file);
+  QStringList get_list_file(const VPath &path);
+  QStringList get_list_file(const QString &p_file);
 
   // Process a file and return its text as a QString
-  QString read_file(QString filename);
+  QString read_file(const QString &filename);
 
   // Write text to file. make_dir would auto-create the directory if it doesn't
   // exist.
-  bool write_to_file(QString p_text, QString p_file, bool make_dir = false);
+  bool write_to_file(const QString &p_text, const QString &p_file, bool make_dir = false);
 
   // Append text to the end of the file. make_dir would auto-create the
   // directory if it doesn't exist.
-  bool append_to_file(QString p_text, QString p_file, bool make_dir = false);
+  bool append_to_file(const QString &p_text, const QString &p_file, bool make_dir = false);
 
   // Returns the value of p_identifier in the design.ini file in p_design_path
-  QString read_design_ini(QString p_identifier, VPath p_design_path);
-  QString read_design_ini(QString p_identifier, QString p_design_path);
+  QString read_design_ini(const QString &p_identifier, const VPath &p_design_path);
+  QString read_design_ini(const QString &p_identifier, const QString &p_design_path);
 
   // Returns the coordinates of widget with p_identifier from p_file
-  QPoint get_button_spacing(QString p_identifier, QString p_file);
+  QPoint get_button_spacing(const QString &p_identifier, const QString &p_file);
 
   // Returns the dimensions of widget with specified identifier from p_file
-  pos_size_type get_element_dimensions(QString p_identifier, QString p_file, QString p_misc = QString());
+  pos_size_type get_element_dimensions(const QString &p_identifier, const QString &p_file, const QString &p_misc = QString());
 
   // Returns the value to you
-  QString get_design_element(QString p_identifier, QString p_file, QString p_misc = QString());
+  QString get_design_element(const QString &p_identifier, const QString &p_file, const QString &p_misc = QString());
 
   // Returns the color with p_identifier from p_file
-  QColor get_color(QString p_identifier, QString p_file);
+  QColor get_color(const QString &p_identifier, const QString &p_file);
 
   // Returns the markup symbol used for specified p_identifier such as colors
-  QString get_chat_markup(QString p_identifier, QString p_file);
+  QString get_chat_markup(const QString &p_identifier, const QString &p_file);
 
   // Returns the color from the misc folder.
-  QColor get_chat_color(QString p_identifier, QString p_chat);
+  QColor get_chat_color(const QString &p_identifier, const QString &p_chat);
 
   // Returns the value with p_identifier from penalty/penalty.ini in the current
   // theme path
-  QString get_penalty_value(QString p_identifier);
+  QString get_penalty_value(const QString &p_identifier);
 
   // Returns the sfx with p_identifier from courtroom_sounds.ini in the current theme path
-  QString get_court_sfx(QString p_identifier, QString p_misc = QString());
+  QString get_court_sfx(const QString &p_identifier, const QString &p_misc = QString());
 
   // Figure out if we can opus this or if we should fall back to wav
-  QString get_sfx_suffix(VPath sound_to_check);
+  QString get_sfx_suffix(const VPath &sound_to_check);
+
+  AOMusicTrack get_music_track(const QString &p_song);
 
   // Can we use APNG for this? If not, WEBP? If not, GIF? If not, fall back to
   // PNG.
-  QString get_image_suffix(VPath path_to_check, bool static_image = false);
+  QString get_image_suffix(const VPath &path_to_check, bool static_image = false);
 
   // Returns the value of p_search_line within target_tag and terminator_tag
-  QString read_char_ini(QString p_char, QString p_search_line, QString target_tag);
+  QString read_char_ini(const QString &p_char, const QString &p_search_line, const QString &target_tag);
 
   // Returns a QStringList of all key=value definitions on a given tag.
-  QStringList read_ini_tags(VPath p_file, QString target_tag = QString());
+  QStringList read_ini_tags(const VPath &p_file, const QString &target_tag = QString());
 
   // Returns the text between target_tag and terminator_tag in p_file
-  QString get_stylesheet(QString p_file);
+  QString get_stylesheet(const QString &p_file);
 
   // Returns the side of the p_char character from that characters ini file
-  QString get_char_side(QString p_char);
+  QString get_char_side(const QString &p_char);
 
   // Returns the showname from the ini of p_char
-  QString get_showname(QString p_char, int p_emote = -1);
+  QString get_showname(const QString &p_char, int p_emote = -1);
 
   // Returns the category of this character
-  QString get_category(QString p_char);
+  QString get_category(const QString &p_char);
 
   // Returns the value of chat image from the specific p_char's ini file
-  QString get_chat(QString p_char);
+  QString get_chat(const QString &p_char);
 
   // Returns the value of chat font from the specific p_char's ini file
-  QString get_chat_font(QString p_char);
+  QString get_chat_font(const QString &p_char);
 
   // Returns the value of chat font size from the specific p_char's ini file
-  int get_chat_size(QString p_char);
-
-  // Returns the preanim duration of p_char's p_emote
-  int get_preanim_duration(QString p_char, QString p_emote);
-
-  // Not in use
-  int get_text_delay(QString p_char, QString p_emote);
+  int get_chat_size(const QString &p_char);
 
   // Get the theme's effects folder, read it and return the list of filenames in
   // a string
-  QStringList get_effects(QString p_char);
+  QStringList get_effects(const QString &p_char);
 
   // Get the correct effect image
-  QString get_effect(QString effect, QString p_char, QString p_folder);
+  QString get_effect(const QString &effect, const QString &p_char, const QString &p_folder);
 
   // Return p_property of fx_name. If p_property is "sound", return
   // the value associated with fx_name, otherwise use fx_name + '_' + p_property.
-  QString get_effect_property(QString fx_name, QString p_char, QString p_folder, QString p_property);
+  QString get_effect_property(const QString &fx_name, const QString &p_char, const QString &p_folder, const QString &p_property);
 
   // Returns the custom realisation used by the character.
-  QString get_custom_realization(QString p_char);
+  QString get_custom_realization(const QString &p_char);
 
   // Returns whether the given pos is a judge position
   bool get_pos_is_judge(const QString &p_pos);
@@ -244,55 +234,49 @@ public:
   int get_pos_transition_duration(const QString &old_pos, const QString &new_pos);
 
   // Returns the total amount of emotes of p_char
-  int get_emote_number(QString p_char);
+  int get_emote_number(const QString &p_char);
 
   // Returns the emote comment of p_char's p_emote
-  QString get_emote_comment(QString p_char, int p_emote);
+  QString get_emote_comment(const QString &p_char, int p_emote);
 
   // Returns the base name of p_char's p_emote
-  QString get_emote(QString p_char, int p_emote);
+  QString get_emote(const QString &p_char, int p_emote);
 
   // Returns the preanimation name of p_char's p_emote
-  QString get_pre_emote(QString p_char, int p_emote);
+  QString get_pre_emote(const QString &p_char, int p_emote);
 
   // Returns the sfx of p_char's p_emote
-  QString get_sfx_name(QString p_char, int p_emote);
+  QString get_sfx_name(const QString &p_char, int p_emote);
 
   // Returns if the sfx is defined as looping in char.ini
-  QString get_sfx_looping(QString p_char, int p_emote);
+  QString get_sfx_looping(const QString &p_char, int p_emote);
 
-  // Returns if an emote has a frame specific SFX for it
-  QString get_sfx_frame(QString p_char, QString p_emote, int n_frame);
+  // Returns the frame cues for an emote as defined in the char.ini
+  QList<theory::EmoteCue> get_emote_cues(const QString &p_char, const QString &p_emote);
 
-  // Returns if an emote has a frame specific SFX for it
-  QString get_flash_frame(QString p_char, QString p_emote, int n_frame);
-
-  // Returns if an emote has a frame specific SFX for it
-  QString get_screenshake_frame(QString p_char, QString p_emote, int n_frame);
-
-  // Not in use
-  int get_sfx_delay(QString p_char, int p_emote);
+  // Returns the sfx delay in milliseconds
+  int get_sfx_delay(const QString &p_char, int p_emote);
 
   // Returns the modifier for p_char's p_emote
-  int get_emote_mod(QString p_char, int p_emote);
+  int get_emote_mod(const QString &p_char, int p_emote);
 
   // Returns the desk modifier for p_char's p_emote
-  int get_desk_mod(QString p_char, int p_emote);
+  int get_desk_mod(const QString &p_char, int p_emote);
 
   // Returns p_char's blipname by reading char.ini for blips (previously called "gender")
-  QString get_blipname(QString p_char, int p_emote = -1);
+  QString get_blipname(const QString &p_char, int p_emote = -1);
 
   // Returns p_blipname's sound(path) to play in the client
-  QString get_blips(QString p_blipname);
+  QString get_blips(const QString &p_blipname);
 
   // Get a property of a given emote, or get it from "options" if emote doesn't have it
-  QString get_emote_property(QString p_char, QString p_emote, QString p_property);
+  QString get_emote_property(const QString &p_char, const QString &p_emote, const QString &p_property);
 
   // Return a transformation mode from a string ("smooth" for smooth, anything else for fast)
-  RESIZE_MODE get_scaling(QString p_scaling);
+  RESIZE_MODE get_scaling(const QString &p_scaling);
 
   // Returns the scaling type for p_miscname
-  RESIZE_MODE get_misc_scaling(QString p_miscname);
+  RESIZE_MODE get_misc_scaling(const QString &p_miscname);
 
   // ======
   // These are all casing-related settings.
@@ -318,17 +302,62 @@ public:
   static void doBASSreset();
 
 private:
-  QVector<ServerInfo> server_list;
-  QHash<size_t, QString> asset_lookup_cache;
-  QHash<size_t, QString> dir_listing_cache;
-  QSet<size_t> dir_listing_exist_cache;
+  theory::Log m_log;
 
-public Q_SLOTS:
-  void server_connected();
-  void server_disconnected();
-  void loading_cancelled();
+  ServerBookmark last_server;
+  theory::ServerInfo last_info;
 
-Q_SIGNALS:
-  void qt_log_message(QtMsgType type, const QMessageLogContext &context, const QString &msg);
+  theory::PacketRouter m_router;
+
+  AreaRegistry m_area_registry;
+  PlayerRegistry m_player_registry;
+  QList<Timer *> m_timers;
+
+  bool m_session_active = false;
+  bool m_session_closed = false;
+  QHash<QUrl, QString> m_tokens;
+
+  void register_packet_routes();
+
+  Timer *timer(theory::TimerId id) const;
+
+  void start_session();
+  void stop_session();
+  void finish_session();
+
+  void process(const theory::SessionGrantPacket &packet);
+  void process(const theory::WelcomePacket &packet);
+  void process(const theory::CharacterListPacket &packet);
+  void process(const theory::MusicListPacket &packet);
+  void process(const theory::AreaListPacket &packet);
+
+  void process(const theory::CharacterAcceptedPacket &packet);
+
+  void process(const theory::BackgroundPacket &packet);
+  void process(const theory::SetPositionPacket &packet);
+  void process(const theory::AreaUpdatePacket &packet);
+  void process(const theory::SubthemePacket &packet);
+  void process(const theory::TimerPacket &packet);
+
+  void process(const theory::IcMessagePacket &packet);
+  void process(const theory::OocMessagePacket &packet);
+  void process(const theory::ServerMessagePacket &packet);
+  void process(const theory::MusicChangedPacket &packet);
+  void process(const theory::PenaltyPacket &packet);
+  void process(const theory::SplashPacket &packet);
+  void process(const theory::EvidenceListPacket &packet);
+
+  void process(const theory::PlayerRosterPacket &packet);
+  void process(const theory::PlayerUpdatePacket &packet);
+
+  void process(const theory::ModCallNoticePacket &packet);
+  void process(const theory::AuthStatePacket &packet);
+  void process(const theory::ErrorPacket &packet);
+
+private Q_SLOTS:
+  void process_pending_packets();
+
+  void handle_network_status(NetworkManager::Status status);
+  void handle_network_error(const theory::CargoError &error);
 };
 } // namespace spritechat

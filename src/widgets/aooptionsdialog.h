@@ -20,6 +20,7 @@
 
 namespace spritechat
 {
+// TODO: fix cyclic dependency
 class AOApplication;
 
 struct OptionEntry
@@ -51,8 +52,6 @@ private:
   QCheckBox *ui_evidence_double_click_cb;
   QCheckBox *ui_slides_cb;
   QCheckBox *ui_animated_theme_cb;
-  QSpinBox *ui_stay_time_spinbox;
-  QCheckBox *ui_instant_objection_cb;
   QSpinBox *ui_text_crawl_spinbox;
   QSpinBox *ui_chat_ratelimit_spinbox;
   QFrame *ui_log_names_divider;
@@ -112,7 +111,6 @@ private:
   QLabel *ui_log_timestamp_format_lbl;
   QCheckBox *ui_log_timestamp_cb;
   QComboBox *ui_log_timestamp_format_combobox;
-  QCheckBox *ui_desync_logs_cb;
   QCheckBox *ui_log_ic_actions_cb;
   QCheckBox *ui_log_text_cb;
 
@@ -130,7 +128,7 @@ private:
   void populateAudioDevices();
   void updateValues();
 
-  QVector<OptionEntry> optionEntries;
+  QList<OptionEntry> optionEntries;
 
   template <typename T, typename V>
   void setWidgetData(T *widget, const V &value);
@@ -138,8 +136,8 @@ private:
   template <typename T, typename V>
   V widgetData(T *widget) const;
 
-  template <typename T, typename V>
-  void registerOption(const QString &widgetName, V (Options::*getter)() const, void (Options::*setter)(V));
+  template <typename T, typename V, typename Setter>
+  void registerOption(const QString &widgetName, V (Options::*getter)() const, Setter setter);
 
 Q_SIGNALS:
   void reloadThemeRequest();

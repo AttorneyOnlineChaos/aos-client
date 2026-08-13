@@ -135,40 +135,6 @@
              </property>
             </widget>
            </item>
-           <item row="7" column="0">
-            <widget class="QLabel" name="stay_time_lbl">
-             <property name="toolTip">
-              <string>Minimum amount of time (in miliseconds) an IC message must stay on screen before the next IC message is shown, acting as a 'queue'. Set to 0 to disable this behavior.</string>
-             </property>
-             <property name="text">
-              <string>Text Stay Time:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="7" column="1">
-            <widget class="QSpinBox" name="stay_time_spinbox">
-             <property name="suffix">
-              <string> ms</string>
-             </property>
-             <property name="maximum">
-              <number>10000</number>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="0">
-            <widget class="QLabel" name="instant_objection_lbl">
-             <property name="text">
-              <string>Instant Objection:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="8" column="1">
-            <widget class="QCheckBox" name="instant_objection_cb">
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
            <item row="9" column="0">
             <widget class="QLabel" name="text_crawl_lbl">
              <property name="toolTip">
@@ -1048,23 +1014,6 @@ Default: 0.</string>
        </item>
        <item row="6" column="1">
         <widget class="QCheckBox" name="log_ic_actions_cb">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="0">
-        <widget class="QLabel" name="desync_logs_lbl">
-         <property name="toolTip">
-          <string>If ticked, log will show messages as-received, while viewport will parse according to the queue (Text Stay Time).</string>
-         </property>
-         <property name="text">
-          <string>Desynchronize IC Logs:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="7" column="1">
-        <widget class="QCheckBox" name="desync_logs_cb">
          <property name="text">
           <string/>
          </property>

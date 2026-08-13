@@ -23,7 +23,7 @@ public:
   void setVolume(int value);
   void setMuted(bool enabled);
 
-  void setBlip(QString blip);
+  void setBlip(const QString &blip);
 
   void playBlip();
 

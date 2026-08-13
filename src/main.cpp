@@ -1,9 +1,15 @@
 
 #include "aoapplication.h"
 
+#include "core/logging.h"
 #include "courtroom.h"
 #include "file_functions.h"
 #include "lobby.h"
+#include "spritechat_info.h"
+#include "spritechat_log.h"
+
+#include "network/packet_factory.h"
+#include "protocol/protocol_utils.h"
 
 #include <QDebug>
 #include <QDirIterator>
@@ -16,15 +22,19 @@ using namespace spritechat;
 
 int main(int argc, char *argv[])
 {
-  qSetMessagePattern("%{type}: %{if-category}%{category}: %{endif}%{message}");
+  Q_INIT_RESOURCE(data);
 
-  qRegisterMetaType<AOPacket>();
+  qSetMessagePattern("%{type}: %{if-category}%{category}: %{endif}%{function}: %{message}");
 
   QApplication app(argc, argv);
 
-  AOApplication main_app;
-  QApplication::setApplicationVersion(AOApplication::get_version_string());
-  QApplication::setApplicationDisplayName(QObject::tr("Attorney Online %1").arg(QApplication::applicationVersion()));
+  theory::PacketFactory packet_factory;
+  theory::registerPackets(packet_factory);
+
+  AOApplication main_app(packet_factory);
+  QApplication::setApplicationName(softwareName());
+  QApplication::setApplicationVersion(softwareVersion().toString());
+  QApplication::setApplicationDisplayName(QStringLiteral("%1 v%2").arg(softwareDisplayName()).arg(softwareVersion().toString()));
 
   QResource::registerResource(main_app.get_asset("themes/" + Options::getInstance().theme() + ".rcc"));
 
@@ -60,7 +70,7 @@ int main(int argc, char *argv[])
 
   if (!expected_formats.isEmpty())
   {
-    call_error("Missing image formats: <b>" + expected_formats.join(", ") + "</b>.<br /><br /> Please make sure you have installed the application properly.");
+    call_warning("Missing image formats: <b>" + expected_formats.join(", ") + "</b>.<br /><br /> Please make sure you have installed the application properly.");
   }
 
   QString p_language = Options::getInstance().language();
@@ -72,7 +82,7 @@ int main(int argc, char *argv[])
   QTranslator qtTranslator;
   if (!qtTranslator.load("qt_" + p_language, QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
   {
-    qDebug() << "Failed to load translation qt_" + p_language;
+    zDebug(log::main) << "Failed to load translation qt_" + p_language;
   }
   else
   {
@@ -82,17 +92,17 @@ int main(int argc, char *argv[])
   QTranslator appTranslator;
   if (!appTranslator.load("ao_" + p_language, ":/data/translations/"))
   {
-    qDebug() << "Failed to load translation ao_" + p_language;
+    zDebug(log::main) << "Failed to load translation ao_" + p_language;
   }
   else
   {
     QApplication::installTranslator(&appTranslator);
-    qDebug() << ":/data/translations/ao_" + p_language;
+    zDebug(log::main) << ":/data/translations/ao_" + p_language;
   }
 
   main_app.construct_lobby();
-  main_app.net_manager->get_server_list();
-  main_app.net_manager->send_heartbeat();
+  main_app.master_gateway->requestServerList();
+  main_app.master_gateway->postPlayerCount();
   main_app.w_lobby->show();
 
   return QApplication::exec();

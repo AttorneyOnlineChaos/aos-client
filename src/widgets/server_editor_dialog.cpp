@@ -1,7 +1,7 @@
 #include "server_editor_dialog.h"
 
+#include "ao_widget_lookup.h"
 #include "debug_functions.h"
-#include "gui_utils.h"
 #include "options.h"
 
 #include <QDebug>
@@ -28,14 +28,16 @@ spritechat::ServerEditorDialog::ServerEditorDialog(QWidget *parent)
   auto layout = new QVBoxLayout(this);
   layout->addWidget(ui_body);
 
-  FROM_UI(QLineEdit, name);
-  FROM_UI(QLineEdit, hostname);
-  FROM_UI(QSpinBox, port);
-  FROM_UI(QPlainTextEdit, description);
-  FROM_UI(QDialogButtonBox, button_box);
+  AOWidgetLookup l_ui{this};
 
-  FROM_UI(QLineEdit, legacy_edit);
-  FROM_UI(QPushButton, parse_legacy);
+  l_ui.find(ui_name, "name");
+  l_ui.find(ui_hostname, "hostname");
+  l_ui.find(ui_port, "port");
+  l_ui.find(ui_description, "description");
+  l_ui.find(ui_button_box, "button_box");
+
+  l_ui.find(ui_legacy_edit, "legacy_edit");
+  l_ui.find(ui_parse_legacy, "parse_legacy");
 
   connect(ui_parse_legacy, &QPushButton::released, this, &ServerEditorDialog::parseLegacyEntry);
 
@@ -43,7 +45,7 @@ spritechat::ServerEditorDialog::ServerEditorDialog(QWidget *parent)
   connect(ui_button_box, &QDialogButtonBox::rejected, this, &ServerEditorDialog::reject);
 }
 
-spritechat::ServerEditorDialog::ServerEditorDialog(const ServerInfo &server, QWidget *parent)
+spritechat::ServerEditorDialog::ServerEditorDialog(const ServerBookmark &server, QWidget *parent)
     : ServerEditorDialog(parent)
 {
   ui_name->setText(server.name);
@@ -52,9 +54,9 @@ spritechat::ServerEditorDialog::ServerEditorDialog(const ServerInfo &server, QWi
   ui_description->setPlainText(server.description);
 }
 
-spritechat::ServerInfo spritechat::ServerEditorDialog::currentServerInfo() const
+spritechat::ServerBookmark spritechat::ServerEditorDialog::currentServerBookmark() const
 {
-  ServerInfo server;
+  ServerBookmark server;
   server.name = ui_name->text();
   server.address = ui_hostname->text();
   server.port = ui_port->value();
@@ -67,7 +69,7 @@ void spritechat::ServerEditorDialog::parseLegacyEntry()
   QStringList entry = ui_legacy_edit->text().split(":");
   if (entry.size() < 3)
   {
-    call_error("Invalid legacy server entry");
+    call_warning("Invalid legacy server entry");
     return;
   }
 

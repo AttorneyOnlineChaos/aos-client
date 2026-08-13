@@ -1,287 +1,205 @@
 #include "aomusicplayer.h"
 
-#include "file_functions.h"
+#include "aoapplication.h"
 #include "options.h"
 
 #include <bass.h>
 
-#include <QDebug>
-#include <QFuture>
-#include <QWidget>
+#include <QUrl>
 
-spritechat::AOMusicPlayer::AOMusicPlayer(AOApplication *ao_app)
-    : ao_app(ao_app)
+spritechat::AOMusicPlayer::AOMusicPlayer()
 {}
 
 spritechat::AOMusicPlayer::~AOMusicPlayer()
 {
-  for (int n_stream = 0; n_stream < STREAM_COUNT; ++n_stream)
-  {
-    BASS_ChannelStop(m_stream_list[n_stream]);
-  }
+  BASS_ChannelStop(m_stream.handle);
 }
 
-QString spritechat::AOMusicPlayer::playStream(QString song, int streamId, bool loopEnabled, int effectFlags)
+bool spritechat::AOMusicPlayer::play(const AOMusicTrack &track, theory::MusicEffects effects, bool loopEnabled)
 {
-  if (!ensureValidStreamId(streamId))
-  {
-    return "[ERROR] Invalid Channel";
-  }
-
-  bool isLooping = loopEnabled && !(effectFlags & NO_REPEAT);
+  Stream next;
+  next.volume = m_stream.volume;
 
   quint32 flags = BASS_STREAM_AUTOFREE;
-  if (isLooping)
+  if (loopEnabled)
   {
     flags |= BASS_SAMPLE_LOOP;
   }
 
-  QString f_path = song;
-  HSTREAM newstream;
-  if (f_path.startsWith("http"))
+  const bool is_stream = !track.url.isLocalFile();
+  if (is_stream)
   {
     if (!Options::getInstance().streamingEnabled())
     {
-      BASS_ChannelStop(m_stream_list[streamId]);
-      return QObject::tr("[MISSING] Streaming disabled.");
+      BASS_ChannelStop(m_stream.handle);
+      return false;
     }
-    QUrl l_url = QUrl(f_path);
-    newstream = BASS_StreamCreateURL(l_url.toEncoded().toStdString().c_str(), 0, flags, nullptr, 0);
+    next.handle = BASS_StreamCreateURL(track.url.toEncoded().toStdString().c_str(), 0, flags, nullptr, 0);
   }
   else
   {
     flags |= BASS_STREAM_PRESCAN | BASS_UNICODE | BASS_ASYNCFILE;
 
-    f_path = ao_app->get_real_path(ao_app->get_music_path(song));
-    newstream = BASS_StreamCreateFile(FALSE, f_path.utf16(), 0, 0, flags);
+    QString f_path = track.url.toLocalFile();
+    next.handle = BASS_StreamCreateFile(FALSE, f_path.utf16(), 0, 0, flags);
   }
 
   int error = BASS_ErrorGetCode();
   if (Options::getInstance().audioOutputDevice() != "default")
   {
-    BASS_ChannelSetDevice(m_stream_list[streamId], BASS_GetDevice());
+    BASS_ChannelSetDevice(next.handle, BASS_GetDevice());
   }
 
-  m_loop_start[streamId] = 0;
-  m_loop_end[streamId] = 0;
-
-  QString d_path = f_path + ".txt";
-  if (isLooping && file_exists(d_path)) // Contains loop/etc. information file
+  if (loopEnabled)
   {
-    QStringList lines = ao_app->read_file(d_path).split("\n");
-    bool seconds_mode = false;
-    for (const QString &line : std::as_const(lines))
-    {
-      QStringList args = line.split("=");
-      if (args.size() < 2)
-      {
-        continue;
-      }
-      QString arg = args[0].trimmed();
-      if (arg == "seconds")
-      {
-        if (args[1].trimmed() == "true")
-        {
-          seconds_mode = true; // Use new epic behavior
-          continue;
-        }
-
-        continue;
-      }
-
-      float sample_rate;
-      BASS_ChannelGetAttribute(newstream, BASS_ATTRIB_FREQ, &sample_rate);
-
-      // Grab number of bytes for sample size
-      int sample_size = 16 / 8;
-
-      // number of channels (stereo/mono)
-      int num_channels = 2;
-
-      // Calculate the bytes for loop_start/loop_end to use with the sync proc
-      QWORD bytes;
-      if (seconds_mode)
-      {
-        bytes = BASS_ChannelSeconds2Bytes(newstream, args[1].trimmed().toDouble());
-      }
-      else
-      {
-        bytes = static_cast<QWORD>(args[1].trimmed().toUInt() * sample_size * num_channels);
-      }
-      if (arg == "loop_start")
-      {
-        m_loop_start[streamId] = bytes;
-      }
-      else if (arg == "loop_length")
-      {
-        m_loop_end[streamId] = m_loop_start[streamId] + bytes;
-      }
-      else if (arg == "loop_end")
-      {
-        m_loop_end[streamId] = bytes;
-      }
-    }
-    qDebug() << "Found data file for song" << song << "length" << BASS_ChannelGetLength(newstream, BASS_POS_BYTE) << "loop start" << m_loop_start[streamId] << "loop end" << m_loop_end[streamId];
+    next.byteLoopStart = loopPosition(next.handle, track, track.loopStart);
+    next.byteLoopEnd = loopPosition(next.handle, track, track.loopEnd);
   }
 
-  if (BASS_ChannelIsActive(m_stream_list[streamId]) == BASS_ACTIVE_PLAYING)
+  if (BASS_ChannelIsActive(m_stream.handle) == BASS_ACTIVE_PLAYING && effects.testFlag(theory::SynchronizePosition))
   {
-    DWORD oldstream = m_stream_list[streamId];
-
-    if (effectFlags & SYNC_POS)
-    {
-      BASS_ChannelLock(oldstream, true);
-      // Sync it with the new sample
-      BASS_ChannelSetPosition(newstream, BASS_ChannelGetPosition(oldstream, BASS_POS_BYTE), BASS_POS_BYTE);
-      BASS_ChannelLock(oldstream, false);
-    }
-
-    if ((effectFlags & FADE_OUT) && m_volume[streamId] > 0)
-    {
-      // Fade out the other sample and stop it (due to -1)
-      BASS_ChannelSlideAttribute(oldstream, BASS_ATTRIB_VOL | BASS_SLIDE_LOG, -1, 4000);
-    }
-    else
-    {
-      BASS_ChannelStop(oldstream); // Stop the sample since we don't need it anymore
-    }
-  }
-  else
-  {
-    BASS_ChannelStop(m_stream_list[streamId]);
+    DWORD oldstream = m_stream.handle;
+    BASS_ChannelLock(oldstream, true);
+    // Sync it with the new sample
+    BASS_ChannelSetPosition(next.handle, BASS_ChannelGetPosition(oldstream, BASS_POS_BYTE), BASS_POS_BYTE);
+    BASS_ChannelLock(oldstream, false);
   }
 
-  m_stream_list[streamId] = newstream;
-  BASS_ChannelPlay(newstream, false);
-  if (effectFlags & FADE_IN)
+  stopStream(m_stream, effects.testFlag(theory::FadeOut));
+
+  m_stream = next;
+  BASS_ChannelPlay(m_stream.handle, false);
+  if (effects.testFlag(theory::FadeIn))
   {
     // Fade in our sample
-    BASS_ChannelSetAttribute(newstream, BASS_ATTRIB_VOL, 0);
-    BASS_ChannelSlideAttribute(newstream, BASS_ATTRIB_VOL, static_cast<float>(m_volume[streamId] / 100.0f), 1000);
+    BASS_ChannelSetAttribute(m_stream.handle, BASS_ATTRIB_VOL, 0);
+    BASS_ChannelSlideAttribute(m_stream.handle, BASS_ATTRIB_VOL, m_stream.volume / 100.0f, 1000);
   }
   else
   {
-    this->setStreamVolume(m_volume[streamId], streamId);
+    this->setVolume(m_stream.volume);
   }
 
-  BASS_ChannelSetSync(newstream, BASS_SYNC_DEV_FAIL, 0, ao_app->BASSreset, 0);
+  BASS_ChannelSetSync(m_stream.handle, BASS_SYNC_DEV_FAIL, 0, AOApplication::BASSreset, 0);
 
-  this->setStreamLooping(isLooping, streamId); // Have to do this here due to any
-                                               // crossfading-related changes, etc.
+  this->setLoop(loopEnabled); // Have to do this here due to any
+                              // crossfading-related changes, etc.
 
-  bool is_stop = (song == "~stop.mp3");
-  QString p_song_clear = QUrl(song).fileName();
-  p_song_clear = p_song_clear.left(p_song_clear.lastIndexOf('.'));
+  // Cheap hack to see if file missing
+  return error != BASS_ERROR_HANDLE;
+}
 
-  if (is_stop && streamId == 0)
-  { // don't send text on channels besides 0
-    return QObject::tr("None");
-  }
-
-  if (error == BASS_ERROR_HANDLE)
-  { // Cheap hack to see if file missing
-    return QObject::tr("[MISSING] %1").arg(p_song_clear);
-  }
-
-  if (song.startsWith("http") && streamId == 0)
+quint64 spritechat::AOMusicPlayer::loopPosition(HSTREAM stream, const AOMusicTrack &track, double value)
+{
+  if (track.loopUnit == AOMusicTrack::LoopUnit::Second)
   {
-    return QObject::tr("[STREAM] %1").arg(p_song_clear);
+    QWORD bytes = BASS_ChannelSeconds2Bytes(stream, value);
+    if (bytes == -1)
+    {
+      return 0;
+    }
+
+    return bytes;
   }
 
-  if (streamId == 0)
+  BASS_CHANNELINFO info;
+  if (!BASS_ChannelGetInfo(stream, &info))
   {
-    return p_song_clear;
+    return 0;
   }
 
-  return "";
+  int sample_size = 2;
+  if (info.flags & BASS_SAMPLE_8BITS)
+  {
+    sample_size = 1;
+  }
+  else if (info.flags & BASS_SAMPLE_FLOAT)
+  {
+    sample_size = 4;
+  }
+
+  return value * sample_size * info.chans;
+}
+
+void spritechat::AOMusicPlayer::stopStream(const Stream &stream, bool fadeOut)
+{
+  if (fadeOut && stream.volume > 0 && BASS_ChannelIsActive(stream.handle) == BASS_ACTIVE_PLAYING)
+  {
+    // Fade out the other sample and stop it (due to -1)
+    BASS_ChannelSlideAttribute(stream.handle, BASS_ATTRIB_VOL | BASS_SLIDE_LOG, -1, 4000);
+  }
+  else
+  {
+    BASS_ChannelStop(stream.handle); // Stop the sample since we don't need it anymore
+  }
+}
+
+void spritechat::AOMusicPlayer::stop(theory::MusicEffects effects)
+{
+  stopStream(m_stream, effects.testFlag(theory::FadeOut));
+
+  BASS_ChannelRemoveSync(m_stream.handle, m_stream.loopSync);
+  m_stream.loopSync = 0;
+  m_stream.byteLoopStart = 0;
+  m_stream.byteLoopEnd = 0;
+  m_stream.handle = 0;
 }
 
 void spritechat::AOMusicPlayer::setMuted(bool enabled)
 {
   m_muted = enabled;
   // Update all volume based on the mute setting
-  for (int n_stream = 0; n_stream < STREAM_COUNT; ++n_stream)
-  {
-    setStreamVolume(m_volume[n_stream], n_stream);
-  }
+  setVolume(m_stream.volume);
 }
 
-void spritechat::AOMusicPlayer::setStreamVolume(int value, int streamId)
+void spritechat::AOMusicPlayer::setVolume(int value)
 {
-  if (!ensureValidStreamId(streamId))
-  {
-    qWarning().noquote() << QObject::tr("Invalid stream ID '%2'").arg(streamId);
-    return;
-  }
-
-  m_volume[streamId] = value;
+  m_stream.volume = value;
   // If muted, volume will always be 0
-  float volume = (m_volume[streamId] / 100.0f) * !m_muted;
-  if (streamId < 0)
-  {
-    for (int n_stream = 0; n_stream < STREAM_COUNT; ++n_stream)
-    {
-      BASS_ChannelSetAttribute(m_stream_list[n_stream], BASS_ATTRIB_VOL, volume);
-    }
-  }
-  else
-  {
-    BASS_ChannelSetAttribute(m_stream_list[streamId], BASS_ATTRIB_VOL, volume);
-  }
+  float volume = (m_stream.volume / 100.0f) * !m_muted;
+  BASS_ChannelSetAttribute(m_stream.handle, BASS_ATTRIB_VOL, volume);
 }
 
-void CALLBACK loopProc(HSYNC handle, DWORD channel, DWORD data, void *user)
+void CALLBACK spritechat::AOMusicPlayer::loopProc(HSYNC handle, DWORD channel, DWORD data, void *user)
 {
   Q_UNUSED(handle);
   Q_UNUSED(data);
-  QWORD loop_start = *(static_cast<unsigned *>(user));
+  QWORD loop_start = *(static_cast<quint64 *>(user));
   BASS_ChannelLock(channel, true);
   BASS_ChannelSetPosition(channel, loop_start, BASS_POS_BYTE);
   BASS_ChannelLock(channel, false);
 }
 
-void spritechat::AOMusicPlayer::setStreamLooping(bool enabled, int streamId)
+void spritechat::AOMusicPlayer::setLoop(bool enabled)
 {
-  if (!ensureValidStreamId(streamId))
-  {
-    qWarning().noquote() << QObject::tr("Invalid stream ID '%2'").arg(streamId);
-    return;
-  }
-
   if (!enabled)
   {
-    if (BASS_ChannelFlags(m_stream_list[streamId], 0, 0) & BASS_SAMPLE_LOOP)
+    if (BASS_ChannelFlags(m_stream.handle, 0, 0) & BASS_SAMPLE_LOOP)
     {
-      BASS_ChannelFlags(m_stream_list[streamId], 0,
+      BASS_ChannelFlags(m_stream.handle, 0,
                         BASS_SAMPLE_LOOP); // remove the LOOP flag
     }
-    BASS_ChannelRemoveSync(m_stream_list[streamId], m_loop_sync[streamId]);
-    m_loop_sync[streamId] = 0;
+    BASS_ChannelRemoveSync(m_stream.handle, m_stream.loopSync);
+    m_stream.loopSync = 0;
     return;
   }
 
-  BASS_ChannelFlags(m_stream_list[streamId], BASS_SAMPLE_LOOP,
+  BASS_ChannelFlags(m_stream.handle, BASS_SAMPLE_LOOP,
                     BASS_SAMPLE_LOOP); // set the LOOP flag
-  if (m_loop_sync[streamId] != 0)
+  if (m_stream.loopSync != 0)
   {
-    BASS_ChannelRemoveSync(m_stream_list[streamId],
-                           m_loop_sync[streamId]); // remove the sync
-    m_loop_sync[streamId] = 0;
+    BASS_ChannelRemoveSync(m_stream.handle, m_stream.loopSync); // remove the sync
+    m_stream.loopSync = 0;
   }
 
-  if (m_loop_start[streamId] < m_loop_end[streamId])
+  if (m_stream.byteLoopStart < m_stream.byteLoopEnd)
   {
     // Loop when the endpoint is reached.
-    m_loop_sync[streamId] = BASS_ChannelSetSync(m_stream_list[streamId], BASS_SYNC_POS | BASS_SYNC_MIXTIME, m_loop_end[streamId], loopProc, &m_loop_start[streamId]);
+    m_stream.loopSync = BASS_ChannelSetSync(m_stream.handle, BASS_SYNC_POS | BASS_SYNC_MIXTIME, m_stream.byteLoopEnd, loopProc, &m_stream.byteLoopStart);
   }
   else
   {
     // Loop when the end of the file is reached.
-    m_loop_sync[streamId] = BASS_ChannelSetSync(m_stream_list[streamId], BASS_SYNC_END | BASS_SYNC_MIXTIME, 0, loopProc, &m_loop_start[streamId]);
+    m_stream.loopSync = BASS_ChannelSetSync(m_stream.handle, BASS_SYNC_END | BASS_SYNC_MIXTIME, 0, loopProc, &m_stream.byteLoopStart);
   }
-}
-
-bool spritechat::AOMusicPlayer::ensureValidStreamId(int streamId)
-{
-  return (streamId >= 0 && streamId < STREAM_COUNT);
 }

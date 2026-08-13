@@ -17,7 +17,7 @@ spritechat::AOEvidenceDisplay::AOEvidenceDisplay(AOApplication *p_ao_app, QWidge
   connect(ui_prompt_details, &QPushButton::clicked, this, &AOEvidenceDisplay::icon_clicked);
 }
 
-void spritechat::AOEvidenceDisplay::show_evidence(int p_index, QString p_evidence_image, bool is_left_side, int p_volume)
+void spritechat::AOEvidenceDisplay::show_evidence(int p_index, const QString &p_evidence_image, bool is_left_side, int p_volume)
 {
   QString gif_name;
   QString icon_identifier;

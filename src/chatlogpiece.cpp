@@ -4,7 +4,7 @@
 
 QString spritechat::ChatLogPiece::toString()
 {
-  auto maybe_unknown = [](QString str) -> QString {
+  auto maybe_unknown = [](const QString &str) -> QString {
     if (str.isEmpty())
     {
       return tr("UNKNOWN");

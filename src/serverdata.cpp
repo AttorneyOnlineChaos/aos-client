@@ -1,21 +1,10 @@
 #include <serverdata.h>
 
 #include <QUrl>
-#include <QVariant>
 
-bool spritechat::ServerData::get_feature(const BASE_FEATURE_SET &f_feature) const
+QString spritechat::ServerData::get_server_software() const
 {
-  return get_feature(QVariant::fromValue(f_feature).toString());
-}
-
-bool spritechat::ServerData::get_feature(const QString &f_feature) const
-{
-  return m_features.contains(f_feature, Qt::CaseInsensitive);
-}
-
-void spritechat::ServerData::set_features(const QStringList &f_feature_list)
-{
-  m_features = f_feature_list;
+  return m_server_software;
 }
 
 void spritechat::ServerData::set_server_software(const QString &newServer_software)
@@ -36,6 +25,4 @@ void spritechat::ServerData::set_asset_url(const QString &f_asset_url)
   {
     m_asset_url = l_asset_url.toString();
   }
-
-  m_asset_url = f_asset_url;
 }

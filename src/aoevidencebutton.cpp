@@ -24,7 +24,7 @@ spritechat::AOEvidenceButton::AOEvidenceButton(int id, int width, int height, AO
   connect(this, &AOEvidenceButton::clicked, this, &AOEvidenceButton::on_clicked);
 }
 
-void spritechat::AOEvidenceButton::setImage(QString fileName)
+void spritechat::AOEvidenceButton::setImage(const QString &fileName)
 {
   QString image_path = ao_app->get_real_path(ao_app->get_evidence_path(fileName));
   if (file_exists(fileName))
@@ -50,7 +50,7 @@ void spritechat::AOEvidenceButton::setImage(QString fileName)
   }
 }
 
-void spritechat::AOEvidenceButton::setThemeImage(QString fileName)
+void spritechat::AOEvidenceButton::setThemeImage(const QString &fileName)
 {
   QString theme_image_path = ao_app->get_real_path(ao_app->get_theme_path(fileName));
   QString default_image_path = ao_app->get_real_path(ao_app->get_theme_path(fileName, ao_app->default_theme));

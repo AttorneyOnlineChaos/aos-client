@@ -17,9 +17,9 @@ class AOEvidenceButton : public QPushButton
 public:
   AOEvidenceButton(int id, int width, int height, AOApplication *ao_app, QWidget *parent = nullptr);
 
-  void setImage(QString fileName);
+  void setImage(const QString &fileName);
 
-  void setThemeImage(QString fileName);
+  void setThemeImage(const QString &fileName);
 
   void setSelected(bool enabled);
 

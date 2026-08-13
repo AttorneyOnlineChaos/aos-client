@@ -22,13 +22,13 @@ public:
   QString separator() const;
 
 Q_SIGNALS:
-  void textChanged(QString newText);
-  void separatorChanged(QString newSeparator);
+  void textChanged(const QString &newText);
+  void separatorChanged(const QString &newSeparator);
 
 public Q_SLOTS:
-  void setText(QString text);
+  void setText(const QString &text);
 
-  void setSeparator(QString separator);
+  void setSeparator(const QString &separator);
 
 protected:
   virtual void paintEvent(QPaintEvent *);

@@ -1,5 +1,8 @@
+#include "core/logging.h"
 #include "courtroom.h"
 #include "options.h"
+#include "protocol/packets/evidence_packets.h"
+#include "spritechat_log.h"
 
 void spritechat::Courtroom::initialize_evidence()
 {
@@ -236,7 +239,7 @@ void spritechat::Courtroom::refresh_evidence()
   }
 }
 
-void spritechat::Courtroom::set_evidence_list(QVector<EvidenceItem> &p_evi_list)
+void spritechat::Courtroom::set_evidence_list(QList<theory::EvidenceItem> &p_evi_list)
 {
   global_evidence_list = p_evi_list;
   if (!current_evidence_global)
@@ -245,7 +248,7 @@ void spritechat::Courtroom::set_evidence_list(QVector<EvidenceItem> &p_evi_list)
             // thing
   }
 
-  QVector<EvidenceItem> old_list = local_evidence_list;
+  QList<theory::EvidenceItem> old_list = local_evidence_list;
   local_evidence_list.clear();
   local_evidence_list = p_evi_list;
 
@@ -275,7 +278,7 @@ void spritechat::Courtroom::set_evidence_list(QVector<EvidenceItem> &p_evi_list)
       msgBox->setDetailedText(tr("Name: %1\n"
                                  "Image: %2\n"
                                  "Description:\n%3")
-                                  .arg(local_evidence_list.at(current_evidence).name, local_evidence_list.at(current_evidence).image, local_evidence_list.at(current_evidence).description));
+                                  .arg(local_evidence_list.at(current_evidence).evidence.name, local_evidence_list.at(current_evidence).evidence.image, local_evidence_list.at(current_evidence).evidence.description));
       msgBox->setStandardButtons(QMessageBox::Yes | QMessageBox::No);
       msgBox->setDefaultButton(QMessageBox::LastButton);
       // msgBox->setWindowModality(Qt::NonModal);
@@ -296,6 +299,23 @@ void spritechat::Courtroom::set_evidence_list(QVector<EvidenceItem> &p_evi_list)
       }
     }
   }
+}
+
+int spritechat::Courtroom::global_evidence_index(theory::EvidenceId id) const
+{
+  if (id < 0)
+  {
+    return -1;
+  }
+
+  for (int i = 0; i < global_evidence_list.size(); ++i)
+  {
+    if (global_evidence_list.at(i).id == id)
+    {
+      return i;
+    }
+  }
+  return -1;
 }
 
 void spritechat::Courtroom::set_evidence_page()
@@ -357,14 +377,14 @@ void spritechat::Courtroom::set_evidence_page()
     }
     else if (n_real_evidence < (total_evidence - 1))
     {
-      f_evidence_button->setImage(local_evidence_list.at(n_real_evidence).image);
+      f_evidence_button->setImage(local_evidence_list.at(n_real_evidence).evidence.image);
 
       if (n_real_evidence == current_evidence)
       {
         f_evidence_button->setSelected(true);
       }
 
-      f_evidence_button->setToolTip(QString::number(n_real_evidence + 1) + ": " + local_evidence_list.at(n_real_evidence).name);
+      f_evidence_button->setToolTip(QString::number(n_real_evidence + 1) + ": " + local_evidence_list.at(n_real_evidence).evidence.name);
     }
     else
     {
@@ -449,14 +469,18 @@ void spritechat::Courtroom::on_evidence_clicked(int p_id)
   {
     if (current_evidence_global)
     {
-      ao_app->send_server_packet(AOPacket("PE", {"<name>", "<description>", "empty.png"}));
+      theory::AddEvidencePacket packet;
+      packet.evidence.name = "<name>";
+      packet.evidence.description = "<description>";
+      packet.evidence.image = "empty.png";
+      ao_app->shipPacket(packet);
     }
     else
     {
-      EvidenceItem f_evi;
-      f_evi.name = "<name>";
-      f_evi.description = "<description>";
-      f_evi.image = "empty.png";
+      theory::EvidenceItem f_evi;
+      f_evi.evidence.name = "<name>";
+      f_evi.evidence.description = "<description>";
+      f_evi.evidence.image = "empty.png";
 
       local_evidence_list.append(f_evi);
       private_evidence_list = local_evidence_list;
@@ -480,7 +504,7 @@ void spritechat::Courtroom::on_evidence_clicked(int p_id)
     return;
   }
 
-  ui_evidence_name->setText(local_evidence_list.at(f_real_id).name);
+  ui_evidence_name->setText(local_evidence_list.at(f_real_id).evidence.name);
   for (AOEvidenceButton *i_button : std::as_const(ui_evidence_list))
   {
     i_button->setSelected(false);
@@ -521,19 +545,19 @@ void spritechat::Courtroom::on_evidence_double_clicked(int p_id)
   }
   current_evidence = f_real_id;
 
-  EvidenceItem f_evi = local_evidence_list.at(f_real_id);
+  theory::EvidenceItem f_evi = local_evidence_list.at(f_real_id);
 
   ui_evidence_description->clear();
-  ui_evidence_description->appendPlainText(f_evi.description);
+  ui_evidence_description->appendPlainText(f_evi.evidence.description);
   ui_evidence_description->setReadOnly(false);
   ui_evidence_description->setToolTip(tr("Click to edit..."));
   ui_evidence_description->moveCursor(QTextCursor::Start);
 
-  ui_evidence_name->setText(f_evi.name);
+  ui_evidence_name->setText(f_evi.evidence.name);
   ui_evidence_name->setReadOnly(false);
   ui_evidence_name->setToolTip(tr("Click to edit..."));
 
-  ui_evidence_image_name->setText(f_evi.image);
+  ui_evidence_image_name->setText(f_evi.evidence.image);
   ui_evidence_image_name->setReadOnly(false);
   ui_evidence_image_name->setToolTip(tr("Click to edit..."));
 
@@ -560,12 +584,12 @@ void spritechat::Courtroom::on_evidence_hover(int p_id, bool p_state)
     }
     else if (final_id < local_evidence_list.size())
     {
-      ui_evidence_name->setText(local_evidence_list.at(final_id).name);
+      ui_evidence_name->setText(local_evidence_list.at(final_id).evidence.name);
     }
   }
   else if (current_evidence < local_evidence_list.size())
   {
-    ui_evidence_name->setText(local_evidence_list.at(current_evidence).name);
+    ui_evidence_name->setText(local_evidence_list.at(current_evidence).evidence.name);
   }
   else
   {
@@ -612,9 +636,15 @@ void spritechat::Courtroom::on_evidence_present_clicked()
 void spritechat::Courtroom::on_evidence_delete_clicked()
 {
   evidence_close();
+  if (current_evidence >= local_evidence_list.size())
+  {
+    return;
+  }
   if (current_evidence_global)
   {
-    ao_app->send_server_packet(AOPacket("DE", {QString::number(current_evidence)}));
+    theory::DeleteEvidencePacket packet;
+    packet.evidenceId = local_evidence_list.at(current_evidence).id;
+    ao_app->shipPacket(packet);
   }
   else
   {
@@ -670,22 +700,22 @@ void spritechat::Courtroom::on_evidence_ok_clicked()
   ui_evidence_ok->hide();
   if (current_evidence < local_evidence_list.size())
   {
-    EvidenceItem f_evi = local_evidence_list.at(current_evidence);
+    theory::EvidenceItem f_evi = local_evidence_list.at(current_evidence);
     if (current_evidence_global)
     {
-      QStringList f_contents;
-      f_contents.append(QString::number(current_evidence));
-      f_contents.append(ui_evidence_name->text());
-      f_contents.append(ui_evidence_description->toPlainText());
-      f_contents.append(ui_evidence_image_name->text());
+      theory::EditEvidencePacket packet;
+      packet.evidenceId = f_evi.id;
+      packet.evidence.name = ui_evidence_name->text();
+      packet.evidence.description = ui_evidence_description->toPlainText();
+      packet.evidence.image = ui_evidence_image_name->text();
 
-      ao_app->send_server_packet(AOPacket("EE", f_contents));
+      ao_app->shipPacket(packet);
     }
     else
     {
-      f_evi.name = ui_evidence_name->text();
-      f_evi.description = ui_evidence_description->toPlainText();
-      f_evi.image = ui_evidence_image_name->text();
+      f_evi.evidence.name = ui_evidence_name->text();
+      f_evi.evidence.description = ui_evidence_description->toPlainText();
+      f_evi.evidence.image = ui_evidence_image_name->text();
       local_evidence_list.replace(current_evidence, f_evi);
       private_evidence_list = local_evidence_list;
       ui_evidence_ok->hide();
@@ -715,20 +745,19 @@ void spritechat::Courtroom::on_evidence_transfer_clicked()
   QString name;
   if (!current_evidence_global) // Transfer private evidence to global
   {
-    EvidenceItem f_evi = local_evidence_list.at(current_evidence);
+    theory::EvidenceItem f_evi = local_evidence_list.at(current_evidence);
 
-    QStringList f_contents;
-    f_contents.append(f_evi.name);
-    f_contents.append(f_evi.description);
-    f_contents.append(f_evi.image);
+    theory::AddEvidencePacket packet;
+    packet.evidence = f_evi.evidence;
 
-    name = f_evi.name;
-    ao_app->send_server_packet(AOPacket("PE", f_contents));
+    name = f_evi.evidence.name;
+    ao_app->shipPacket(packet);
   }
   else // Transfer global evidence to private
   {
-    EvidenceItem f_evi = local_evidence_list.at(current_evidence);
-    name = f_evi.name;
+    theory::EvidenceItem f_evi = local_evidence_list.at(current_evidence);
+    name = f_evi.evidence.name;
+    f_evi.id = theory::NoEvidenceId;
     private_evidence_list.append(f_evi);
 
     // Autosave private evidence
@@ -749,10 +778,10 @@ void spritechat::Courtroom::on_evidence_edited()
   {
     return;
   }
-  EvidenceItem fake_evidence;
-  fake_evidence.name = ui_evidence_name->text();
-  fake_evidence.description = ui_evidence_description->toPlainText();
-  fake_evidence.image = ui_evidence_image_name->text();
+  theory::EvidenceItem fake_evidence;
+  fake_evidence.evidence.name = ui_evidence_name->text();
+  fake_evidence.evidence.description = ui_evidence_description->toPlainText();
+  fake_evidence.evidence.image = ui_evidence_image_name->text();
   if (compare_evidence_changed(fake_evidence, local_evidence_list.at(current_evidence)))
   {
     ui_evidence_ok->show();
@@ -852,11 +881,11 @@ void spritechat::Courtroom::on_evidence_load_clicked()
   set_evidence_page();
 }
 
-void spritechat::Courtroom::evidence_load(QString filename)
+void spritechat::Courtroom::evidence_load(const QString &filename)
 {
   if (!file_exists(filename))
   {
-    qWarning() << "Trying to load a non-existant evidence save file:" << filename;
+    zWarning(log::ic) << "Trying to load a non-existant evidence save file:" << filename;
     return;
   }
   QSettings inventory(filename, QSettings::IniFormat);
@@ -868,15 +897,15 @@ void spritechat::Courtroom::evidence_load(QString filename)
       continue;
     }
 
-    EvidenceItem f_evi;
-    f_evi.name = inventory.value(evi + "/name", "<name>").value<QString>();
-    f_evi.description = inventory.value(evi + "/description", "<description>").value<QString>();
-    f_evi.image = inventory.value(evi + "/image", "empty.png").value<QString>();
+    theory::EvidenceItem f_evi;
+    f_evi.evidence.name = inventory.value(evi + "/name", "<name>").value<QString>();
+    f_evi.evidence.description = inventory.value(evi + "/description", "<description>").value<QString>();
+    f_evi.evidence.image = inventory.value(evi + "/image", "empty.png").value<QString>();
     private_evidence_list.append(f_evi);
   }
 }
 
-void spritechat::Courtroom::evidence_save(QString filename)
+void spritechat::Courtroom::evidence_save(const QString &filename)
 {
   // "Inventories" dir keeps our private evidence data
   if (!dir_exists("inventories"))
@@ -890,15 +919,15 @@ void spritechat::Courtroom::evidence_save(QString filename)
   for (int i = 0; i < private_evidence_list.size(); i++)
   {
     inventory.beginGroup(QString::number(i));
-    inventory.setValue("name", private_evidence_list[i].name);
-    inventory.setValue("description", private_evidence_list[i].description);
-    inventory.setValue("image", private_evidence_list[i].image);
+    inventory.setValue("name", private_evidence_list[i].evidence.name);
+    inventory.setValue("description", private_evidence_list[i].evidence.description);
+    inventory.setValue("image", private_evidence_list[i].evidence.image);
     inventory.endGroup();
   }
   inventory.sync();
 }
 
-bool spritechat::Courtroom::compare_evidence_changed(EvidenceItem evi_a, EvidenceItem evi_b)
+bool spritechat::Courtroom::compare_evidence_changed(const theory::EvidenceItem &evi_a, const theory::EvidenceItem &evi_b)
 {
-  return evi_a.name != evi_b.name || evi_a.image != evi_b.image || evi_a.description != evi_b.description;
+  return evi_a.evidence != evi_b.evidence;
 }
