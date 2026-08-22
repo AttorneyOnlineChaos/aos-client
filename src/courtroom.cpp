@@ -18,20 +18,19 @@
 
 // #define DEBUG_TRANSITION
 
-spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers)
+spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport)
     : QMainWindow()
     , ao_app{p_ao_app}
     , area_registry{p_area_registry}
     , player_registry{p_player_registry}
     , timers{p_timers}
+    , transport{p_transport}
 {
   setWindowIcon(QIcon(":/data/logo-client.png"));
   setWindowFlags((this->windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
   setObjectName("courtroom");
 
   ao_app->initBASS();
-  keepalive_timer = new QTimer(this);
-  keepalive_timer->start(45000);
 
   chat_tick_timer = new QTimer(this);
 
@@ -183,7 +182,7 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_music_name->setAttribute(Qt::WA_TransparentForMouseEvents);
   ui_music_name->setObjectName("ui_music_name");
 
-  ui_player_list = new PlayerListWidget(ao_app, player_registry, this);
+  ui_player_list = new PlayerListWidget(ao_app, player_registry, transport, this);
   ui_player_list->setObjectName("ui_player_list");
 
   for (int i = 0; i < max_clocks; i++)
@@ -423,8 +422,6 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_pair_list->raise();
 
   construct_char_select();
-
-  connect(keepalive_timer, &QTimer::timeout, this, &Courtroom::ping_server);
 
   connect(ui_vp_objection, &SplashAnimationLayer::finishedPlayback, this, &Courtroom::objection_done);
   connect(ui_vp_player_char, &CharacterAnimationLayer::finishedPreOrPostEmotePlayback, this, &Courtroom::preanim_done);
@@ -1892,8 +1889,6 @@ void spritechat::Courtroom::set_judge_buttons()
 
 void spritechat::Courtroom::closeEvent(QCloseEvent *event)
 {
-  Options::getInstance().setWindowPosition(objectName(), pos());
-
   Q_EMIT aboutToClose();
 
   QMainWindow::closeEvent(event);
@@ -2124,7 +2119,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
   packet.blips = ao_app->get_blipname(current_char, current_emote);
   packet.slide = ui_slide_enable->isChecked();
 
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 }
 
 void spritechat::Courtroom::reset_ui()
@@ -4146,9 +4141,9 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
 
   theory::CharacterId n_char = packet.characterId;
 
-  if (!is_stop && !file_exists(ao_app->get_sfx_suffix(ao_app->get_music_path(f_song))) && !f_song.startsWith("http") && !ao_app->m_serverdata.get_asset_url().isEmpty())
+  if (!is_stop && !file_exists(ao_app->get_sfx_suffix(ao_app->get_music_path(f_song))) && !f_song.startsWith("http") && !ao_app->m_server_data.get_asset_url().isEmpty())
   {
-    f_song = (ao_app->m_serverdata.get_asset_url() + "sounds/music/" + f_song).toLower();
+    f_song = (ao_app->m_server_data.get_asset_url() + "sounds/music/" + f_song).toLower();
   }
 
   if (n_char >= 0 && n_char < char_list.size())
@@ -4437,14 +4432,14 @@ void spritechat::Courtroom::on_ooc_return_pressed()
       theory::OocMessagePacket packet;
       packet.name = ui_ooc_chat_name->text();
       packet.message = "/doc " + casedoc;
-      ao_app->shipPacket(packet);
+      transport.shipPacket(packet);
     }
     if (!casestatus.isEmpty())
     {
       theory::OocMessagePacket packet;
       packet.name = ui_ooc_chat_name->text();
       packet.message = "/status " + casestatus;
-      ao_app->shipPacket(packet);
+      transport.shipPacket(packet);
     }
     if (!cmdoc.isEmpty())
     {
@@ -4455,7 +4450,7 @@ void spritechat::Courtroom::on_ooc_return_pressed()
     {
       theory::DeleteEvidencePacket packet;
       packet.evidenceId = local_evidence_list.at(i).id;
-      ao_app->shipPacket(packet);
+      transport.shipPacket(packet);
     }
 
     // sort the case_evidence numerically
@@ -4475,7 +4470,7 @@ void spritechat::Courtroom::on_ooc_return_pressed()
       packet.evidence.description = casefile.value(evi + "/description", tr("UNKNOWN")).value<QString>();
       packet.evidence.image = casefile.value(evi + "/image", "UNKNOWN.png").value<QString>();
 
-      ao_app->shipPacket(packet);
+      transport.shipPacket(packet);
     }
 
     append_server_chatmessage("CLIENT", tr("Your case \"%1\" was loaded!").arg(command[1]), "1");
@@ -4551,7 +4546,7 @@ void spritechat::Courtroom::on_ooc_return_pressed()
 
   if (server_ooc)
   {
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
 
   ui_ooc_chat_message->clear();
@@ -5177,7 +5172,7 @@ void spritechat::Courtroom::on_music_list_double_clicked(QTreeWidgetItem *p_item
   packet.effects.setFlag(theory::FadeOut, music_flags & FADE_OUT);
   packet.effects.setFlag(theory::SynchronizePosition, music_flags & SYNC_POS);
   packet.noRepeat = music_flags & NO_REPEAT;
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 }
 
 void spritechat::Courtroom::on_music_list_context_menu_requested(const QPoint &pos)
@@ -5356,7 +5351,7 @@ void spritechat::Courtroom::music_stop(bool no_effects)
     packet.noRepeat = music_flags & NO_REPEAT;
   }
 
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 }
 
 void spritechat::Courtroom::on_area_list_double_clicked(QTreeWidgetItem *p_item, int column)
@@ -5371,7 +5366,7 @@ void spritechat::Courtroom::on_area_list_double_clicked(QTreeWidgetItem *p_item,
 
   theory::ChangeAreaPacket packet;
   packet.areaId = n_area;
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 }
 
 void spritechat::Courtroom::on_hold_it_clicked()
@@ -5578,7 +5573,7 @@ void spritechat::Courtroom::on_defense_minus_clicked()
     theory::PenaltyPacket packet;
     packet.bar = theory::HealthBar::Defense;
     packet.value = f_state;
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
 }
 
@@ -5591,7 +5586,7 @@ void spritechat::Courtroom::on_defense_plus_clicked()
     theory::PenaltyPacket packet;
     packet.bar = theory::HealthBar::Defense;
     packet.value = f_state;
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
 }
 
@@ -5604,7 +5599,7 @@ void spritechat::Courtroom::on_prosecution_minus_clicked()
     theory::PenaltyPacket packet;
     packet.bar = theory::HealthBar::Prosecution;
     packet.value = f_state;
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
 }
 
@@ -5617,7 +5612,7 @@ void spritechat::Courtroom::on_prosecution_plus_clicked()
     theory::PenaltyPacket packet;
     packet.bar = theory::HealthBar::Prosecution;
     packet.value = f_state;
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
 }
 
@@ -5780,7 +5775,7 @@ void spritechat::Courtroom::on_witness_testimony_clicked()
 {
   theory::SplashPacket packet;
   packet.type = theory::SplashType::WitnessTestimony;
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 
   focus_ic_input();
 }
@@ -5789,7 +5784,7 @@ void spritechat::Courtroom::on_cross_examination_clicked()
 {
   theory::SplashPacket packet;
   packet.type = theory::SplashType::CrossExamination;
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 
   focus_ic_input();
 }
@@ -5798,7 +5793,7 @@ void spritechat::Courtroom::on_not_guilty_clicked()
 {
   theory::SplashPacket packet;
   packet.type = theory::SplashType::NotGuilty;
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 
   focus_ic_input();
 }
@@ -5807,7 +5802,7 @@ void spritechat::Courtroom::on_guilty_clicked()
 {
   theory::SplashPacket packet;
   packet.type = theory::SplashType::Guilty;
-  ao_app->shipPacket(packet);
+  transport.shipPacket(packet);
 
   focus_ic_input();
 }
@@ -5861,7 +5856,7 @@ void spritechat::Courtroom::on_call_mod_clicked()
   {
     theory::ModCallPacket packet;
     packet.reason = maybe_reason.value();
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
 
   focus_ic_input();
@@ -5944,11 +5939,6 @@ void spritechat::Courtroom::on_switch_area_music_clicked()
     ui_music_search->setText(last_music_search);
   }
   on_music_search_edited(ui_music_search->text());
-}
-
-void spritechat::Courtroom::ping_server()
-{
-  ao_app->net_manager->ping();
 }
 
 void spritechat::Courtroom::refresh_clock(Timer *timer)

@@ -32,6 +32,7 @@
 
 #include "game/evidence_item.h"
 #include "game/music.h"
+#include "network/packet_transmitter.h"
 #include "protocol/packets/ic_packets.h"
 #include "protocol/packets/music_packets.h"
 
@@ -81,7 +82,7 @@ class Courtroom : public QMainWindow
   Q_OBJECT
 
 public:
-  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers);
+  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport);
   ~Courtroom();
 
   void update_audio_volume();
@@ -315,12 +316,10 @@ private:
   AreaRegistry &area_registry;
   PlayerRegistry &player_registry;
   const QList<Timer *> &timers;
+  theory::PacketTransmitter &transport;
 
   QList<ChatLogPiece> ic_chatlog_history;
   QString last_ic_message;
-
-  // triggers ping_server() every 45 seconds
-  QTimer *keepalive_timer;
 
   // determines how fast messages tick onto screen
   QTimer *chat_tick_timer;
@@ -903,8 +902,6 @@ private Q_SLOTS:
   void on_switch_area_music_clicked();
 
   void on_application_state_changed(Qt::ApplicationState state);
-
-  void ping_server();
 
   void preview_emote(const QString &emote, CharacterAnimationLayer::EmoteType emoteType);
   void update_emote_preview();

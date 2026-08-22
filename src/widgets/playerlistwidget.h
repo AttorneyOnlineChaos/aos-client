@@ -3,6 +3,7 @@
 #include "aoapplication.h"
 #include "core/pointer_types.h"
 #include "datatypes.h"
+#include "network/packet_transmitter.h"
 #include "player_registry.h"
 #include "widgets/moderator_dialog.h"
 
@@ -16,7 +17,7 @@ class PlayerListWidget : public QListWidget
 {
   Q_OBJECT
 public:
-  explicit PlayerListWidget(AOApplication *ao_app, PlayerRegistry &player_registry, QWidget *parent = nullptr);
+  explicit PlayerListWidget(AOApplication *ao_app, PlayerRegistry &player_registry, theory::PacketTransmitter &transport, QWidget *parent = nullptr);
 
   void setArea(theory::AreaId area);
   void setAuthenticated(bool f_state);
@@ -26,6 +27,7 @@ public:
 private:
   AOApplication *ao_app;
   PlayerRegistry &m_registry;
+  theory::PacketTransmitter &m_transport;
   QMap<theory::ClientId, QListWidgetItem *> m_item_map;
   theory::Unique<ModeratorDialog> m_dialog;
   theory::AreaId m_area = theory::NoAreaId;

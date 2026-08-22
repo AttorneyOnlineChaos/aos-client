@@ -192,7 +192,7 @@ void spritechat::Courtroom::char_clicked(theory::CharacterId n_char)
   {
     theory::ChangeCharacterPacket changePacket;
     changePacket.characterId = n_char;
-    ao_app->shipPacket(changePacket);
+    transport.shipPacket(changePacket);
   }
   if (n_char == m_cid || n_char == theory::NoCharacterId)
   {

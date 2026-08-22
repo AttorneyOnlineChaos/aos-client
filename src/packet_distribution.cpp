@@ -9,78 +9,13 @@
 #include "player_registry.h"
 #include "spritechat_log.h"
 
-void spritechat::AOApplication::process_pending_packets()
+spritechat::Timer *spritechat::AOApplication::timer(theory::TimerId id) const
 {
-  while (net_manager->hasPendingPacket())
+  if (id < 0 || id >= m_timers.size())
   {
-    theory::PacketPointer packet = net_manager->nextPacket();
-    if (!packet)
-    {
-      return;
-    }
-
-    if (!m_router.route(*packet))
-    {
-      zWarning(log::protocol) << QStringLiteral("failed to route packet: %1").arg(packet->header());
-    }
+    return nullptr;
   }
-}
-
-void spritechat::AOApplication::shipPacket(const theory::Packet &packet)
-{
-  net_manager->shipPacket(packet);
-}
-
-void spritechat::AOApplication::register_packet_routes()
-{
-  m_router.registerRoute<theory::SessionGrantPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::WelcomePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::CharacterListPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::MusicListPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::AreaListPacket>(&AOApplication::process, this);
-
-  m_router.registerRoute<theory::CharacterAcceptedPacket>(&AOApplication::process, this);
-
-  m_router.registerRoute<theory::BackgroundPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::SetPositionPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::AreaUpdatePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::SubthemePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::TimerPacket>(&AOApplication::process, this);
-
-  m_router.registerRoute<theory::IcMessagePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::OocMessagePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::MusicChangedPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::ServerMessagePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::PenaltyPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::SplashPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::EvidenceListPacket>(&AOApplication::process, this);
-
-  m_router.registerRoute<theory::PlayerRosterPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::PlayerUpdatePacket>(&AOApplication::process, this);
-
-  m_router.registerRoute<theory::ModCallNoticePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::AuthStatePacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::ErrorPacket>(&AOApplication::process, this);
-}
-
-void spritechat::AOApplication::process(const theory::SessionGrantPacket &packet)
-{
-  m_tokens.insert(last_server.join_url(), packet.sessionToken);
-}
-
-void spritechat::AOApplication::process(const theory::WelcomePacket &packet)
-{
-  m_session_active = true;
-
-  client_id = packet.clientId;
-
-  if (w_courtroom->get_character_id() < 0)
-  {
-    w_courtroom->enter_char_select();
-  }
-  w_courtroom->show();
-
-  destruct_lobby();
+  return m_timers.at(id);
 }
 
 void spritechat::AOApplication::process(const theory::CharacterListPacket &packet)
@@ -193,15 +128,6 @@ void spritechat::AOApplication::process(const theory::SubthemePacket &packet)
 
   Options::getInstance().setServerSubTheme(subtheme);
   w_courtroom->on_reload_theme_clicked();
-}
-
-spritechat::Timer *spritechat::AOApplication::timer(theory::TimerId id) const
-{
-  if (id < 0 || id >= m_timers.size())
-  {
-    return nullptr;
-  }
-  return m_timers.at(id);
 }
 
 void spritechat::AOApplication::process(const theory::TimerPacket &packet)
@@ -407,5 +333,5 @@ void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
     break;
   }
 
-  finish_session();
+  drop_session();
 }

@@ -120,12 +120,6 @@ std::optional<spritechat::ServerBookmark> spritechat::Lobby::current_server() co
   return servers.at(index);
 }
 
-void spritechat::Lobby::closeEvent(QCloseEvent *event)
-{
-  Options::getInstance().setWindowPosition(objectName(), pos());
-  QMainWindow::closeEvent(event);
-}
-
 void spritechat::Lobby::reset_selection()
 {
   last_index = -1;

@@ -48,6 +48,7 @@
 #include <QStringList>
 #include <QTextStream>
 #include <QTime>
+#include <QTimer>
 #include <QUrl>
 
 namespace spritechat
@@ -66,8 +67,6 @@ public:
 
   const theory::PacketFactory &m_packet_factory;
 
-  NetworkManager *net_manager;
-  MasterGateway *master_gateway;
   ConsoleLogger console_logger;
   Lobby *w_lobby = nullptr;
   Courtroom *w_courtroom = nullptr;
@@ -82,26 +81,12 @@ public:
   void construct_courtroom();
   void destruct_courtroom();
 
-  void shipPacket(const theory::Packet &packet) override;
-
-  void connect_to_server(const ServerBookmark &server, const theory::ServerInfo &info);
-
   void call_settings_menu();
   void apply_master_options();
-
-  qint64 latency = 0;
-  QString window_title;
-
-  /// Stores everything related to the server the client is connected to, if
-  /// any.
-  ServerData m_serverdata;
 
   AssetLookup m_asset_lookup;
 
   ///////////////loading info///////////////////
-
-  // client ID. Not useful, to be removed eventually
-  int client_id = 0;
 
   VPath get_theme_path(const QString &p_file, const QString &p_theme = QString());
   VPath get_character_path(const QString &p_char, const QString &p_file);
@@ -287,12 +272,6 @@ public:
 
   const QString default_theme = "default"; // don't change this!!! don't do it!!!
 
-  // The name of the currently connected server.
-  QString server_name;
-
-  // The file name of the log file in base/logs.
-  QString log_filename;
-
   bool pointExistsOnScreen(QPoint point);
   void centerOrMoveWidgetOnPrimaryScreen(QWidget *widget);
 
@@ -301,32 +280,58 @@ public:
   static void CALLBACK BASSreset(HSTREAM handle, DWORD channel, DWORD data, void *user);
   static void doBASSreset();
 
+  MasterGateway *master_gateway;
+
+  // The name of the currently connected server.
+  QString server_name;
+
+  // The file name of the log file in base/logs.
+  QString log_filename;
+
+  /// Stores everything related to the server the client is connected to, if
+  /// any.
+  ServerData m_server_data;
+
+  // client ID. Not useful, to be removed eventually
+  int client_id = 0;
+
 private:
   theory::Log m_log;
 
-  ServerBookmark last_server;
-  theory::ServerInfo last_info;
+  /**
+   * Connection, Instance, Session
+   */
 
+  NetworkManager *net_manager;
+  ServerBookmark m_server;
+  theory::ServerInfo m_server_info;
   theory::PacketRouter m_router;
+
+  QString window_title;
+
+  QTimer *m_keepalive_timer;
+
+  void shipPacket(const theory::Packet &packet) override;
+  void register_packet_routes();
+
+  void connect_to_server(const ServerBookmark &server, const theory::ServerInfo &info);
+  void reconnect_to_server();
 
   AreaRegistry m_area_registry;
   PlayerRegistry m_player_registry;
   QList<Timer *> m_timers;
 
-  bool m_session_active = false;
-  bool m_session_closed = false;
-  QHash<QUrl, QString> m_tokens;
-
-  void register_packet_routes();
-
   Timer *timer(theory::TimerId id) const;
+  void reset_server_instance();
+
+  bool m_session_active = false;
+  bool m_recovered_session = false;
+  QHash<QUrl, QString> m_tokens;
 
   void start_session();
   void stop_session();
-  void finish_session();
+  void drop_session();
 
-  void process(const theory::SessionGrantPacket &packet);
-  void process(const theory::WelcomePacket &packet);
   void process(const theory::CharacterListPacket &packet);
   void process(const theory::MusicListPacket &packet);
   void process(const theory::AreaListPacket &packet);
@@ -353,6 +358,9 @@ private:
   void process(const theory::ModCallNoticePacket &packet);
   void process(const theory::AuthStatePacket &packet);
   void process(const theory::ErrorPacket &packet);
+
+  void process(const theory::SessionGrantPacket &packet);
+  void process(const theory::WelcomePacket &packet);
 
 private Q_SLOTS:
   void process_pending_packets();

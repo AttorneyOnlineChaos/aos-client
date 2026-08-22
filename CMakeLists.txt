@@ -23,6 +23,7 @@ set(SPRITECHAT_RUNTIME_NAME "spritechat-runtime" CACHE STRING "Output filename e
 qt_add_library(spritechat STATIC
   src/aoapplication.cpp
   src/aoapplication.h
+  src/aoapplication_connection.cpp
   src/aoblipplayer.cpp
   src/aoblipplayer.h
   src/aobutton.cpp

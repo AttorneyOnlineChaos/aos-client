@@ -473,7 +473,7 @@ void spritechat::Courtroom::on_evidence_clicked(int p_id)
       packet.evidence.name = "<name>";
       packet.evidence.description = "<description>";
       packet.evidence.image = "empty.png";
-      ao_app->shipPacket(packet);
+      transport.shipPacket(packet);
     }
     else
     {
@@ -644,7 +644,7 @@ void spritechat::Courtroom::on_evidence_delete_clicked()
   {
     theory::DeleteEvidencePacket packet;
     packet.evidenceId = local_evidence_list.at(current_evidence).id;
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
   else
   {
@@ -709,7 +709,7 @@ void spritechat::Courtroom::on_evidence_ok_clicked()
       packet.evidence.description = ui_evidence_description->toPlainText();
       packet.evidence.image = ui_evidence_image_name->text();
 
-      ao_app->shipPacket(packet);
+      transport.shipPacket(packet);
     }
     else
     {
@@ -751,7 +751,7 @@ void spritechat::Courtroom::on_evidence_transfer_clicked()
     packet.evidence = f_evi.evidence;
 
     name = f_evi.evidence.name;
-    ao_app->shipPacket(packet);
+    transport.shipPacket(packet);
   }
   else // Transfer global evidence to private
   {

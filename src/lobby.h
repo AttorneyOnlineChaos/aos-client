@@ -38,9 +38,6 @@ public:
 Q_SIGNALS:
   void connection_requested(const ServerBookmark &server, const theory::ServerInfo &info);
 
-protected:
-  void closeEvent(QCloseEvent *event) override;
-
 private:
   AOApplication *ao_app;
   NetworkManager &net_manager;

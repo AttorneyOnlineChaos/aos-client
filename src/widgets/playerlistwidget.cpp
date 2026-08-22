@@ -12,10 +12,11 @@
 
 #include <optional>
 
-spritechat::PlayerListWidget::PlayerListWidget(AOApplication *ao_app, PlayerRegistry &player_registry, QWidget *parent)
+spritechat::PlayerListWidget::PlayerListWidget(AOApplication *ao_app, PlayerRegistry &player_registry, theory::PacketTransmitter &transport, QWidget *parent)
     : QListWidget(parent)
     , ao_app(ao_app)
     , m_registry(player_registry)
+    , m_transport(transport)
 {
   setContextMenuPolicy(Qt::CustomContextMenu);
 
@@ -68,7 +69,7 @@ void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &po
       theory::ModCallPacket packet;
       packet.reason = maybe_reason.value();
       packet.targetClientId = id;
-      ao_app->shipPacket(packet);
+      m_transport.shipPacket(packet);
     }
   });
 
@@ -76,14 +77,14 @@ void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &po
   {
     QAction *kick = menu->addAction("Kick");
     connect(kick, &QAction::triggered, this, [this, id, name] {
-      m_dialog = theory::makeUnique<ModeratorDialog>(id, false, ao_app);
+      m_dialog = theory::makeUnique<ModeratorDialog>(id, false, ao_app, m_transport);
       m_dialog->setWindowTitle(tr("Kick %1").arg(name));
       m_dialog->show();
     });
 
     QAction *ban = menu->addAction("Ban");
     connect(ban, &QAction::triggered, this, [this, id, name] {
-      m_dialog = theory::makeUnique<ModeratorDialog>(id, true, ao_app);
+      m_dialog = theory::makeUnique<ModeratorDialog>(id, true, ao_app, m_transport);
       m_dialog->setWindowTitle(tr("Ban %1").arg(name));
       m_dialog->show();
     });

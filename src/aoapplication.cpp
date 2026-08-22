@@ -30,7 +30,13 @@ spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_fac
   connect(net_manager, &NetworkManager::statusChanged, this, &AOApplication::handle_network_status);
   connect(net_manager, &NetworkManager::errorOccurred, this, &AOApplication::handle_network_error);
   connect(net_manager, &NetworkManager::pendingPacketAvailable, this, &AOApplication::process_pending_packets);
-  connect(net_manager, &NetworkManager::pong, this, [this](quint64 elapsedTime) { latency = elapsedTime; });
+  connect(net_manager, &NetworkManager::pong, this, [this](quint64 elapsedTime) {
+      w_courtroom->setWindowTitle(QStringLiteral("%1 (%2 ms)").arg(window_title).arg(elapsedTime));
+  });
+
+  m_keepalive_timer = new QTimer(this);
+  m_keepalive_timer->setInterval(45000);
+  connect(m_keepalive_timer, &QTimer::timeout, net_manager, &NetworkManager::ping);
 
   master_gateway = new MasterGateway(this);
   apply_master_options();
@@ -73,6 +79,8 @@ void spritechat::AOApplication::destruct_lobby()
     return;
   }
 
+  Options::getInstance().setWindowPosition(w_lobby->objectName(), w_lobby->pos());
+
   delete w_lobby;
   w_lobby = nullptr;
 }
@@ -90,21 +98,17 @@ void spritechat::AOApplication::construct_courtroom()
     return;
   }
 
-  m_area_registry.clear();
-  m_player_registry.clear();
-  for (Timer *l_timer : m_timers)
-  {
-    l_timer->reset();
-  }
-
-  w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_timers);
+  w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_timers, *net_manager);
 
   connect(w_courtroom, &Courtroom::aboutToClose, this, [this] {
+    drop_session();
     createAndShipPacket<theory::GoodbyePacket>();
-    finish_session();
+    net_manager->disconnectFromServer();
   });
 
   w_courtroom->setWindowTitle(window_title);
+
+  m_keepalive_timer->start();
 
   centerOrMoveWidgetOnPrimaryScreen(w_courtroom);
 }
@@ -116,120 +120,23 @@ void spritechat::AOApplication::destruct_courtroom()
     return;
   }
 
+  m_keepalive_timer->stop();
+
+  Options::getInstance().setWindowPosition(w_courtroom->objectName(), w_courtroom->pos());
+
   delete w_courtroom;
   w_courtroom = nullptr;
   m_asset_lookup.setCurrentBackground(QString());
 }
 
-QString spritechat::AOApplication::find_image(const QStringList &p_list)
+void spritechat::AOApplication::reset_server_instance()
 {
-  QString image_path;
-  for (const QString &path : p_list)
+  m_area_registry.clear();
+  m_player_registry.clear();
+  for (Timer *l_timer : m_timers)
   {
-    if (file_exists(path))
-    {
-      image_path = path;
-      break;
-    }
+    l_timer->reset();
   }
-  return image_path;
-}
-
-void spritechat::AOApplication::apply_master_options()
-{
-  master_gateway->setUrl(QUrl(Options::getInstance().masterServerUrl()));
-  master_gateway->setTelemetryEnabled(!Options::getInstance().playerCountOptout());
-  master_gateway->setLanguage(Options::getInstance().language());
-}
-
-void spritechat::AOApplication::handle_network_status(NetworkManager::Status status)
-{
-  switch (status)
-  {
-  default:
-  case NetworkManager::Connecting:
-    break;
-
-  case NetworkManager::Connected:
-    start_session();
-    break;
-
-  case NetworkManager::NotConnected:
-    stop_session();
-    break;
-  }
-}
-
-void spritechat::AOApplication::handle_network_error(const theory::CargoError &error)
-{
-  call_warning(tr("Connection error.\n\nDetails: %1").arg(error.toString()));
-}
-
-void spritechat::AOApplication::stop_session()
-{
-  construct_lobby();
-  destruct_courtroom();
-
-  Options::getInstance().setServerSubTheme(QString());
-
-  const bool wasActive = m_session_active && !m_session_closed;
-
-  m_session_active = false;
-  m_session_closed = false;
-
-  if (wasActive)
-  {
-    if (QMessageBox::question(nullptr,
-                              tr("Server Disconnected"),
-                              tr("Connection to the server has been lost. "
-                                 "Do you want to reconnect?"),
-                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
-    {
-      connect_to_server(last_server, last_info);
-    }
-  }
-}
-
-void spritechat::AOApplication::finish_session()
-{
-  if (net_manager->status() == NetworkManager::NotConnected)
-  {
-    return;
-  }
-  m_session_closed = true;
-  m_tokens.remove(last_server.join_url());
-
-  construct_lobby();
-  net_manager->disconnectFromServer();
-}
-
-void spritechat::AOApplication::connect_to_server(const ServerBookmark &server, const theory::ServerInfo &info)
-{
-  if (net_manager->status() != NetworkManager::NotConnected)
-  {
-    zWarning(log::network) << "already connected to a server";
-    return;
-  }
-
-  last_server = server;
-  last_info = info;
-
-  m_serverdata.set_server_software(info.softwareName);
-  m_serverdata.set_asset_url(info.assetUrl);
-
-  server_name = info.name.isEmpty() ? server.name : info.name;
-  window_title = server_name;
-
-  QString server_address = QString("%1:%2").arg(server.address, QString::number(server.port));
-  QString server_name_stripped = server_name;
-  static QRegularExpression illegal_filename_chars("[\\\\/:*?\"<>|\']");
-  log_filename = QDateTime::currentDateTime().toUTC().toString("'logs/" + server_name_stripped.remove(illegal_filename_chars) + "/'yyyy-MM-dd hh-mm-ss t'.log'");
-  write_to_file("Joined server " + server_name_stripped + " hosted on address " + server_address + " on " + QDateTime::currentDateTime().toUTC().toString(), log_filename, true);
-
-  m_session_active = false;
-  m_session_closed = false;
-
-  net_manager->connectToServer(server);
 }
 
 void spritechat::AOApplication::call_settings_menu()
@@ -255,122 +162,12 @@ void spritechat::AOApplication::call_settings_menu()
   delete l_dialog;
 }
 
-// Callback for when BASS device is lost
-// Only actually used for music syncs
-void CALLBACK spritechat::AOApplication::BASSreset(HSTREAM handle, DWORD channel, DWORD data, void *user)
+void spritechat::AOApplication::apply_master_options()
 {
-  Q_UNUSED(handle);
-  Q_UNUSED(channel);
-  Q_UNUSED(data);
-  Q_UNUSED(user);
-  doBASSreset();
+  master_gateway->setUrl(QUrl(Options::getInstance().masterServerUrl()));
+  master_gateway->setTelemetryEnabled(!Options::getInstance().playerCountOptout());
+  master_gateway->setLanguage(Options::getInstance().language());
 }
-
-void spritechat::AOApplication::doBASSreset()
-{
-  BASS_Free();
-  BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
-  load_bass_plugins();
-}
-
-void spritechat::AOApplication::start_session()
-{
-  zInfo(log::network) << "established connection to server.";
-
-  construct_courtroom();
-
-  theory::HelloPacket packet;
-  packet.hdid = get_hdid();
-  packet.protocolVersion = theory::protocolVersion();
-  shipPacket(packet);
-
-  theory::SessionClaimPacket claim;
-  const QUrl server_url = last_server.join_url();
-  if (m_tokens.contains(server_url))
-  {
-    claim.sessionToken = m_tokens.value(server_url);
-  }
-  shipPacket(claim);
-}
-
-void spritechat::AOApplication::initBASS()
-{
-  BASS_SetConfig(BASS_CONFIG_DEV_DEFAULT, 1);
-  BASS_Free();
-  // Change the default audio output device to be the one the user has given
-  // in his config.ini file for now.
-  unsigned int a = 0;
-  BASS_DEVICEINFO info;
-
-  if (Options::getInstance().audioOutputDevice() == "default")
-  {
-    BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
-    load_bass_plugins();
-  }
-  else
-  {
-    for (a = 0; BASS_GetDeviceInfo(a, &info); a++)
-    {
-      if (Options::getInstance().audioOutputDevice() == info.name)
-      {
-        BASS_SetDevice(a);
-        BASS_Init(static_cast<int>(a), 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
-        load_bass_plugins();
-        zInfo(log::audio) << info.name << "was set as the default audio output device.";
-        return;
-      }
-    }
-    BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
-    load_bass_plugins();
-  }
-}
-
-bool spritechat::AOApplication::pointExistsOnScreen(QPoint point)
-{
-  for (QScreen *screen : QApplication::screens())
-  {
-    if (screen->availableGeometry().contains(point))
-    {
-      return true;
-    }
-  }
-  return false;
-}
-
-void spritechat::AOApplication::centerOrMoveWidgetOnPrimaryScreen(QWidget *widget)
-{
-  auto point = Options::getInstance().windowPosition(widget->objectName());
-  if (!Options::getInstance().restoreWindowPositionEnabled() || !point || !pointExistsOnScreen(point.value()))
-  {
-    QRect geometry = QGuiApplication::primaryScreen()->geometry();
-    int x = (geometry.width() - widget->width()) / 2;
-    int y = (geometry.height() - widget->height()) / 2;
-    widget->move(x, y);
-  }
-  else
-  {
-    widget->move(point->x(), point->y());
-  }
-}
-
-#if (defined(_WIN32) || defined(_WIN64))
-void spritechat::AOApplication::load_bass_plugins()
-{
-  BASS_PluginLoad("bassopus.dll", 0);
-}
-#elif defined __APPLE__
-void spritechat::AOApplication::load_bass_plugins()
-{
-  BASS_PluginLoad("libbassopus.dylib", 0);
-}
-#elif (defined(LINUX) || defined(__linux__))
-void spritechat::AOApplication::load_bass_plugins()
-{
-  BASS_PluginLoad("libbassopus.so", 0);
-}
-#else
-#error This operating system is unsupported for BASS plugins.
-#endif
 
 spritechat::VPath spritechat::AOApplication::get_theme_path(const QString &p_file, const QString &p_theme)
 {
@@ -402,10 +199,24 @@ spritechat::VPath spritechat::AOApplication::get_background_path(const QString &
   return m_asset_lookup.get_background_path(p_file);
 }
 
+#if (defined(_WIN32) || defined(_WIN64))
 spritechat::VPath spritechat::AOApplication::get_default_background_path(const QString &p_file)
 {
   return m_asset_lookup.get_default_background_path(p_file);
 }
+#elif defined __APPLE__
+void spritechat::AOApplication::load_bass_plugins()
+{
+  BASS_PluginLoad("libbassopus.dylib", 0);
+}
+#elif (defined(LINUX) || defined(__linux__))
+void spritechat::AOApplication::load_bass_plugins()
+{
+  BASS_PluginLoad("libbassopus.so", 0);
+}
+#else
+#error This operating system is unsupported for BASS plugins.
+#endif
 
 spritechat::VPath spritechat::AOApplication::get_evidence_path(const QString &p_file)
 {
@@ -470,6 +281,20 @@ QString spritechat::AOApplication::get_case_sensitive_path(const QString &p_file
 QString spritechat::AOApplication::get_real_path(const VPath &vpath, const QStringList &suffixes)
 {
   return m_asset_lookup.get_real_path(vpath, suffixes);
+}
+
+QString spritechat::AOApplication::find_image(const QStringList &p_list)
+{
+  QString image_path;
+  for (const QString &path : p_list)
+  {
+    if (file_exists(path))
+    {
+      image_path = path;
+      break;
+    }
+  }
+  return image_path;
 }
 
 QStringList spritechat::AOApplication::get_list_file(const VPath &path)
@@ -710,4 +535,87 @@ spritechat::RESIZE_MODE spritechat::AOApplication::get_scaling(const QString &p_
 spritechat::RESIZE_MODE spritechat::AOApplication::get_misc_scaling(const QString &p_miscname)
 {
   return m_asset_lookup.get_misc_scaling(p_miscname);
+}
+
+bool spritechat::AOApplication::pointExistsOnScreen(QPoint point)
+{
+  for (QScreen *screen : QApplication::screens())
+  {
+    if (screen->availableGeometry().contains(point))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+void spritechat::AOApplication::centerOrMoveWidgetOnPrimaryScreen(QWidget *widget)
+{
+  auto point = Options::getInstance().windowPosition(widget->objectName());
+  if (!Options::getInstance().restoreWindowPositionEnabled() || !point || !pointExistsOnScreen(point.value()))
+  {
+    QRect geometry = QGuiApplication::primaryScreen()->geometry();
+    int x = (geometry.width() - widget->width()) / 2;
+    int y = (geometry.height() - widget->height()) / 2;
+    widget->move(x, y);
+  }
+  else
+  {
+    widget->move(point->x(), point->y());
+  }
+}
+
+void spritechat::AOApplication::initBASS()
+{
+  BASS_SetConfig(BASS_CONFIG_DEV_DEFAULT, 1);
+  BASS_Free();
+  // Change the default audio output device to be the one the user has given
+  // in his config.ini file for now.
+  unsigned int a = 0;
+  BASS_DEVICEINFO info;
+
+  if (Options::getInstance().audioOutputDevice() == "default")
+  {
+    BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
+    load_bass_plugins();
+  }
+  else
+  {
+    for (a = 0; BASS_GetDeviceInfo(a, &info); a++)
+    {
+      if (Options::getInstance().audioOutputDevice() == info.name)
+      {
+        BASS_SetDevice(a);
+        BASS_Init(static_cast<int>(a), 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
+        load_bass_plugins();
+        zInfo(log::audio) << info.name << "was set as the default audio output device.";
+        return;
+      }
+    }
+    BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
+    load_bass_plugins();
+  }
+}
+
+void spritechat::AOApplication::load_bass_plugins()
+{
+  BASS_PluginLoad("bassopus.dll", 0);
+}
+
+// Callback for when BASS device is lost
+// Only actually used for music syncs
+void CALLBACK spritechat::AOApplication::BASSreset(HSTREAM handle, DWORD channel, DWORD data, void *user)
+{
+  Q_UNUSED(handle);
+  Q_UNUSED(channel);
+  Q_UNUSED(data);
+  Q_UNUSED(user);
+  doBASSreset();
+}
+
+void spritechat::AOApplication::doBASSreset()
+{
+  BASS_Free();
+  BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
+  load_bass_plugins();
 }
