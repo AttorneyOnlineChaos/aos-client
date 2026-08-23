@@ -317,48 +317,48 @@ void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
   {
   default:
   case theory::ErrorPacket::ProtocolError:
-  {
-    QString message = tr("You have been dropped from the server.");
-    if (!packet.what.isEmpty())
     {
-      message.append(tr("\n\nReason: %1").arg(packet.what));
+      QString message = tr("You have been dropped from the server.");
+      if (!packet.what.isEmpty())
+      {
+        message.append(tr("\n\nReason: %1").arg(packet.what));
+      }
+      call_warning(message);
+      break;
     }
-    call_warning(message);
-    break;
-  }
 
   case theory::ErrorPacket::Banned:
-  {
-    QString message = tr("You have been banned from the server.");
-    if (!packet.what.isEmpty())
     {
-      message.append(tr("\n\nReason: %1").arg(packet.what));
+      QString message = tr("You have been banned from the server.");
+      if (!packet.what.isEmpty())
+      {
+        message.append(tr("\n\nReason: %1").arg(packet.what));
+      }
+      call_warning(message);
+      break;
     }
-    call_warning(message);
-    break;
-  }
 
   case theory::ErrorPacket::ServerFull:
-  {
-    QString message = tr("The server is full.");
-    if (!packet.what.isEmpty())
     {
-      message.append(tr("\n\nReason: %1").arg(packet.what));
+      QString message = tr("The server is full.");
+      if (!packet.what.isEmpty())
+      {
+        message.append(tr("\n\nReason: %1").arg(packet.what));
+      }
+      call_warning(message);
+      break;
     }
-    call_warning(message);
-    break;
-  }
 
   case theory::ErrorPacket::SessionTransfered:
-  {
-    QString message = tr("Your session has been resumed from another connection.");
-    if (!packet.what.isEmpty())
     {
-      message.append(tr("\n\nReason: %1").arg(packet.what));
+      QString message = tr("Your session has been resumed from another connection.");
+      if (!packet.what.isEmpty())
+      {
+        message.append(tr("\n\nReason: %1").arg(packet.what));
+      }
+      call_warning(message);
+      break;
     }
-    call_warning(message);
-    break;
-  }
   }
 
   drop_session();

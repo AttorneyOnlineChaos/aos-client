@@ -145,8 +145,7 @@ void spritechat::AOApplication::stop_session()
                                                  tr("Server Disconnected"),
                                                  tr("Connection to the server has been lost. "
                                                     "Do you want to reconnect?"),
-                                                 QMessageBox::Yes | QMessageBox::No)
-                           == QMessageBox::Yes;
+                                                 QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes;
 
     if (reconnect)
     {

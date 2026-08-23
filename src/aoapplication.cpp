@@ -30,9 +30,7 @@ spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_fac
   connect(net_manager, &NetworkManager::statusChanged, this, &AOApplication::handle_network_status);
   connect(net_manager, &NetworkManager::errorOccurred, this, &AOApplication::handle_network_error);
   connect(net_manager, &NetworkManager::pendingPacketAvailable, this, &AOApplication::process_pending_packets);
-  connect(net_manager, &NetworkManager::pong, this, [this](quint64 elapsedTime) {
-      w_courtroom->setWindowTitle(QStringLiteral("%1 (%2 ms)").arg(window_title).arg(elapsedTime));
-  });
+  connect(net_manager, &NetworkManager::pong, this, [this](quint64 elapsedTime) { w_courtroom->setWindowTitle(QStringLiteral("%1 (%2 ms)").arg(window_title).arg(elapsedTime)); });
 
   m_keepalive_timer = new QTimer(this);
   m_keepalive_timer->setInterval(45000);
