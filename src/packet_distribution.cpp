@@ -317,20 +317,48 @@ void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
   {
   default:
   case theory::ErrorPacket::ProtocolError:
-    call_warning(tr("You have been dropped from the server.\n\nReason: %1").arg(packet.what));
+  {
+    QString message = tr("You have been dropped from the server.");
+    if (!packet.what.isEmpty())
+    {
+      message.append(tr("\n\nReason: %1").arg(packet.what));
+    }
+    call_warning(message);
     break;
+  }
 
   case theory::ErrorPacket::Banned:
-    call_warning(tr("You have been banned from the server.\n\nReason: %1").arg(packet.what));
+  {
+    QString message = tr("You have been banned from the server.");
+    if (!packet.what.isEmpty())
+    {
+      message.append(tr("\n\nReason: %1").arg(packet.what));
+    }
+    call_warning(message);
     break;
+  }
 
   case theory::ErrorPacket::ServerFull:
-    call_warning(tr("The server is full.\n\nReason: %1").arg(packet.what));
+  {
+    QString message = tr("The server is full.");
+    if (!packet.what.isEmpty())
+    {
+      message.append(tr("\n\nReason: %1").arg(packet.what));
+    }
+    call_warning(message);
     break;
+  }
 
   case theory::ErrorPacket::SessionTransfered:
-    call_warning(tr("Your session has been resumed from another connection.\n\nReason: %1").arg(packet.what));
+  {
+    QString message = tr("Your session has been resumed from another connection.");
+    if (!packet.what.isEmpty())
+    {
+      message.append(tr("\n\nReason: %1").arg(packet.what));
+    }
+    call_warning(message);
     break;
+  }
   }
 
   drop_session();
