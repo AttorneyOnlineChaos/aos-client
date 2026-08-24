@@ -326,6 +326,8 @@ void spritechat::Courtroom::character_loading_finished()
   }
   ui_char_list->sortItems(0, Qt::AscendingOrder);
   ui_char_list->expandAll();
+
+  filter_character_list();
 }
 
 void spritechat::Courtroom::filter_character_list()
