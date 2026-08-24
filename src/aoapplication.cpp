@@ -6,11 +6,10 @@
 #include "lobby.h"
 #include "network_manager.h"
 #include "options.h"
-#include "spritechat_log.h"
-#include "widgets/aooptionsdialog.h"
-
 #include "protocol/packets/handshake_packets.h"
 #include "protocol/protocol_info.h"
+#include "spritechat_log.h"
+#include "widgets/aooptionsdialog.h"
 
 #include <QDateTime>
 #include <QRegularExpression>

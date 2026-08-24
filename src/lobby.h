@@ -1,22 +1,20 @@
 #pragma once
 
+#include "aoapplication.h"
+#include "network/master_gateway.h"
+#include "network/server_info_gateway.h"
+#include "network_manager.h"
+#include "protocol/server_info.h"
+
 #include <QLabel>
 #include <QLineEdit>
+#include <QMainWindow>
 #include <QPointer>
 #include <QPushButton>
 #include <QTabWidget>
 #include <QTextBrowser>
 #include <QTreeWidget>
 #include <QTreeWidgetItem>
-
-#include "aoapplication.h"
-#include "network/master_gateway.h"
-#include "network/server_info_gateway.h"
-#include "network_manager.h"
-
-#include "protocol/server_info.h"
-
-#include <QMainWindow>
 
 #include <optional>
 

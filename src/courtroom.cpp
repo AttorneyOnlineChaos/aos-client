@@ -5,14 +5,13 @@
 #include "moderation_functions.h"
 #include "network_manager.h"
 #include "options.h"
-#include "spritechat_log.h"
-
 #include "protocol/packets/area_packets.h"
 #include "protocol/packets/chat_packets.h"
 #include "protocol/packets/court_packets.h"
 #include "protocol/packets/evidence_packets.h"
 #include "protocol/packets/ic_packets.h"
 #include "protocol/packets/moderation_packets.h"
+#include "spritechat_log.h"
 
 #include <QtConcurrent/QtConcurrent>
 

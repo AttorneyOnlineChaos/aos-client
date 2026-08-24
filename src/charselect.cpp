@@ -1,10 +1,10 @@
 #include "courtroom.h"
-#include "lobby.h"
 
 #include "core/logging.h"
 #include "debug_functions.h"
 #include "file_functions.h"
 #include "hardware_functions.h"
+#include "lobby.h"
 #include "protocol/packets/session_packets.h"
 #include "spritechat_log.h"
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "animationlayer.h"
+
 #include <QWidget>
 
 namespace spritechat

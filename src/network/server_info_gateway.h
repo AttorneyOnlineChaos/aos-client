@@ -1,8 +1,7 @@
 #pragma once
 
-#include "server_bookmark.h"
-
 #include "protocol/server_info.h"
+#include "server_bookmark.h"
 
 #include <QHash>
 #include <QNetworkAccessManager>

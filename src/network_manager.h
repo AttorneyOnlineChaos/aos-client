@@ -1,12 +1,11 @@
 #pragma once
 
-#include "network/server_bookmark.h"
-
 #include "core/pointer_types.h"
 #include "network/cargo_error.h"
 #include "network/cargo_socket.h"
 #include "network/packet_factory.h"
 #include "network/packet_transmitter.h"
+#include "network/server_bookmark.h"
 
 #include <QObject>
 

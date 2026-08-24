@@ -10,6 +10,7 @@
 #include <QMessageBox>
 #include <QUiLoader>
 #include <QVBoxLayout>
+
 #include <chrono>
 
 const QString spritechat::ModeratorDialog::UI_FILE_PATH = "moderator_action_dialog.ui";

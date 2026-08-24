@@ -1,15 +1,13 @@
 
 #include "aoapplication.h"
-
 #include "core/logging.h"
 #include "courtroom.h"
 #include "file_functions.h"
 #include "lobby.h"
-#include "spritechat_info.h"
-#include "spritechat_log.h"
-
 #include "network/packet_factory.h"
 #include "protocol/protocol_utils.h"
+#include "spritechat_info.h"
+#include "spritechat_log.h"
 
 #include <QDebug>
 #include <QDirIterator>

@@ -2,7 +2,6 @@
 
 #include "aomusictrack.h"
 #include "datatypes.h"
-
 #include "game/emote_cue.h"
 
 #include <QColor>

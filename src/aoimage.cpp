@@ -1,7 +1,7 @@
-#include "file_functions.h"
-
 #include "aoimage.h"
+
 #include "core/logging.h"
+#include "file_functions.h"
 #include "options.h"
 #include "spritechat_log.h"
 

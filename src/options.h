@@ -4,9 +4,8 @@
 #include "network/server_bookmark.h"
 
 #include <QCoreApplication>
-#include <QSettings>
-
 #include <QPoint>
+#include <QSettings>
 
 namespace spritechat
 {

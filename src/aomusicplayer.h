@@ -1,7 +1,6 @@
 #pragma once
 
 #include "aomusictrack.h"
-
 #include "game/game_defs.h"
 
 #include <bass.h>

@@ -1,4 +1,4 @@
-#include <serverdata.h>
+#include "serverdata.h"
 
 #include <QUrl>
 

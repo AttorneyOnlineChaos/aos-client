@@ -6,10 +6,9 @@
 #include "hardware_functions.h"
 #include "network_manager.h"
 #include "options.h"
-#include "spritechat_log.h"
-
 #include "protocol/packets/handshake_packets.h"
 #include "protocol/protocol_info.h"
+#include "spritechat_log.h"
 
 #include <QDateTime>
 #include <QMessageBox>

@@ -1,4 +1,5 @@
 #include "options.h"
+
 #include "core/logging.h"
 #include "file_functions.h"
 #include "spritechat_log.h"

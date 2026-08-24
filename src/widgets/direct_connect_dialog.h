@@ -2,7 +2,6 @@
 
 #include "network/server_bookmark.h"
 #include "network/server_info_gateway.h"
-
 #include "protocol/server_info.h"
 
 #include <QComboBox>
