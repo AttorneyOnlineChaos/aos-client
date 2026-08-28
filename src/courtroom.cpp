@@ -5317,8 +5317,8 @@ void spritechat::Courtroom::on_area_list_double_clicked(QTreeWidgetItem *p_item,
 {
   Q_UNUSED(column);
 
-  int n_area = ui_area_list->indexOfTopLevelItem(p_item);
-  if (n_area == -1)
+  theory::AreaId n_area = ui_area_list->indexOfTopLevelItem(p_item);
+  if (n_area == theory::NoAreaId)
   {
     return;
   }
