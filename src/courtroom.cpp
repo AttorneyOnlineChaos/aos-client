@@ -543,8 +543,8 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
     refresh_clock(l_timer);
   }
 
-  connect(&player_registry, &PlayerRegistry::updated, this, [this](theory::ClientId id) {
-    if (id != ao_app->client_id)
+  connect(&player_registry, &PlayerRegistry::updated, this, [this](theory::PlayerId id) {
+    if (id != ao_app->m_player_id)
     {
       return;
     }
@@ -1296,7 +1296,7 @@ void spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, const QString &p
 
 void spritechat::Courtroom::refresh_taken_chars()
 {
-  const auto me = player_registry.player(ao_app->client_id);
+  const auto me = player_registry.player(ao_app->m_player_id);
   const theory::AreaId my_area = me ? me->areaId : 0;
   const QList<PlayerInfo> in_area = player_registry.playersIf([my_area](const PlayerInfo &player) { return player.areaId == my_area && player.character != theory::NoCharacterId; });
 
@@ -1753,7 +1753,7 @@ void spritechat::Courtroom::refresh_area(theory::AreaId n_area)
   if (!area.owners.isEmpty())
   {
     QStringList owner_labels;
-    for (theory::ClientId owner_id : area.owners)
+    for (theory::PlayerId owner_id : area.owners)
     {
       const auto owner = player_registry.player(owner_id);
       owner_labels.append("[" + QString::number(owner_id) + "] " + (owner ? owner->character.toString() : QString()));

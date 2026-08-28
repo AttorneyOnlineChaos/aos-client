@@ -4,7 +4,7 @@ spritechat::PlayerRegistry::PlayerRegistry(QObject *parent)
     : QObject{parent}
 {}
 
-void spritechat::PlayerRegistry::add(theory::ClientId id)
+void spritechat::PlayerRegistry::add(theory::PlayerId id)
 {
   if (_map.contains(id))
   {
@@ -14,7 +14,7 @@ void spritechat::PlayerRegistry::add(theory::ClientId id)
   Q_EMIT added(id);
 }
 
-void spritechat::PlayerRegistry::remove(theory::ClientId id)
+void spritechat::PlayerRegistry::remove(theory::PlayerId id)
 {
   const auto it = _map.find(id);
   if (it == _map.end())
@@ -25,7 +25,7 @@ void spritechat::PlayerRegistry::remove(theory::ClientId id)
   Q_EMIT removed(id);
 }
 
-void spritechat::PlayerRegistry::update(theory::ClientId id, const PlayerInfo &player)
+void spritechat::PlayerRegistry::update(theory::PlayerId id, const PlayerInfo &player)
 {
   const auto it = _map.find(id);
   if (it == _map.end())
@@ -46,7 +46,7 @@ void spritechat::PlayerRegistry::clear()
   Q_EMIT cleared();
 }
 
-std::optional<spritechat::PlayerInfo> spritechat::PlayerRegistry::player(theory::ClientId id) const
+std::optional<spritechat::PlayerInfo> spritechat::PlayerRegistry::player(theory::PlayerId id) const
 {
   const auto it = _map.constFind(id);
   if (it == _map.constEnd())

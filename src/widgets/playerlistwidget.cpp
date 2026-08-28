@@ -55,7 +55,7 @@ void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &po
   {
     return;
   }
-  const theory::ClientId id = item->data(Qt::UserRole).toInt();
+  const theory::PlayerId id = item->data(Qt::UserRole).toInt();
   QString name = item->text();
 
   QMenu *menu = new QMenu(this);
@@ -68,7 +68,7 @@ void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &po
     {
       theory::ModCallPacket packet;
       packet.reason = maybe_reason.value();
-      packet.targetClientId = id;
+      packet.targetPlayerId = id;
       m_transport.shipPacket(packet);
     }
   });
@@ -93,7 +93,7 @@ void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &po
   menu->popup(mapToGlobal(pos));
 }
 
-void spritechat::PlayerListWidget::addPlayer(theory::ClientId id)
+void spritechat::PlayerListWidget::addPlayer(theory::PlayerId id)
 {
   QListWidgetItem *item = new QListWidgetItem(this);
   item->setData(Qt::UserRole, id);
@@ -101,9 +101,9 @@ void spritechat::PlayerListWidget::addPlayer(theory::ClientId id)
   refreshPlayer(id);
 }
 
-void spritechat::PlayerListWidget::removePlayer(theory::ClientId id)
+void spritechat::PlayerListWidget::removePlayer(theory::PlayerId id)
 {
-  if (m_dialog && m_dialog->clientId() == id)
+  if (m_dialog && m_dialog->playerId() == id)
   {
     m_dialog.reset();
     call_warning("Closed Moderation Dialog : User left the server.");
@@ -112,7 +112,7 @@ void spritechat::PlayerListWidget::removePlayer(theory::ClientId id)
   delete takeItem(row(m_item_map.take(id)));
 }
 
-void spritechat::PlayerListWidget::refreshPlayer(theory::ClientId id)
+void spritechat::PlayerListWidget::refreshPlayer(theory::PlayerId id)
 {
   QListWidgetItem *item = m_item_map.value(id);
   if (!item)

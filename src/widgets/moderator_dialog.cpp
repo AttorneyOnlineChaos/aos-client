@@ -15,11 +15,11 @@
 
 const QString spritechat::ModeratorDialog::UI_FILE_PATH = "moderator_action_dialog.ui";
 
-spritechat::ModeratorDialog::ModeratorDialog(int clientId, bool ban, AOApplication *ao_app, theory::PacketTransmitter &transport, QWidget *parent)
+spritechat::ModeratorDialog::ModeratorDialog(theory::PlayerId playerId, bool ban, AOApplication *ao_app, theory::PacketTransmitter &transport, QWidget *parent)
     : QWidget{parent}
     , ao_app(ao_app)
     , m_transport(transport)
-    , m_client_id(clientId)
+    , m_player_id(playerId)
     , m_ban(ban)
 {
   QFile file(Options::getInstance().getUIAsset(UI_FILE_PATH));
@@ -89,7 +89,7 @@ void spritechat::ModeratorDialog::onAcceptedClicked()
   }
 
   theory::ModActionPacket packet;
-  packet.targetClientId = m_client_id;
+  packet.targetPlayerId = m_player_id;
   packet.reason = reason;
   if (m_ban)
   {

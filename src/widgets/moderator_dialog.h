@@ -20,15 +20,15 @@ class ModeratorDialog : public QWidget
 public:
   static const QString UI_FILE_PATH;
 
-  explicit ModeratorDialog(int clientId, bool ban, AOApplication *ao_app, theory::PacketTransmitter &transport, QWidget *parent = nullptr);
+  explicit ModeratorDialog(theory::PlayerId playerId, bool ban, AOApplication *ao_app, theory::PacketTransmitter &transport, QWidget *parent = nullptr);
   virtual ~ModeratorDialog();
 
-  int clientId() const { return m_client_id; }
+  theory::PlayerId playerId() const { return m_player_id; }
 
 private:
   AOApplication *ao_app;
   theory::PacketTransmitter &m_transport;
-  int m_client_id;
+  theory::PlayerId m_player_id;
   bool m_ban;
 
   QWidget *ui_widget;

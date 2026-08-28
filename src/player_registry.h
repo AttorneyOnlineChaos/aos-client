@@ -19,24 +19,24 @@ class PlayerRegistry : public QObject
 public:
   explicit PlayerRegistry(QObject *parent = nullptr);
 
-  void add(theory::ClientId id);
-  void remove(theory::ClientId id);
-  void update(theory::ClientId id, const PlayerInfo &player);
+  void add(theory::PlayerId id);
+  void remove(theory::PlayerId id);
+  void update(theory::PlayerId id, const PlayerInfo &player);
   void clear();
 
-  std::optional<PlayerInfo> player(theory::ClientId id) const;
+  std::optional<PlayerInfo> player(theory::PlayerId id) const;
   QList<PlayerInfo> players() const;
 
   using Condition = std::function<bool(const PlayerInfo &)>;
   QList<PlayerInfo> playersIf(const Condition &condition) const;
 
 Q_SIGNALS:
-  void added(theory::ClientId id);
-  void removed(theory::ClientId id);
-  void updated(theory::ClientId id);
+  void added(theory::PlayerId id);
+  void removed(theory::PlayerId id);
+  void updated(theory::PlayerId id);
   void cleared();
 
 private:
-  QMap<theory::ClientId, PlayerInfo> _map;
+  QMap<theory::PlayerId, PlayerInfo> _map;
 };
 } // namespace spritechat

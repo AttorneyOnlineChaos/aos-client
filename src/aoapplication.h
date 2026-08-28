@@ -292,7 +292,7 @@ public:
   ServerData m_server_data;
 
   // client ID. Not useful, to be removed eventually
-  int client_id = 0;
+  theory::PlayerId m_player_id = theory::NoPlayerId;
 
 private:
   theory::Log m_log;

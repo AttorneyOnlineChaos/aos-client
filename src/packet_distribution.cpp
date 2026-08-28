@@ -214,18 +214,18 @@ void spritechat::AOApplication::process(const theory::PlayerRosterPacket &packet
     return;
 
   case theory::PlayerRosterPacket::Action::Add:
-    m_player_registry.add(packet.clientId);
+    m_player_registry.add(packet.playerId);
     break;
 
   case theory::PlayerRosterPacket::Action::Remove:
-    m_player_registry.remove(packet.clientId);
+    m_player_registry.remove(packet.playerId);
     break;
   }
 }
 
 void spritechat::AOApplication::process(const theory::PlayerUpdatePacket &packet)
 {
-  const auto maybe_player = m_player_registry.player(packet.clientId);
+  const auto maybe_player = m_player_registry.player(packet.playerId);
   if (!maybe_player)
   {
     return;
@@ -264,12 +264,12 @@ void spritechat::AOApplication::process(const theory::PlayerUpdatePacket &packet
     return;
   }
 
-  m_player_registry.update(packet.clientId, player);
+  m_player_registry.update(packet.playerId, player);
 }
 
 void spritechat::AOApplication::process(const theory::ModCallNoticePacket &packet)
 {
-  QString notice = tr("!!!MODCALL!!!\nArea: %1\nCaller: [%2]%3\n").arg(packet.area, QString::number(packet.callerClientId), packet.callerName);
+  QString notice = tr("!!!MODCALL!!!\nArea: %1\nCaller: [%2]%3\n").arg(packet.area, QString::number(packet.callerPlayerId), packet.callerName);
   if (!packet.targetName.isEmpty())
   {
     notice.append(tr("Regarding: %1\n").arg(packet.targetName));

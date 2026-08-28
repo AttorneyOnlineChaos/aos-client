@@ -28,7 +28,7 @@ private:
   AOApplication *ao_app;
   PlayerRegistry &m_registry;
   theory::PacketTransmitter &m_transport;
-  QMap<theory::ClientId, QListWidgetItem *> m_item_map;
+  QMap<theory::PlayerId, QListWidgetItem *> m_item_map;
   theory::Unique<ModeratorDialog> m_dialog;
   theory::AreaId m_area = theory::NoAreaId;
   bool m_is_authenticated = false;
@@ -38,9 +38,9 @@ private:
   void filterPlayerList();
 
 private Q_SLOTS:
-  void addPlayer(theory::ClientId id);
-  void removePlayer(theory::ClientId id);
-  void refreshPlayer(theory::ClientId id);
+  void addPlayer(theory::PlayerId id);
+  void removePlayer(theory::PlayerId id);
+  void refreshPlayer(theory::PlayerId id);
   void clearPlayers();
 
   void onCustomContextMenuRequested(const QPoint &pos);

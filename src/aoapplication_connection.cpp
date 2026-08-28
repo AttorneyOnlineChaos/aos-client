@@ -174,7 +174,7 @@ void spritechat::AOApplication::process(const theory::WelcomePacket &packet)
 {
   m_session_active = true;
 
-  client_id = packet.clientId;
+  m_player_id = packet.playerId;
 
   if (m_recovered_session)
   {

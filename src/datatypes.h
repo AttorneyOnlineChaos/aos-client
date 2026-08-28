@@ -63,7 +63,7 @@ enum RESIZE_MODE
 
 struct PlayerInfo
 {
-  theory::ClientId id = theory::NoClientId;
+  theory::PlayerId id = theory::NoPlayerId;
   QString name;
   theory::CharacterId character;
   std::optional<QString> characterName;
@@ -76,7 +76,7 @@ struct AreaInfo
   theory::AreaId id = theory::NoAreaId;
   QString name;
   theory::AreaStatus status = theory::AreaStatus::Idle;
-  QList<theory::ClientId> owners;
+  QList<theory::PlayerId> owners;
   theory::AreaLockStatus lock = theory::AreaLockStatus::Unlocked;
 };
 
