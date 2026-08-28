@@ -129,20 +129,20 @@ void spritechat::PlayerListWidget::refreshPlayer(theory::ClientId id)
 
   item->setText(formatLabel(player));
 
-  if (player.character.isEmpty())
+  if (player.character == theory::NoCharacterId)
   {
     item->setToolTip(QString());
     item->setIcon(QIcon());
   }
   else
   {
-    QString tooltip = player.character;
+    QString tooltip = player.character.toString();
     if (player.characterName)
     {
-      tooltip = QObject::tr("%1 aka %2").arg(player.character, player.characterName.value());
+      tooltip = QObject::tr("%1 aka %2").arg(player.character.toString(), player.characterName.value());
     }
     item->setToolTip(tooltip);
-    item->setIcon(QIcon(ao_app->get_image_suffix(ao_app->get_character_path(player.character, "char_icon"), true)));
+    item->setIcon(QIcon(ao_app->get_image_suffix(ao_app->get_character_path(player.character.toString(), "char_icon"), true)));
   }
 
   filterPlayerList();
@@ -179,5 +179,5 @@ QString spritechat::PlayerListWidget::formatLabel(const PlayerInfo &data)
   };
 
   QString format = Options::getInstance().playerlistFormatString();
-  return format.replace("{id}", QString::number(data.id)).replace("{character}", data.character).replace("{displayname}", data.characterName.value_or(QStringLiteral("No Data"))).replace("{username}", data.name).replace("{status}", statusLabel(data.status)).simplified();
+  return format.replace("{id}", QString::number(data.id)).replace("{character}", data.character.toString()).replace("{displayname}", data.characterName.value_or(QStringLiteral("No Data"))).replace("{username}", data.name).replace("{status}", statusLabel(data.status)).simplified();
 }

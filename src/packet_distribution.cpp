@@ -20,11 +20,7 @@ spritechat::Timer *spritechat::AOApplication::timer(theory::TimerId id) const
 
 void spritechat::AOApplication::process(const theory::CharacterListPacket &packet)
 {
-  w_courtroom->clear_chars();
-  for (const QString &character : packet.characters)
-  {
-    w_courtroom->append_char(character);
-  }
+  w_courtroom->set_characters(packet.characters);
 
   w_courtroom->character_loading_finished();
   w_courtroom->refresh_taken_chars();
@@ -53,18 +49,9 @@ void spritechat::AOApplication::process(const theory::AreaListPacket &packet)
 
 void spritechat::AOApplication::process(const theory::CharacterAcceptedPacket &packet)
 {
-  if (packet.characterId < 0)
-  {
-    if (w_courtroom->get_character_id() >= 0)
-    {
-      w_courtroom->enter_char_select();
-    }
-    return;
-  }
-
   w_courtroom->enter_courtroom();
   w_courtroom->set_courtroom_size();
-  w_courtroom->update_character(packet.characterId);
+  w_courtroom->update_character(packet.character);
 }
 
 void spritechat::AOApplication::process(const theory::BackgroundPacket &packet)

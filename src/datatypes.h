@@ -65,7 +65,7 @@ struct PlayerInfo
 {
   theory::ClientId id = theory::NoClientId;
   QString name;
-  QString character;
+  theory::CharacterId character;
   std::optional<QString> characterName;
   theory::AreaId areaId = 0;
   theory::PlayerStatus status = theory::PlayerStatus::Online;

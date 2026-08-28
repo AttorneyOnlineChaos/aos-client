@@ -158,7 +158,7 @@ void spritechat::Courtroom::set_char_select_page()
 void spritechat::Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item, int column)
 {
   Q_UNUSED(column);
-  theory::CharacterId cid = p_item->data(0, Qt::UserRole).toInt();
+  theory::CharacterId cid{p_item->data(0, Qt::UserRole).toString()};
   if (cid == theory::NoCharacterId && !p_item->isExpanded())
   {
     p_item->setExpanded(true);
@@ -172,11 +172,11 @@ void spritechat::Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item,
   char_clicked(cid);
 }
 
-void spritechat::Courtroom::char_clicked(theory::CharacterId n_char)
+void spritechat::Courtroom::char_clicked(const theory::CharacterId &n_char)
 {
   if (n_char != theory::NoCharacterId)
   {
-    QString char_name = char_list.at(n_char);
+    QString char_name = n_char.toString();
     QString char_ini_path = ao_app->get_real_path(ao_app->get_character_path(char_name, "char.ini"));
 
     if (!file_exists(char_ini_path))
@@ -188,13 +188,13 @@ void spritechat::Courtroom::char_clicked(theory::CharacterId n_char)
     zDebug(log::character) << "Found char.ini for" << char_name << "at" << char_ini_path;
   }
 
-  if (n_char != m_cid || n_char == theory::NoCharacterId)
+  if (n_char != m_character || n_char == theory::NoCharacterId)
   {
     theory::ChangeCharacterPacket changePacket;
-    changePacket.characterId = n_char;
+    changePacket.character = n_char;
     transport.shipPacket(changePacket);
   }
-  if (n_char == m_cid || n_char == theory::NoCharacterId)
+  if (n_char == m_character || n_char == theory::NoCharacterId)
   {
     update_character(n_char);
     enter_courtroom();
@@ -205,13 +205,13 @@ void spritechat::Courtroom::char_clicked(theory::CharacterId n_char)
 void spritechat::Courtroom::on_char_button_context_menu_requested(const QPoint &pos)
 {
   AOCharButton *button = qobject_cast<AOCharButton *>(sender());
-  theory::CharacterId n_char = ui_char_button_list.indexOf(button);
+  theory::CharacterId n_char = button->character();
   if (n_char == theory::NoCharacterId)
   {
     return;
   }
 
-  QString char_name = char_list.at(n_char);
+  QString char_name = n_char.toString();
   QString char_ini_path = ao_app->get_real_path(ao_app->get_character_path(char_name, "char.ini"));
 
   if (!file_exists(char_ini_path))
@@ -282,24 +282,22 @@ void spritechat::Courtroom::character_loading_finished()
   // First, we'll make all the character buttons in the very beginning.
   // We also hide them all, so they can't be accidentally clicked.
   // Later on, we'll be revealing buttons as we need them.
-  for (theory::CharacterId i = 0; i < char_list.size(); i++)
+  for (const theory::CharacterId &character : std::as_const(char_list))
   {
-    const QString &character = char_list.at(i);
-
     AOCharButton *char_button = new AOCharButton(ao_app, ui_char_buttons);
     char_button->setContextMenuPolicy(Qt::CustomContextMenu);
     char_button->hide();
     char_button->setCharacter(character);
-    char_button->setTaken(taken_chars.contains(i));
-    char_button->setToolTip(character);
+    char_button->setTaken(taken_chars.contains(character));
+    char_button->setToolTip(character.toString());
     ui_char_button_list.append(char_button);
-    QString char_category = ao_app->get_category(character);
+    QString char_category = ao_app->get_category(character.toString());
     QList<QTreeWidgetItem *> matching_list = ui_char_list->findItems(char_category, Qt::MatchFixedString, 0);
     // create the character tree item
     QTreeWidgetItem *treeItem = new QTreeWidgetItem();
-    treeItem->setText(0, character);
-    treeItem->setIcon(0, QIcon(ao_app->get_image_suffix(ao_app->get_character_path(character, "char_icon"), true)));
-    treeItem->setData(0, Qt::UserRole, i);
+    treeItem->setText(0, character.toString());
+    treeItem->setIcon(0, QIcon(ao_app->get_image_suffix(ao_app->get_character_path(character.toString(), "char_icon"), true)));
+    treeItem->setData(0, Qt::UserRole, character.toString());
     // category logic
     QTreeWidgetItem *category;
     if (char_category == "") // no category
@@ -315,13 +313,13 @@ void spritechat::Courtroom::character_loading_finished()
     { // we need to make a new category
       category = new QTreeWidgetItem();
       category->setText(0, char_category);
-      category->setData(0, Qt::UserRole, theory::NoCharacterId);
+      category->setData(0, Qt::UserRole, theory::NoCharacterId.toString());
       category->setChildIndicatorPolicy(QTreeWidgetItem::DontShowIndicatorWhenChildless);
       ui_char_list->insertTopLevelItem(0, category);
       category->addChild(treeItem);
     }
 
-    connect(char_button, &AOCharButton::clicked, this, [this, i]() { this->char_clicked(i); });
+    connect(char_button, &AOCharButton::clicked, this, [this, character]() { this->char_clicked(character); });
     connect(char_button, &AOCharButton::customContextMenuRequested, this, &Courtroom::on_char_button_context_menu_requested);
   }
   ui_char_list->sortItems(0, Qt::AscendingOrder);
@@ -333,13 +331,13 @@ void spritechat::Courtroom::character_loading_finished()
 void spritechat::Courtroom::filter_character_list()
 {
   ui_char_button_list_filtered.clear();
-  for (theory::CharacterId i = 0; i < char_list.size(); i++)
+  for (AOCharButton *current_char : std::as_const(ui_char_button_list))
   {
-    AOCharButton *current_char = ui_char_button_list.at(i);
+    const theory::CharacterId character = current_char->character();
     QTreeWidgetItem *current_char_item = nullptr;
     for (QTreeWidgetItemIterator it(ui_char_list); *it; ++it)
     {
-      if ((*it)->data(0, Qt::UserRole).toInt() == i)
+      if (theory::CharacterId{(*it)->data(0, Qt::UserRole).toString()} == character)
       {
         current_char_item = *it;
         break;
@@ -351,13 +349,13 @@ void spritechat::Courtroom::filter_character_list()
       continue;
     }
 
-    if (!ui_char_taken->isChecked() && taken_chars.contains(i))
+    if (!ui_char_taken->isChecked() && taken_chars.contains(character))
     {
       current_char_item->setHidden(true);
       continue;
     }
 
-    if (!char_list.at(i).contains(ui_char_search->text(), Qt::CaseInsensitive) && !ao_app->get_category(char_list.at(i)).contains(ui_char_search->text(), Qt::CaseInsensitive))
+    if (!character->contains(ui_char_search->text(), Qt::CaseInsensitive) && !ao_app->get_category(character.toString()).contains(ui_char_search->text(), Qt::CaseInsensitive))
     {
       current_char_item->setHidden(true);
       continue;
@@ -367,11 +365,11 @@ void spritechat::Courtroom::filter_character_list()
     // for the buttons that actually appear.
     // You'd also update the passwordedness and etc. here later.
     current_char_item->setHidden(false);
-    current_char->setTaken(taken_chars.contains(i));
-    current_char_item->setText(0, char_list.at(i));
+    current_char->setTaken(taken_chars.contains(character));
+    current_char_item->setText(0, character.toString());
     // reset disabled
     current_char_item->setDisabled(false);
-    if (taken_chars.contains(i)) // woops, we are taken
+    if (taken_chars.contains(character)) // woops, we are taken
     {
       current_char_item->setDisabled(true);
     }

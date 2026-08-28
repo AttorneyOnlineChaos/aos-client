@@ -2,6 +2,7 @@
 
 #include "aoapplication.h"
 #include "aoimage.h"
+#include "game/game_defs.h"
 
 #include <QEnterEvent>
 #include <QFile>
@@ -18,7 +19,8 @@ class AOCharButton : public QPushButton
 public:
   AOCharButton(AOApplication *ao_app, QWidget *parent);
 
-  void setCharacter(const QString &character);
+  theory::CharacterId character() const;
+  void setCharacter(const theory::CharacterId &character);
 
   void setTaken(bool enabled);
 
@@ -28,6 +30,7 @@ protected:
 
 private:
   AOApplication *ao_app;
+  theory::CharacterId m_character;
   bool m_taken = false;
   AOImage *ui_taken;
   AOImage *ui_selector;

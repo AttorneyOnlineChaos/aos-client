@@ -45,6 +45,7 @@
 #include <QFileDialog>
 #include <QFont>
 #include <QFuture>
+#include <QHash>
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QLineEdit>
@@ -84,8 +85,7 @@ public:
 
   void update_audio_volume();
 
-  void append_char(const QString &f_char);
-  void clear_chars();
+  void set_characters(const QList<theory::CharacterId> &characters);
 
   void set_music(const QList<theory::MusicPlaylist> &f_playlists);
   std::optional<theory::MusicTrack> find_track(const QString &f_file_name) const;
@@ -166,8 +166,7 @@ public:
   QString current_or_default_side();
 
   // updates character to p_cid and updates necessary ui elements
-  // Optional "char_name" is the iniswap we're using
-  void update_character(theory::CharacterId p_cid, const QString &char_name = QString(), bool reset_emote = false);
+  void update_character(const theory::CharacterId &p_cid);
 
   // properly sets up some varibles: resets user state
   void enter_courtroom();
@@ -306,7 +305,7 @@ private:
   // 0 = in front, 1 = behind
   int pair_order = 0;
 
-  QStringList char_list;
+  QList<theory::CharacterId> char_list;
   QSet<theory::CharacterId> taken_chars;
   QList<theory::EvidenceItem> evidence_list;
   QList<theory::MusicPlaylist> music_list;
@@ -395,7 +394,7 @@ private:
   QString additive_previous;
 
   // char id, muted or not
-  QMap<theory::CharacterId, bool> mute_map;
+  QHash<theory::CharacterId, bool> mute_map;
 
   // QList<int> muted_cids;
 
@@ -411,9 +410,7 @@ private:
   int text_state = 2;
 
   // character id, which index of the char_list the player is
-  theory::CharacterId m_cid = theory::NoCharacterId;
-  // cid and this may differ in cases of ini-editing
-  QString current_char;
+  theory::CharacterId m_character = theory::NoCharacterId;
 
   int objection_state = 0;
   QString objection_custom;
@@ -713,7 +710,7 @@ private:
   void construct_char_select();
   void set_char_select();
   void set_char_select_page();
-  void char_clicked(theory::CharacterId n_char);
+  void char_clicked(const theory::CharacterId &n_char);
   void on_char_button_context_menu_requested(const QPoint &pos);
   void put_button_in_place(int starting, int chars_on_this_page);
   void filter_character_list();

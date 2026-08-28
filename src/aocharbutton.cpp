@@ -37,9 +37,16 @@ void spritechat::AOCharButton::setTaken(bool enabled)
   }
 }
 
-void spritechat::AOCharButton::setCharacter(const QString &character)
+theory::CharacterId spritechat::AOCharButton::character() const
 {
-  QString image_path = ao_app->get_image_suffix(ao_app->get_character_path(character, "char_icon"), true);
+  return m_character;
+}
+
+void spritechat::AOCharButton::setCharacter(const theory::CharacterId &character)
+{
+  m_character = character;
+
+  QString image_path = ao_app->get_image_suffix(ao_app->get_character_path(character.toString(), "char_icon"), true);
 
   setText(QString());
 
@@ -55,7 +62,7 @@ void spritechat::AOCharButton::setCharacter(const QString &character)
     setStyleSheet("QPushButton { border-image: url(); }"
                   "QToolTip { background-image: url(); color: #000000; "
                   "background-color: #ffffff; border: 0px; }");
-    setText(character);
+    setText(character.toString());
   }
 }
 
