@@ -176,7 +176,7 @@ void spritechat::AOApplication::process(const theory::WelcomePacket &packet)
 
   m_player_id = packet.playerId;
 
-  if (m_recovered_session)
+  if (!m_recovered_session)
   {
     w_courtroom->enter_char_select();
   }
