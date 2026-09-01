@@ -1,7 +1,7 @@
 #include "animationloader.h"
 
 #include "core/logging.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <QMutexLocker>
 #include <QtConcurrent/QtConcurrent>

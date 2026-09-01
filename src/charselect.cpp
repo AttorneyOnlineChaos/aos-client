@@ -6,7 +6,7 @@
 #include "hardware_functions.h"
 #include "lobby.h"
 #include "protocol/packets/session_packets.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <QTreeWidgetItemIterator>
 

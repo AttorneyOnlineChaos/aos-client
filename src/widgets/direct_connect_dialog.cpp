@@ -4,7 +4,7 @@
 #include "core/logging.h"
 #include "debug_functions.h"
 #include "options.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <QFile>
 #include <QStringBuilder>

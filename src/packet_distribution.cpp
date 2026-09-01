@@ -7,7 +7,7 @@
 #include "network_manager.h"
 #include "options.h"
 #include "player_registry.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 spritechat::Timer *spritechat::AOApplication::timer(theory::TimerId id) const
 {

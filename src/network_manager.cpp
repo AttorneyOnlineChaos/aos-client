@@ -1,8 +1,8 @@
 #include "network_manager.h"
 
 #include "core/logging.h"
+#include "spritechat_defs.h"
 #include "spritechat_info.h"
-#include "spritechat_log.h"
 
 #include <QAbstractSocket>
 #include <QDebug>

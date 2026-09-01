@@ -2,7 +2,7 @@
 
 #include "core/json_codec.h"
 #include "core/logging.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <QDateTime>
 #include <QJsonDocument>

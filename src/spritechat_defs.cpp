@@ -1,4 +1,4 @@
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 Q_LOGGING_CATEGORY(spritechat::log::main, "spritechat.main")
 Q_LOGGING_CATEGORY(spritechat::log::network, "spritechat.network")

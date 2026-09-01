@@ -3,7 +3,7 @@
 #include "core/logging.h"
 #include "options.h"
 #include "protocol/packets/evidence_packets.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 void spritechat::Courtroom::initialize_evidence()
 {

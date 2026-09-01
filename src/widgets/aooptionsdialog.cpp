@@ -6,7 +6,7 @@
 #include "file_functions.h"
 #include "network_manager.h"
 #include "options.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <bass.h>
 

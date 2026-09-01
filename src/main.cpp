@@ -6,8 +6,8 @@
 #include "lobby.h"
 #include "network/packet_factory.h"
 #include "protocol/protocol_utils.h"
+#include "spritechat_defs.h"
 #include "spritechat_info.h"
-#include "spritechat_log.h"
 
 #include <QDebug>
 #include <QDirIterator>

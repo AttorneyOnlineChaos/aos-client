@@ -8,7 +8,7 @@
 #include "options.h"
 #include "protocol/packets/handshake_packets.h"
 #include "protocol/protocol_info.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <QDateTime>
 #include <QMessageBox>

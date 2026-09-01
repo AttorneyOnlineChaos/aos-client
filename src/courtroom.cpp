@@ -13,7 +13,7 @@
 #include "protocol/packets/ic_packets.h"
 #include "protocol/packets/moderation_packets.h"
 #include "protocol/packets/session_packets.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <QtConcurrent/QtConcurrent>
 

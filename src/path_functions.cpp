@@ -3,7 +3,7 @@
 #include "core/logging.h"
 #include "file_functions.h"
 #include "options.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 #include <QDir>
 #include <QRegularExpression>

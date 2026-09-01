@@ -93,10 +93,10 @@ qt_add_library(spritechat STATIC
   src/scrolltext.h
   src/serverdata.cpp
   src/serverdata.h
+  src/spritechat_defs.cpp
+  src/spritechat_defs.h
   src/spritechat_info.cpp
   src/spritechat_info.h
-  src/spritechat_log.cpp
-  src/spritechat_log.h
   src/text_file_functions.cpp
   src/timer.cpp
   src/timer.h

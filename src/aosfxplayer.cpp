@@ -2,7 +2,7 @@
 
 #include "core/logging.h"
 #include "file_functions.h"
-#include "spritechat_log.h"
+#include "spritechat_defs.h"
 
 spritechat::AOSfxPlayer::AOSfxPlayer(AOApplication *ao_app)
     : ao_app(ao_app)
