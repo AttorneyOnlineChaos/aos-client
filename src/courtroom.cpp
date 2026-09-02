@@ -2170,7 +2170,7 @@ void spritechat::Courtroom::unpack_chatmessage(theory::IcMessagePacket packet)
   }
 
   // If we determine we sent this message
-  if (packet.character == m_character)
+  if (packet.playerId == ao_app->m_player_id)
   {
     // Reset input UI elements, clear input box, etc.
     reset_ui();
@@ -2204,7 +2204,7 @@ void spritechat::Courtroom::log_chatmessage()
 {
   QString f_displayname = current_showname();
   QString f_char = m_chatmessage.character.toString();
-  bool selfname = m_chatmessage.character == m_character;
+  bool selfname = m_chatmessage.playerId == ao_app->m_player_id;
 
   // Detect if we're trying to log a blankpost
   bool blankpost = (m_chatmessage.message.isEmpty() &&                                          // our current message is a blankpost,
