@@ -180,6 +180,16 @@ void spritechat::Options::setChatRateLimit(int value)
   config.setValue("chat_ratelimit", value);
 }
 
+int spritechat::Options::messageCapacity() const
+{
+  return config.value("message_capacity", 100).toInt();
+}
+
+void spritechat::Options::setMessageCapacity(int value)
+{
+  config.setValue("message_capacity", value);
+}
+
 bool spritechat::Options::logDirectionDownwards() const
 {
   return config.value("log_goes_downwards", true).toBool();

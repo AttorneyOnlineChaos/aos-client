@@ -1,6 +1,8 @@
 #pragma once
 
 #include "animationlayer.h"
+#include "ao_line_edit.h"
+#include "ao_track_library.h"
 #include "aoapplication.h"
 #include "aoblipplayer.h"
 #include "aobutton.h"
@@ -80,7 +82,7 @@ class Courtroom : public QMainWindow
   Q_OBJECT
 
 public:
-  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport);
+  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library);
   ~Courtroom();
 
   void update_audio_volume();
@@ -91,6 +93,8 @@ public:
   std::optional<theory::MusicTrack> find_track(const QString &f_file_name) const;
 
   PlayerListWidget *playerList();
+
+  void update_message_capacity();
 
   void refresh_area(theory::AreaId n_area);
 
@@ -313,6 +317,7 @@ private:
   PlayerRegistry &player_registry;
   const QList<Timer *> &timers;
   theory::PacketTransmitter &transport;
+  const AOTrackLibrary &track_library;
 
   QList<ChatLogPiece> ic_chatlog_history;
   QString last_ic_message;
@@ -476,6 +481,8 @@ private:
   // Music effect flags we want to send to server when we play music
   int music_flags = FADE_OUT;
 
+  QHash<QString, int> sample_selections;
+
   int defense_bar_state = 0;
   int prosecution_bar_state = 0;
 
@@ -581,12 +588,12 @@ private:
 
   QComboBox *ui_pair_order_dropdown;
 
-  QLineEdit *ui_ic_chat_message;
+  AOLineEdit *ui_ic_chat_message;
   AOLineEditFilter *ui_ic_chat_message_filter;
   QLineEdit *ui_ic_chat_name;
   QLineEdit *ui_custom_blips;
 
-  QLineEdit *ui_ooc_chat_message;
+  AOLineEdit *ui_ooc_chat_message;
   QLineEdit *ui_ooc_chat_name;
 
   // QLineEdit *ui_area_password;

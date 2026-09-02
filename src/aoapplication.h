@@ -1,6 +1,6 @@
 #pragma once
 
-#include "aomusictrack.h"
+#include "ao_track_library.h"
 #include "area_registry.h"
 #include "asset_lookup.h"
 #include "console_logger.h"
@@ -84,6 +84,7 @@ public:
   void apply_master_options();
 
   AssetLookup m_asset_lookup;
+  AOTrackLibrary m_track_library;
 
   ///////////////loading info///////////////////
 
@@ -160,8 +161,6 @@ public:
 
   // Figure out if we can opus this or if we should fall back to wav
   QString get_sfx_suffix(const VPath &sound_to_check);
-
-  AOMusicTrack get_music_track(const QString &p_song);
 
   // Can we use APNG for this? If not, WEBP? If not, GIF? If not, fall back to
   // PNG.

@@ -46,10 +46,14 @@ qt_add_library(spritechat STATIC
   src/animationlayer.h
   src/animationloader.h
   src/animationloader.cpp
+  src/ao_track.h
+  src/ao_line_edit.cpp
+  src/ao_line_edit.h
+  src/ao_track_library.cpp
+  src/ao_track_library.h
   src/ao_widget_lookup.h
   src/aomusicplayer.cpp
   src/aomusicplayer.h
-  src/aomusictrack.h
   src/aosfxplayer.cpp
   src/aosfxplayer.h
   src/aotextarea.cpp

@@ -443,3 +443,21 @@ QString spritechat::AssetLookup::get_real_path(const VPath &vpath, const QString
   // File or directory not found
   return QString();
 }
+
+QStringList spritechat::AssetLookup::get_real_paths(const VPath &vpath)
+{
+  QStringList mounts = Options::getInstance().mountPaths();
+  mounts.prepend(get_base_path());
+
+  QStringList result;
+  for (const QString &mount : mounts)
+  {
+    QDir dir(mount);
+    QString path = get_case_sensitive_path(dir.absoluteFilePath(vpath.toQString()));
+    if (exists(path))
+    {
+      result.append(path);
+    }
+  }
+  return result;
+}

@@ -15,17 +15,19 @@
 #include "protocol/packets/session_packets.h"
 #include "spritechat_defs.h"
 
+#include <QActionGroup>
 #include <QtConcurrent/QtConcurrent>
 
 // #define DEBUG_TRANSITION
 
-spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport)
+spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library)
     : QMainWindow()
     , ao_app{p_ao_app}
     , area_registry{p_area_registry}
     , player_registry{p_player_registry}
     , timers{p_timers}
     , transport{p_transport}
+    , track_library{p_track_library}
 {
   setWindowIcon(QIcon(":/data/logo-client.png"));
   setWindowFlags((this->windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
@@ -200,7 +202,7 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_ic_chat_name->setText(Options::getInstance().shownameOnJoin());
   ui_ic_chat_name->setObjectName("ui_ic_chat_name");
 
-  ui_ic_chat_message = new QLineEdit(this);
+  ui_ic_chat_message = new AOLineEdit(this);
   ui_ic_chat_message->setFrame(false);
   ui_ic_chat_message->setPlaceholderText(tr("Message in-character"));
   ui_ic_chat_message_filter = new AOLineEditFilter();
@@ -208,10 +210,12 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_ic_chat_message->installEventFilter(ui_ic_chat_message_filter);
   ui_ic_chat_message->setObjectName("ui_ic_chat_message");
 
-  ui_ooc_chat_message = new QLineEdit(this);
+  ui_ooc_chat_message = new AOLineEdit(this);
   ui_ooc_chat_message->setFrame(false);
   ui_ooc_chat_message->setObjectName("ui_ooc_chat_message");
   ui_ooc_chat_message->setPlaceholderText(tr("Message out-of-character"));
+
+  update_message_capacity();
 
   ui_ooc_chat_name = new QLineEdit(this);
   ui_ooc_chat_name->setFrame(false);
@@ -635,6 +639,13 @@ std::optional<theory::MusicTrack> spritechat::Courtroom::find_track(const QStrin
 spritechat::PlayerListWidget *spritechat::Courtroom::playerList()
 {
   return ui_player_list;
+}
+
+void spritechat::Courtroom::update_message_capacity()
+{
+  const int capacity = Options::getInstance().messageCapacity();
+  ui_ic_chat_message->setCapacity(capacity);
+  ui_ooc_chat_message->setCapacity(capacity);
 }
 
 void spritechat::Courtroom::set_courtroom_size()
@@ -2098,6 +2109,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
 
 void spritechat::Courtroom::reset_ui()
 {
+  ui_ic_chat_message->record();
   ui_ic_chat_message->clear();
   if (ui_additive->isChecked())
   {
@@ -4114,6 +4126,12 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
     f_song = (ao_app->m_server_data.get_asset_url() + "sounds/music/" + f_song).toLower();
   }
 
+  AOTrack track;
+  if (!is_stop)
+  {
+    track = track_library.track(f_song, packet.sample);
+  }
+
   if (n_char != theory::NoCharacterId)
   {
     QString str_char = n_char.toString();
@@ -4132,8 +4150,15 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
       }
       else
       {
-        log_ic_text(str_char, str_show, f_song, tr("has played a song"), 0, selfname);
-        append_ic_text(f_song_clear, str_show, str_char, tr("has played a song"), 0, selfname);
+        QString f_message = f_song;
+        QString f_text = f_song_clear;
+        if (track.sample)
+        {
+          f_message = QStringLiteral("%1 (%2)").arg(f_song, track.sample->title);
+          f_text = QStringLiteral("%1 (%2)").arg(f_song_clear, track.sample->title);
+        }
+        log_ic_text(str_char, str_show, f_message, tr("has played a song"), 0, selfname);
+        append_ic_text(f_text, str_show, str_char, tr("has played a song"), 0, selfname);
       }
     }
   }
@@ -4165,7 +4190,6 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
     return;
   }
 
-  const AOMusicTrack track = ao_app->get_music_track(f_song);
   if (channel == theory::MusicChannel::Music)
   {
     QtConcurrent::run([=, this] { music_player->play(track, effects, looping); });
@@ -4329,6 +4353,7 @@ void spritechat::Courtroom::mod_called(const QString &p_ip)
 void spritechat::Courtroom::on_ooc_return_pressed()
 {
   QString ooc_message = ui_ooc_chat_message->text();
+  ui_ooc_chat_message->record();
 
   if (ooc_message.startsWith("/pos"))
   {
@@ -5127,6 +5152,7 @@ void spritechat::Courtroom::on_music_list_double_clicked(QTreeWidgetItem *p_item
 
   theory::PlayMusicPacket packet;
   packet.track = p_song;
+  packet.sample = sample_selections.value(p_song.toLower(), 0);
   packet.effects.setFlag(theory::FadeIn, music_flags & FADE_IN);
   packet.effects.setFlag(theory::FadeOut, music_flags & FADE_OUT);
   packet.effects.setFlag(theory::SynchronizePosition, music_flags & SYNC_POS);
@@ -5156,6 +5182,28 @@ void spritechat::Courtroom::on_music_list_context_menu_requested(const QPoint &p
   {
     menu->addAction(QString(tr("Add Favorite")), this, [this, current_song] { Courtroom::add_favorite_song(current_song); });
     menu->addSeparator();
+  }
+
+  if (current_song && !current_song->text(1).isEmpty() && !current_song->text(1).startsWith("http"))
+  {
+    const QString track = current_song->text(1);
+    if (const auto sheet = track_library.sheet(track))
+    {
+      const int selected = sample_selections.value(track.toLower(), 0);
+
+      QMenu *sample_menu = menu->addMenu(tr("Sample"));
+      QActionGroup *sample_group = new QActionGroup(sample_menu);
+      sample_group->setExclusive(true);
+      for (int i = 0; i < sheet->samples.size(); ++i)
+      {
+        QAction *action = sample_menu->addAction(QStringLiteral("%1: %2").arg(i + 1).arg(sheet->samples.at(i).title));
+        action->setCheckable(true);
+        action->setChecked(i == selected);
+        sample_group->addAction(action);
+        connect(action, &QAction::triggered, this, [this, track, i] { sample_selections.insert(track.toLower(), i); });
+      }
+      menu->addSeparator();
+    }
   }
 
   menu->addAction(new QAction(tr("Fade Out Previous"), this));

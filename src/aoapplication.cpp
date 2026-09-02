@@ -17,6 +17,7 @@
 spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_factory, QObject *parent)
     : QObject(parent)
     , m_packet_factory{packet_factory}
+    , m_track_library{m_asset_lookup}
 {
   register_packet_routes();
 
@@ -37,6 +38,8 @@ spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_fac
 
   master_gateway = new MasterGateway(this);
   apply_master_options();
+
+  m_track_library.reload();
 
   theory::Log::add(console_logger);
 }
@@ -95,7 +98,7 @@ void spritechat::AOApplication::construct_courtroom()
     return;
   }
 
-  w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_timers, *net_manager);
+  w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_timers, *net_manager, m_track_library);
 
   connect(w_courtroom, &Courtroom::aboutToClose, this, [this] {
     drop_session();
@@ -150,10 +153,12 @@ void spritechat::AOApplication::call_settings_menu()
   l_dialog->exec();
 
   apply_master_options();
+  m_track_library.reload();
 
   if (is_courtroom_constructed())
   {
     w_courtroom->playerList()->reloadPlayers();
+    w_courtroom->update_message_capacity();
   }
 
   delete l_dialog;
@@ -372,11 +377,6 @@ QString spritechat::AOApplication::get_court_sfx(const QString &p_identifier, co
 QString spritechat::AOApplication::get_sfx_suffix(const VPath &sound_to_check)
 {
   return m_asset_lookup.get_sfx_suffix(sound_to_check);
-}
-
-spritechat::AOMusicTrack spritechat::AOApplication::get_music_track(const QString &p_song)
-{
-  return m_asset_lookup.get_music_track(p_song);
 }
 
 QString spritechat::AOApplication::get_image_suffix(const VPath &path_to_check, bool static_image)

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "aomusictrack.h"
 #include "datatypes.h"
 #include "game/emote_cue.h"
 
@@ -64,6 +63,7 @@ public:
 
   QString get_case_sensitive_path(const QString &p_file);
   QString get_real_path(const VPath &vpath, const QStringList &suffixes = {""});
+  QStringList get_real_paths(const VPath &vpath);
   QString get_sfx_suffix(const VPath &sound_to_check);
   QString get_image_suffix(const VPath &path_to_check, bool static_image = false);
 
@@ -84,8 +84,6 @@ public:
   QString get_penalty_value(const QString &p_identifier);
   QString get_court_sfx(const QString &p_identifier, const QString &p_misc = QString());
   QString get_stylesheet(const QString &p_file);
-
-  AOMusicTrack get_music_track(const QString &p_song);
 
   QString read_char_ini(const QString &p_char, const QString &p_search_line, const QString &target_tag);
   QStringList read_ini_tags(const VPath &p_file, const QString &target_tag = QString());

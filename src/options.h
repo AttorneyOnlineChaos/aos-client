@@ -145,6 +145,9 @@ public:
   int chatRateLimit() const;
   void setChatRateLimit(int value);
 
+  int messageCapacity() const;
+  void setMessageCapacity(int value);
+
   // Returns whether the log should go upwards (new behaviour)
   // or downwards (vanilla behaviour).
   bool logDirectionDownwards() const;

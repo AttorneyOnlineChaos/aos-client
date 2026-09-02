@@ -396,6 +396,7 @@ void spritechat::AOOptionsDialog::setupUI()
   registerOption<QCheckBox, bool>("animated_theme_cb", &Options::animatedThemeEnabled, &Options::setAnimatedThemeEnabled);
   registerOption<QSpinBox, int>("text_crawl_spinbox", &Options::textCrawlSpeed, &Options::setTextCrawlSpeed);
   registerOption<QSpinBox, int>("chat_ratelimit_spinbox", &Options::chatRateLimit, &Options::setChatRateLimit);
+  registerOption<QSpinBox, int>("message_capacity_spinbox", &Options::messageCapacity, &Options::setMessageCapacity);
   registerOption<QLineEdit, QString>("username_textbox", &Options::username, &Options::setUsername);
   registerOption<QCheckBox, bool>("showname_cb", &Options::customShownameEnabled, &Options::setCustomShownameEnabled);
   registerOption<QLineEdit, QString>("default_showname_textbox", &Options::shownameOnJoin, &Options::setShownameOnJoin);

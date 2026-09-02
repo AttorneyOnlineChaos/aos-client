@@ -1,44 +1,52 @@
 #pragma once
 
-#include "aomusictrack.h"
+#include "ao_track.h"
 #include "game/game_defs.h"
 
 #include <bass.h>
 
-#include <QString>
+#include <QMutex>
+#include <QUrl>
+
+#include <optional>
 
 namespace spritechat
 {
 class AOMusicPlayer
 {
 public:
-  explicit AOMusicPlayer();
-  virtual ~AOMusicPlayer();
+  AOMusicPlayer() = default;
+  ~AOMusicPlayer();
 
   void setMuted(bool enabled);
+  void setVolume(int volume);
 
-  bool play(const AOMusicTrack &track, theory::MusicEffects effects, bool loopEnabled);
+  void play(const AOTrack &track, theory::MusicEffects effects, bool repeat);
   void stop(theory::MusicEffects effects);
-
-  void setVolume(int value);
-  void setLoop(bool enabled);
-
-  static void CALLBACK loopProc(HSYNC handle, DWORD channel, DWORD data, void *user);
 
 private:
   struct Stream
   {
-    int volume = 0;
-    HSTREAM handle = 0;
-    HSYNC loopSync = 0;
-    quint64 byteLoopStart = 0;
-    quint64 byteLoopEnd = 0;
+    QWORD loopStart = 0;
+    QWORD loopEnd = 0;
+    bool repeat = false;
   };
 
-  Stream m_stream;
-  bool m_muted = false;
+  mutable QMutex _mutex;
+  HSTREAM _handle = 0;
+  int _volume = 0;
+  bool _muted = false;
 
-  static void stopStream(const Stream &stream, bool fadeOut);
-  static quint64 loopPosition(HSTREAM stream, const AOMusicTrack &track, double value);
+  static HSTREAM createStream(const QUrl &url);
+
+  static void CALLBACK beginLoop(HSYNC handle, DWORD channel, DWORD data, void *user);
+  static void CALLBACK finishLoop(HSYNC handle, DWORD channel, DWORD data, void *user);
+  static void setupLoop(DWORD channel, const Stream &stream);
+
+  static std::optional<QWORD> bytePosition(HSTREAM stream, qint64 frame);
+
+  double calculateVolume() const;
+
+  void destroyStream(bool fadeOut);
 };
 } // namespace spritechat
