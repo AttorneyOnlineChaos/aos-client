@@ -10,7 +10,6 @@
 #include "aoclocklabel.h"
 #include "aoemotebutton.h"
 #include "aoemotepreview.h"
-#include "aoevidencebutton.h"
 #include "aoevidencedisplay.h"
 #include "aoimage.h"
 #include "aomusicplayer.h"
@@ -22,20 +21,26 @@
 #include "datatypes.h"
 #include "debug_functions.h"
 #include "eventfilters.h"
+#include "evidence_registry.h"
 #include "file_functions.h"
-#include "game/evidence_item.h"
+#include "game/evidence.h"
 #include "game/music.h"
 #include "hardware_functions.h"
+#include "inventory_registry.h"
 #include "lobby.h"
 #include "network/packet_transmitter.h"
 #include "player_registry.h"
+#include "protocol/packets/evidence_packets.h"
 #include "protocol/packets/ic_packets.h"
 #include "protocol/packets/music_packets.h"
 #include "screenslidetimer.h"
 #include "scrolltext.h"
 #include "timer.h"
 #include "widgets/aooptionsdialog.h"
+#include "widgets/evidence_panel.h"
+#include "widgets/navigable_grid.h"
 #include "widgets/playerlistwidget.h"
+#include "widgets/mousewheel_grid_navigator.h"
 
 #include <QBrush>
 #include <QCheckBox>
@@ -44,7 +49,6 @@
 #include <QDebug>
 #include <QDesktopServices>
 #include <QElapsedTimer>
-#include <QFileDialog>
 #include <QFont>
 #include <QFuture>
 #include <QHash>
@@ -59,6 +63,7 @@
 #include <QMessageBox>
 #include <QParallelAnimationGroup>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QPropertyAnimation>
 #include <QRandomGenerator>
 #include <QRegularExpression>
@@ -82,7 +87,7 @@ class Courtroom : public QMainWindow
   Q_OBJECT
 
 public:
-  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library);
+  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, InventoryRegistry &p_inventory_registry, EvidenceRegistry &p_evidence_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library);
   ~Courtroom();
 
   void update_audio_volume();
@@ -95,6 +100,7 @@ public:
   PlayerListWidget *playerList();
 
   void update_message_capacity();
+  void update_mousewheel_direction();
 
   void refresh_area(theory::AreaId n_area);
 
@@ -124,7 +130,7 @@ public:
   void set_stylesheets();
 
   // reads theme and sets size and pos based on the identifier (using p_misc if provided)
-  void set_size_and_pos(QWidget *p_widget, const QString &p_identifier, const QString &p_misc = QString());
+  bool set_size_and_pos(QWidget *p_widget, const QString &p_identifier, const QString &p_misc = QString());
 
   void refresh_taken_chars();
 
@@ -137,9 +143,6 @@ public:
 
   // sets the pos dropdown
   void set_pos_dropdown(const QStringList &pos_dropdowns);
-
-  // sets the evidence list member variable to argument
-  void set_evidence_list(QList<theory::EvidenceItem> &p_evi_list);
 
   void enter_char_select();
 
@@ -297,8 +300,8 @@ private:
   int text_crawl = 40;
   double message_display_mult[7] = {0, 0.25, 0.65, 1, 1.25, 1.75, 2.25};
 
-  // The character ID of the character this user wants to appear alongside with.
-  theory::CharacterId other_charid = theory::NoCharacterId;
+  // The player this user wants to appear alongside with.
+  theory::PlayerId other_player_id = theory::NoPlayerId;
 
   // The horizontal offset this user has given if they want to appear alongside someone.
   int char_offset = 0;
@@ -311,10 +314,11 @@ private:
 
   QList<theory::CharacterId> char_list;
   QSet<theory::CharacterId> taken_chars;
-  QList<theory::EvidenceItem> evidence_list;
   QList<theory::MusicPlaylist> music_list;
   AreaRegistry &area_registry;
   PlayerRegistry &player_registry;
+  InventoryRegistry &inventory_registry;
+  EvidenceRegistry &evidence_registry;
   const QList<Timer *> &timers;
   theory::PacketTransmitter &transport;
   const AOTrackLibrary &track_library;
@@ -469,12 +473,7 @@ private:
   // Current SFX the user put in for the sfx dropdown list
   QString custom_sfx;
 
-  // is the message we're about to send supposed to present evidence?
-  bool is_presenting_evidence = false;
   bool c_played = false; // whether we've played a (c)-style postanimation yet
-
-  // have we already presented evidence for this message?
-  bool evidence_presented = false;
 
   QString effect;
 
@@ -486,32 +485,11 @@ private:
   int defense_bar_state = 0;
   int prosecution_bar_state = 0;
 
-  int current_char_page = 0;
-  int char_columns = 10;
-  int char_rows = 9;
-  int max_chars_on_page = 90;
-
-  const int button_width = 60;
-  const int button_height = 60;
-
-  int current_emote_page = 0;
   int current_emote = 0;
-  int emote_columns = 5;
-  int emote_rows = 2;
-  int max_emotes_on_page = 10;
 
-  QList<theory::EvidenceItem> local_evidence_list;
-  QList<theory::EvidenceItem> private_evidence_list;
-  QList<theory::EvidenceItem> global_evidence_list;
+  theory::InventoryId current_inventory = theory::NoInventoryId;
 
-  // false = use private_evidence_list
-  bool current_evidence_global = true;
-
-  int current_evidence_page = 0;
-  int current_evidence = 0;
-  int evidence_columns = 6;
-  int evidence_rows = 3;
-  int max_evidence_on_page = 18;
+  QTimer *evidence_refresh_timer;
 
   // whether the ooc chat is server or master chat, true is server
   bool server_ooc = true;
@@ -532,6 +510,8 @@ private:
   QBrush recess_brush;
   QBrush rp_brush;
   QBrush gaming_brush;
+  QBrush building_brush;
+  QBrush starting_brush;
   QBrush locked_brush;
 
   AOMusicPlayer *music_player;
@@ -599,7 +579,8 @@ private:
   // QLineEdit *ui_area_password;
   QLineEdit *ui_music_search;
 
-  QWidget *ui_emotes;
+  theory::NavigableGrid *ui_emotes;
+  theory::MousewheelGridNavigator *emote_navigator;
   QList<AOEmoteButton *> ui_emote_list;
   AOButton *ui_emote_left;
   AOButton *ui_emote_right;
@@ -672,26 +653,9 @@ private:
   QSlider *ui_blip_slider;
 
   AOButton *ui_evidence_button;
-  AOImage *ui_evidence;
-  QLineEdit *ui_evidence_name;
-  AOLineEditFilter *ui_evidence_name_filter;
-  QWidget *ui_evidence_buttons;
-  QList<AOEvidenceButton *> ui_evidence_list;
-  AOButton *ui_evidence_left;
-  AOButton *ui_evidence_right;
-  AOButton *ui_evidence_present;
-  AOImage *ui_evidence_overlay;
-  AOButton *ui_evidence_delete;
-  QLineEdit *ui_evidence_image_name;
-  AOLineEditFilter *ui_evidence_image_name_filter;
-  AOButton *ui_evidence_image_button;
-  AOButton *ui_evidence_x;
-  AOButton *ui_evidence_ok;
-  AOButton *ui_evidence_switch;
-  AOButton *ui_evidence_transfer;
-  AOButton *ui_evidence_save;
-  AOButton *ui_evidence_load;
-  QPlainTextEdit *ui_evidence_description;
+  EvidencePanel *ui_evidence_public;
+  EvidencePanel *ui_evidence_private;
+  EvidencePanel *ui_evidence_current;
 
   AOImage *ui_char_select_background;
 
@@ -699,10 +663,10 @@ private:
   QTreeWidget *ui_char_list;
 
   // abstract widget to hold char buttons
-  QWidget *ui_char_buttons;
+  theory::NavigableGrid *ui_char_buttons;
+  theory::MousewheelGridNavigator *char_button_navigator;
 
   QList<AOCharButton *> ui_char_button_list;
-  QList<AOCharButton *> ui_char_button_list_filtered;
 
   AOButton *ui_back_to_lobby;
 
@@ -716,21 +680,29 @@ private:
 
   void construct_char_select();
   void set_char_select();
-  void set_char_select_page();
+  void set_char_buttons();
   void char_clicked(const theory::CharacterId &n_char);
   void on_char_button_context_menu_requested(const QPoint &pos);
-  void put_button_in_place(int starting, int chars_on_this_page);
   void filter_character_list();
 
   void initialize_emotes();
   void refresh_emotes();
-  void set_emote_page();
   void set_emote_dropdown();
 
   void initialize_evidence();
   void refresh_evidence();
-  void show_evidence(int f_real_id);
-  void set_evidence_page();
+  void show_evidence(theory::EvidenceId id);
+  bool inventory_editable(theory::InventoryId inventory_id) const;
+  bool current_inventory_editable() const;
+  theory::InventoryId personal_inventory() const;
+  std::optional<PlayerInfo> evidence_inventory_owner(theory::InventoryId inventory_id) const;
+  std::optional<AreaInfo> evidence_inventory_area(theory::InventoryId inventory_id) const;
+  QList<InventoryInfo> listed_evidence_inventories() const;
+  QString evidence_player_label(const PlayerInfo &owner) const;
+  QString evidence_inventory_label(const InventoryInfo &inventory) const;
+  QList<InventoryInfo> public_evidence_inventories() const;
+  QString public_evidence_inventory_label(const InventoryInfo &inventory) const;
+  void evidence_transfer(theory::InventoryTransferPacket::Mode mode, const QList<theory::Evidence> &list);
 
   void reset_ui();
 
@@ -780,10 +752,9 @@ private Q_SLOTS:
 
   void select_emote(int p_id);
 
-  void on_emote_clicked(int p_id);
-
   void on_emote_left_clicked();
   void on_emote_right_clicked();
+  void update_emote_arrows();
 
   void on_emote_dropdown_changed(int p_index);
   void on_pos_dropdown_changed(const QString &p_text);
@@ -813,18 +784,6 @@ private Q_SLOTS:
 
   QString get_char_sfx();
   int get_char_sfx_delay();
-
-  void on_evidence_name_edited();
-  void on_evidence_image_name_edited();
-  void on_evidence_image_button_clicked();
-  void on_evidence_clicked(int p_id);
-  void on_evidence_double_clicked(int p_id);
-
-  void on_evidence_hover(int p_id, bool p_state);
-
-  void on_evidence_left_clicked();
-  void on_evidence_right_clicked();
-  void on_evidence_present_clicked();
 
   void on_hold_it_clicked();
   void on_objection_clicked();
@@ -875,26 +834,19 @@ private Q_SLOTS:
   void on_evidence_button_clicked();
   void on_evidence_context_menu_requested(const QPoint &pos);
 
-  void on_evidence_delete_clicked();
-  bool on_evidence_x_clicked();
-  void on_evidence_ok_clicked();
-  void on_evidence_switch_clicked();
-  void on_evidence_transfer_clicked();
+  void switch_evidence_view();
+  void select_evidence_inventory(theory::InventoryId inventory_id);
+  void add_evidence();
+  void remove_evidence(theory::EvidenceId id);
+  void submit_evidence(theory::EvidenceId id, const theory::Evidence &evidence);
 
-  void on_evidence_edited();
+  void schedule_evidence_refresh();
+  void refresh_evidence_inventory();
 
-  void evidence_close();
-  void evidence_switch(bool global);
-  void on_evidence_save_clicked();
-  void on_evidence_load_clicked();
-  void evidence_save(const QString &filename);
-  void evidence_load(const QString &filename);
-  bool compare_evidence_changed(const theory::EvidenceItem &evi_a, const theory::EvidenceItem &evi_b);
-  int global_evidence_index(theory::EvidenceId id) const;
+  void open_evidence_file_dialog();
 
   void on_char_list_double_clicked(QTreeWidgetItem *p_item, int column);
-  void on_char_select_left_clicked();
-  void on_char_select_right_clicked();
+  void update_char_select_arrows();
   void on_char_search_changed();
   void on_char_taken_clicked();
 

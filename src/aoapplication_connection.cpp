@@ -25,12 +25,12 @@ void spritechat::AOApplication::register_packet_routes()
   m_router.registerRoute<theory::WelcomePacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::CharacterListPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::MusicListPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::AreaListPacket>(&AOApplication::process, this);
 
   m_router.registerRoute<theory::CharacterAcceptedPacket>(&AOApplication::process, this);
 
   m_router.registerRoute<theory::BackgroundPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::SetPositionPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::AreaRecordPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::AreaUpdatePacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::SubthemePacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::TimerPacket>(&AOApplication::process, this);
@@ -41,13 +41,18 @@ void spritechat::AOApplication::register_packet_routes()
   m_router.registerRoute<theory::ServerMessagePacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::PenaltyPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::SplashPacket>(&AOApplication::process, this);
-  m_router.registerRoute<theory::EvidenceListPacket>(&AOApplication::process, this);
 
-  m_router.registerRoute<theory::PlayerRosterPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::PlayerRecordPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::PlayerUpdatePacket>(&AOApplication::process, this);
+
+  m_router.registerRoute<theory::InventoryRecordPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::InventoryUpdatePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::EvidenceRecordPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::EvidenceUpdatePacket>(&AOApplication::process, this);
 
   m_router.registerRoute<theory::ModCallNoticePacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::AuthStatePacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::GameErrorPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::ErrorPacket>(&AOApplication::process, this);
 }
 

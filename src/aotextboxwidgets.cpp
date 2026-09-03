@@ -133,7 +133,6 @@ void spritechat::AOChatboxLabel::paintEvent(QPaintEvent *event)
   }
   else
   {
-    // Use the default renderer
     QLabel::paintEvent(event);
   }
 }

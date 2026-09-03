@@ -41,7 +41,7 @@
             <x>0</x>
             <y>0</y>
             <width>422</width>
-            <height>902</height>
+            <height>924</height>
            </rect>
           </property>
           <layout class="QFormLayout" name="formLayout">
@@ -581,6 +581,40 @@
            </item>
            <item row="35" column="1">
             <widget class="QLineEdit" name="playerlist_format_edit"/>
+           </item>
+           <item row="36" column="0">
+            <widget class="QLabel" name="mousewheel_grid_navigation_reversed_lbl">
+             <property name="toolTip">
+              <string>If ticked, the mousewheel grid navigation is reversed.</string>
+             </property>
+             <property name="text">
+              <string>Reverse mousewheel scroll</string>
+             </property>
+            </widget>
+           </item>
+           <item row="36" column="1">
+            <widget class="QCheckBox" name="mousewheel_grid_navigation_reversed_cb">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item row="37" column="0">
+            <widget class="QLabel" name="offset_preview_lbl">
+             <property name="toolTip">
+              <string>If ticked, the emote preview applies the emote's screen offset.</string>
+             </property>
+             <property name="text">
+              <string>Offset affects Preview</string>
+             </property>
+            </widget>
+           </item>
+           <item row="37" column="1">
+            <widget class="QCheckBox" name="offset_preview_cb">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
            </item>
           </layout>
          </widget>

@@ -36,19 +36,41 @@ int spritechat::AOEmoteButton::id()
   return m_id;
 }
 
-void spritechat::AOEmoteButton::setImage(const QString &character, int emoteId, bool enabled)
+void spritechat::AOEmoteButton::setImage(const QString &character, bool selected)
 {
-  QString emotion_number = QString::number(emoteId + 1);
+  m_character = character;
+  m_selected = selected;
+  m_loaded = false;
+  if (isVisible())
+  {
+    loadImage();
+  }
+}
+
+void spritechat::AOEmoteButton::showEvent(QShowEvent *event)
+{
+  QPushButton::showEvent(event);
+  if (!m_loaded)
+  {
+    loadImage();
+  }
+}
+
+void spritechat::AOEmoteButton::loadImage()
+{
+  m_loaded = true;
+
+  QString emotion_number = QString::number(m_id + 1);
 
   QStringList suffixedPaths;
   static const QStringList SUFFIX_LIST{"_off", "_on"};
   for (const QString &suffix : SUFFIX_LIST)
   {
-    suffixedPaths.append(ao_app->get_image_suffix(ao_app->get_character_path(character, "emotions/button" + emotion_number + suffix)));
+    suffixedPaths.append(ao_app->get_image_suffix(ao_app->get_character_path(m_character, "emotions/button" + emotion_number + suffix)));
   }
 
-  QString image = suffixedPaths[static_cast<int>(enabled)];
-  if (enabled && !file_exists(suffixedPaths[1]))
+  QString image = suffixedPaths[static_cast<int>(m_selected)];
+  if (m_selected && !file_exists(suffixedPaths[1]))
   {
     ui_selected->show();
     image = suffixedPaths[0];
@@ -68,7 +90,7 @@ void spritechat::AOEmoteButton::setImage(const QString &character, int emoteId, 
   }
   else
   {
-    QString emote_comment = ao_app->get_emote_comment(character, emoteId);
+    QString emote_comment = ao_app->get_emote_comment(m_character, m_id);
     setText(emote_comment);
     setStyleSheet("QPushButton { border-image: url(); }"
                   "QToolTip { background-image: url(); color: #000000; "

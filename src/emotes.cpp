@@ -5,8 +5,9 @@
 
 void spritechat::Courtroom::initialize_emotes()
 {
-  ui_emotes = new QWidget(this);
+  ui_emotes = new theory::NavigableGrid(this);
   ui_emotes->setObjectName("ui_emotes");
+  emote_navigator = new theory::MousewheelGridNavigator(ui_emotes);
 
   ui_emote_left = new AOButton(ao_app, this);
   ui_emote_left->setObjectName("ui_emote_left");
@@ -26,6 +27,8 @@ void spritechat::Courtroom::initialize_emotes()
 
   connect(ui_emote_left, &AOButton::clicked, this, &Courtroom::on_emote_left_clicked);
   connect(ui_emote_right, &AOButton::clicked, this, &Courtroom::on_emote_right_clicked);
+  connect(ui_emotes, &theory::NavigableGrid::layoutUpdated, this, &Courtroom::update_emote_arrows);
+  connect(ui_emotes, &theory::NavigableGrid::currentPageChanged, this, &Courtroom::update_emote_arrows);
 
   connect(ui_emote_dropdown, &QComboBox::activated, this, &Courtroom::on_emote_dropdown_changed);
   connect(ui_emote_dropdown, &AOEmoteButton::customContextMenuRequested, this, &Courtroom::show_emote_menu);
@@ -52,117 +55,28 @@ void spritechat::Courtroom::refresh_emotes()
 
   QPoint f_spacing = ao_app->get_button_spacing("emote_button_spacing", "courtroom_design.ini");
   QPoint p_point = ao_app->get_button_spacing("emote_button_size", "courtroom_design.ini");
-
-  if (ui_emotes->width() == 0 || ui_emotes->height() == 0)
-  { // Workaround for a nasty crash
-    ui_emotes->hide();
-    return;
-  }
-
-  const int button_width = p_point.x();
-  int x_spacing = f_spacing.x();
-  int x_mod_count = 0;
-
-  const int button_height = p_point.y();
-  int y_spacing = f_spacing.y();
-  int y_mod_count = 0;
-
-  emote_columns = ((ui_emotes->width() - button_width) / (x_spacing + button_width)) + 1;
-  emote_rows = ((ui_emotes->height() - button_height) / (y_spacing + button_height)) + 1;
-
-  max_emotes_on_page = emote_columns * emote_rows;
+  ui_emotes->setHorizontalSpacing(f_spacing.x());
+  ui_emotes->setVerticalSpacing(f_spacing.y());
 
   QString selected_image = ao_app->get_image_suffix(ao_app->get_theme_path("emote_selected", ""), true);
+  QString character = m_character.toString();
+  int total_emotes = ao_app->get_emote_number(character);
 
-  for (int i = 0; i < max_emotes_on_page; ++i)
+  QList<QWidget *> buttons;
+  for (int i = 0; i < total_emotes; ++i)
   {
-    int x_pos = (button_width + x_spacing) * x_mod_count;
-    int y_pos = (button_height + y_spacing) * y_mod_count;
-
-    AOEmoteButton *f_emote = new AOEmoteButton(i, button_width, button_height, ao_app, ui_emotes);
+    AOEmoteButton *f_emote = new AOEmoteButton(i, p_point.x(), p_point.y(), ao_app, ui_emotes);
     f_emote->setSelectedImage(selected_image);
-    f_emote->move(x_pos, y_pos);
+    f_emote->setImage(character, i == current_emote);
+    f_emote->setToolTip(QString::number(i + 1) + ": " + ao_app->get_emote_comment(character, i));
     ui_emote_list.append(f_emote);
+    buttons.append(f_emote);
 
     f_emote->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(f_emote, &AOEmoteButton::emoteClicked, this, &Courtroom::on_emote_clicked);
+    connect(f_emote, &AOEmoteButton::emoteClicked, this, &Courtroom::select_emote);
     connect(f_emote, &AOEmoteButton::customContextMenuRequested, this, &Courtroom::show_emote_menu);
-
-    ++x_mod_count;
-
-    if (x_mod_count == emote_columns)
-    {
-      ++y_mod_count;
-      x_mod_count = 0;
-    }
   }
-}
-
-void spritechat::Courtroom::set_emote_page()
-{
-  if (m_character == theory::NoCharacterId)
-  {
-    return;
-  }
-
-  int total_emotes = ao_app->get_emote_number(m_character.toString());
-
-  ui_emote_left->hide();
-  ui_emote_right->hide();
-
-  for (AOEmoteButton *i_button : std::as_const(ui_emote_list))
-  {
-    i_button->hide();
-  }
-
-  int total_pages = total_emotes / max_emotes_on_page;
-  int emotes_on_page = 0;
-
-  if (total_emotes % max_emotes_on_page != 0)
-  {
-    ++total_pages;
-    // i. e. not on the last page
-    if (total_pages > current_emote_page + 1)
-    {
-      emotes_on_page = max_emotes_on_page;
-    }
-    else
-    {
-      emotes_on_page = total_emotes % max_emotes_on_page;
-    }
-  }
-  else
-  {
-    emotes_on_page = max_emotes_on_page;
-  }
-
-  if (total_pages > current_emote_page + 1)
-  {
-    ui_emote_right->show();
-  }
-
-  if (current_emote_page > 0)
-  {
-    ui_emote_left->show();
-  }
-
-  for (int n_emote = 0; n_emote < emotes_on_page && n_emote < ui_emote_list.size(); ++n_emote)
-  {
-    int n_real_emote = n_emote + current_emote_page * max_emotes_on_page;
-    AOEmoteButton *f_emote = ui_emote_list.at(n_emote);
-
-    if (n_real_emote == current_emote)
-    {
-      f_emote->setImage(m_character.toString(), n_real_emote, true);
-    }
-    else
-    {
-      f_emote->setImage(m_character.toString(), n_real_emote, false);
-    }
-
-    f_emote->show();
-    f_emote->setToolTip(QString::number(n_real_emote + 1) + ": " + ao_app->get_emote_comment(m_character.toString(), n_real_emote));
-  }
+  ui_emotes->setWidgets(buttons);
 }
 
 void spritechat::Courtroom::set_emote_dropdown()
@@ -185,22 +99,15 @@ void spritechat::Courtroom::set_emote_dropdown()
 
 void spritechat::Courtroom::select_emote(int p_id)
 {
-  int min = current_emote_page * max_emotes_on_page;
-  int max = (max_emotes_on_page - 1) + current_emote_page * max_emotes_on_page;
-
-  if (current_emote >= min && current_emote <= max)
+  if (current_emote < ui_emote_list.size())
   {
-    ui_emote_list.at(current_emote % max_emotes_on_page)->setImage(m_character.toString(), current_emote, false);
+    ui_emote_list.at(current_emote)->setImage(m_character.toString(), false);
   }
 
   int old_emote = current_emote;
 
   current_emote = p_id;
-
-  if (current_emote >= min && current_emote <= max)
-  {
-    ui_emote_list.at(current_emote % max_emotes_on_page)->setImage(m_character.toString(), current_emote, true);
-  }
+  ui_emote_list.at(current_emote)->setImage(m_character.toString(), true);
 
   int emote_mod = ao_app->get_emote_mod(m_character.toString(), current_emote);
 
@@ -243,11 +150,6 @@ void spritechat::Courtroom::update_emote_preview()
   }
 }
 
-void spritechat::Courtroom::on_emote_clicked(int p_id)
-{
-  select_emote(p_id + max_emotes_on_page * current_emote_page);
-}
-
 void spritechat::Courtroom::show_emote_menu(const QPoint &pos)
 {
   QWidget *button = qobject_cast<QWidget *>(sender());
@@ -257,7 +159,6 @@ void spritechat::Courtroom::show_emote_menu(const QPoint &pos)
     AOEmoteButton *emote_button = qobject_cast<AOEmoteButton *>(sender());
     id = emote_button->id();
   }
-  int emote_num = id + max_emotes_on_page * current_emote_page;
   emote_menu->clear();
   emote_menu->setDefaultAction(emote_menu->addAction("Preview Selected", this, [this] {
     emote_preview->show();
@@ -265,13 +166,13 @@ void spritechat::Courtroom::show_emote_menu(const QPoint &pos)
     emote_preview->updateViewportGeometry();
     update_emote_preview();
   }));
-  QString f_pre = ao_app->get_pre_emote(m_character.toString(), emote_num);
+  QString f_pre = ao_app->get_pre_emote(m_character.toString(), id);
   if (!f_pre.isEmpty() && f_pre != "-")
   {
     emote_menu->addAction("Preview preanimation: " + f_pre, this, [this, f_pre] { preview_emote(f_pre, CharacterAnimationLayer::PreEmote); });
   }
 
-  QString f_emote = ao_app->get_emote(m_character.toString(), emote_num);
+  QString f_emote = ao_app->get_emote(m_character.toString(), id);
   if (!f_emote.isEmpty())
   {
     emote_menu->addAction("Preview idle: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, CharacterAnimationLayer::IdleEmote); });
@@ -296,20 +197,20 @@ void spritechat::Courtroom::preview_emote(const QString &f_emote, CharacterAnima
 
 void spritechat::Courtroom::on_emote_left_clicked()
 {
-  --current_emote_page;
-
-  set_emote_page();
-
+  ui_emotes->previousPage();
   ui_ic_chat_message->setFocus();
 }
 
 void spritechat::Courtroom::on_emote_right_clicked()
 {
-  ++current_emote_page;
-
-  set_emote_page();
-
+  ui_emotes->nextPage();
   ui_ic_chat_message->setFocus();
+}
+
+void spritechat::Courtroom::update_emote_arrows()
+{
+  ui_emote_left->setVisible(ui_emotes->currentPage() > 0);
+  ui_emote_right->setVisible(ui_emotes->currentPage() + 1 < ui_emotes->pageCount());
 }
 
 void spritechat::Courtroom::on_emote_dropdown_changed(int p_index)

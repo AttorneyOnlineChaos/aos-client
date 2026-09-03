@@ -12,6 +12,7 @@
         <file>data/ui/options_dialog.ui</file>
         <file>data/ui/favorite_server_dialog.ui</file>
         <file>data/ui/direct_connect_dialog.ui</file>
+        <file>data/ui/inventory_dialog.ui</file>
         <file>data/ui/lobby.ui</file>
         <file>data/ui/lobby_assets/down-arrow.png</file>
         <file>data/ui/lobby_assets/up-arrow.png</file>

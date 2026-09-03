@@ -12,7 +12,7 @@ spritechat::AOTextArea::AOTextArea(int maximumLogLenth, QWidget *parent)
   document()->setMaximumBlockCount(maximumLogLenth);
 }
 
-void spritechat::AOTextArea::addMessage(const QString &name, QString message, const QString &nameColor, const QString &messageColor)
+void spritechat::AOTextArea::addMessage(const QString &name, QString message, const QString &nameColor, const QString &messageColor, const QString &timestamp)
 {
   const QTextCursor old_cursor = this->textCursor();
   const int old_scrollbar_value = this->verticalScrollBar()->value();
@@ -21,6 +21,10 @@ void spritechat::AOTextArea::addMessage(const QString &name, QString message, co
   this->moveCursor(QTextCursor::End);
 
   this->append("");
+  if (!timestamp.isEmpty())
+  {
+    this->insertHtml("[" + timestamp.toHtmlEscaped() + "]&nbsp;");
+  }
   if (!name.isEmpty())
   {
     this->insertHtml("<b><font color=" + nameColor + ">" + name.toHtmlEscaped() + "</font></b>:&nbsp;");

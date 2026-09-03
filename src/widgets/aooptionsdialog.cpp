@@ -294,7 +294,6 @@ void spritechat::AOOptionsDialog::onReloadThemeClicked()
 void spritechat::AOOptionsDialog::themeChanged(int i)
 {
   ui_subtheme_combobox->clear();
-  // Fill the combobox with the names of the themes.
   ui_subtheme_combobox->addItem("server", "server");
   ui_subtheme_combobox->addItem("default", "server");
 
@@ -390,7 +389,9 @@ void spritechat::AOOptionsDialog::setupUI()
   l_ui.find(ui_evidence_double_click_cb, "evidence_double_click_cb");
   l_ui.find(ui_slides_cb, "slides_cb");
   l_ui.find(ui_restoreposition_cb, "restoreposition_cb");
+  l_ui.find(ui_offset_preview_cb, "offset_preview_cb");
   l_ui.find(ui_playerlist_format_edit, "playerlist_format_edit");
+  l_ui.find(ui_mousewheel_grid_navigation_reversed_cb, "mousewheel_grid_navigation_reversed_cb");
 
   registerOption<QDoubleSpinBox, double>("theme_scaling_factor_sb", &Options::themeScalingFactor, &Options::setThemeScalingFactor);
   registerOption<QCheckBox, bool>("animated_theme_cb", &Options::animatedThemeEnabled, &Options::setAnimatedThemeEnabled);
@@ -427,7 +428,9 @@ void spritechat::AOOptionsDialog::setupUI()
   registerOption<QCheckBox, bool>("evidence_double_click_cb", &Options::evidenceDoubleClickEdit, &Options::setEvidenceDoubleClickEdit);
   registerOption<QCheckBox, bool>("slides_cb", &Options::slidesEnabled, &Options::setSlidesEnabled);
   registerOption<QCheckBox, bool>("restoreposition_cb", &Options::restoreWindowPositionEnabled, &Options::setRestoreWindowPositionEnabled);
+  registerOption<QCheckBox, bool>("offset_preview_cb", &Options::offsetPreview, &Options::setOffsetPreview);
   registerOption<QLineEdit, QString>("playerlist_format_edit", &Options::playerlistFormatString, &Options::setPlayerlistFormatString);
+  registerOption<QCheckBox, bool>("mousewheel_grid_navigation_reversed_cb", &Options::mousewheelGridNavigationReversed, &Options::setMousewheelGridNavigationReversed);
 
   // Callwords tab. This could just be a QLineEdit, but no, we decided to allow
   // people to put a billion entries in.

@@ -20,11 +20,13 @@
 
 // #define DEBUG_TRANSITION
 
-spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library)
+spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, InventoryRegistry &p_inventory_registry, EvidenceRegistry &p_evidence_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library)
     : QMainWindow()
     , ao_app{p_ao_app}
     , area_registry{p_area_registry}
     , player_registry{p_player_registry}
+    , inventory_registry{p_inventory_registry}
+    , evidence_registry{p_evidence_registry}
     , timers{p_timers}
     , transport{p_transport}
     , track_library{p_track_library}
@@ -525,11 +527,18 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
 
   connect(m_screenslide_timer, &ScreenSlideTimer::finished, this, &Courtroom::post_transition_cleanup);
 
+  connect(&area_registry, &AreaRegistry::added, this, &Courtroom::list_areas);
+  connect(&area_registry, &AreaRegistry::removed, this, &Courtroom::list_areas);
   connect(&area_registry, &AreaRegistry::updated, this, &Courtroom::refresh_area);
 
   connect(&player_registry, &PlayerRegistry::added, this, &Courtroom::refresh_taken_chars);
   connect(&player_registry, &PlayerRegistry::removed, this, &Courtroom::refresh_taken_chars);
   connect(&player_registry, &PlayerRegistry::updated, this, &Courtroom::refresh_taken_chars);
+
+  connect(&player_registry, &PlayerRegistry::added, this, &Courtroom::set_pair_list);
+  connect(&player_registry, &PlayerRegistry::removed, this, &Courtroom::set_pair_list);
+  connect(&player_registry, &PlayerRegistry::updated, this, &Courtroom::set_pair_list);
+  connect(&player_registry, &PlayerRegistry::cleared, this, &Courtroom::set_pair_list);
 
   connect(&player_registry, &PlayerRegistry::added, this, &Courtroom::list_areas);
   connect(&player_registry, &PlayerRegistry::removed, this, &Courtroom::list_areas);
@@ -561,6 +570,8 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   set_widgets();
 
   set_char_select();
+
+  update_mousewheel_direction();
 }
 
 spritechat::Courtroom::~Courtroom()
@@ -648,6 +659,15 @@ void spritechat::Courtroom::update_message_capacity()
   ui_ooc_chat_message->setCapacity(capacity);
 }
 
+void spritechat::Courtroom::update_mousewheel_direction()
+{
+  const theory::MousewheelGridNavigator::Direction direction = Options::getInstance().mousewheelGridNavigationReversed() ? theory::MousewheelGridNavigator::Reversed : theory::MousewheelGridNavigator::Normal;
+  char_button_navigator->setDirection(direction);
+  emote_navigator->setDirection(direction);
+  ui_evidence_public->setMousewheelDirection(direction);
+  ui_evidence_private->setMousewheelDirection(direction);
+}
+
 void spritechat::Courtroom::set_courtroom_size()
 {
   QString filename = "courtroom_design.ini";
@@ -699,18 +719,34 @@ void spritechat::Courtroom::set_mute_list()
 
 void spritechat::Courtroom::set_pair_list()
 {
-  QStringList sorted_pair_list;
+  ui_pair_list->clear();
 
-  for (const theory::CharacterId &i_char : std::as_const(char_list))
+  const auto me = player_registry.player(ao_app->m_player_id);
+  if (!me)
   {
-    sorted_pair_list.append(i_char.toString());
+    other_player_id = theory::NoPlayerId;
+    return;
   }
 
-  sorted_pair_list.sort();
+  const theory::AreaId my_area = me->areaId;
+  const QList<PlayerInfo> partners = player_registry.playersIf([this, my_area](const PlayerInfo &player) { return player.id != ao_app->m_player_id && player.areaId == my_area && player.character != theory::NoCharacterId; });
 
-  for (const QString &i_name : sorted_pair_list)
+  bool partner_listed = false;
+  for (const PlayerInfo &player : partners)
   {
-    ui_pair_list->addItem(i_name);
+    QString label = "[" + QString::number(player.id) + "] " + player.character.toString();
+    if (player.id == other_player_id)
+    {
+      label.append(" [x]");
+      partner_listed = true;
+    }
+    QListWidgetItem *item = new QListWidgetItem(label, ui_pair_list);
+    item->setData(Qt::UserRole, player.id);
+  }
+
+  if (!partner_listed)
+  {
+    other_player_id = theory::NoPlayerId;
   }
 }
 
@@ -811,7 +847,7 @@ void spritechat::Courtroom::set_widgets()
 
   set_size_and_pos(ui_pair_list, "pair_list");
   ui_pair_list->hide();
-  ui_pair_list->setToolTip(tr("Select a character you wish to pair with."));
+  ui_pair_list->setToolTip(tr("Select a player you wish to pair with."));
 
   set_size_and_pos(ui_pair_offset_spinbox, "pair_offset_spinbox");
   ui_pair_offset_spinbox->hide();
@@ -831,7 +867,7 @@ void spritechat::Courtroom::set_widgets()
 
   set_size_and_pos(ui_pair_button, "pair_button");
   ui_pair_button->setImage("pair_button");
-  ui_pair_button->setToolTip(tr("Display the list of characters to pair with."));
+  ui_pair_button->setToolTip(tr("Display the list of players to pair with."));
 
   set_size_and_pos(ui_area_list, "music_list");
   ui_area_list->header()->setMinimumSectionSize(ui_area_list->width());
@@ -1118,7 +1154,7 @@ void spritechat::Courtroom::set_widgets()
   ui_back_to_lobby->setText(tr("Back to Lobby"));
   ui_back_to_lobby->setToolTip(tr("Return back to the server list."));
 
-  set_size_and_pos(ui_char_buttons, "char_buttons");
+  set_char_buttons();
 
   set_size_and_pos(ui_char_select_left, "char_select_left");
   ui_char_select_left->setImage("arrow_left");
@@ -1147,6 +1183,8 @@ void spritechat::Courtroom::set_widgets()
   recess_brush = QBrush(ao_app->get_color("area_recess_color", "courtroom_design.ini"));
   rp_brush = QBrush(ao_app->get_color("area_rp_color", "courtroom_design.ini"));
   gaming_brush = QBrush(ao_app->get_color("area_gaming_color", "courtroom_design.ini"));
+  building_brush = QBrush(ao_app->get_color("area_building_color", "courtroom_design.ini"));
+  starting_brush = QBrush(ao_app->get_color("area_starting_color", "courtroom_design.ini"));
   locked_brush = QBrush(ao_app->get_color("area_locked_color", "courtroom_design.ini"));
 
   refresh_evidence();
@@ -1287,7 +1325,7 @@ void spritechat::Courtroom::set_stylesheets()
                       this->styleSheet());
 }
 
-void spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, const QString &p_identifier, const QString &p_misc)
+bool spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, const QString &p_identifier, const QString &p_misc)
 {
   QString filename = "courtroom_design.ini";
 
@@ -1297,12 +1335,12 @@ void spritechat::Courtroom::set_size_and_pos(QWidget *p_widget, const QString &p
   {
     zWarning(log::ui) << "could not find" << p_identifier << "in" << filename;
     p_widget->hide();
+    return false;
   }
-  else
-  {
-    p_widget->move(design_ini_result.x, design_ini_result.y);
-    p_widget->resize(design_ini_result.width, design_ini_result.height);
-  }
+
+  p_widget->move(design_ini_result.x, design_ini_result.y);
+  p_widget->resize(design_ini_result.width, design_ini_result.height);
+  return true;
 }
 
 void spritechat::Courtroom::refresh_taken_chars()
@@ -1460,7 +1498,7 @@ void spritechat::Courtroom::update_character(const theory::CharacterId &p_cid)
   // If our cid changed or we're being told to reset
   if (newchar)
   {
-    current_emote_page = 0;
+    ui_emotes->setCurrentPage(0);
     current_emote = 0;
   }
 
@@ -1474,7 +1512,6 @@ void spritechat::Courtroom::update_character(const theory::CharacterId &p_cid)
   }
 
   refresh_emotes();
-  set_emote_page();
   set_emote_dropdown();
 
   set_sfx_dropdown();
@@ -1557,7 +1594,7 @@ void spritechat::Courtroom::update_character(const theory::CharacterId &p_cid)
 
 void spritechat::Courtroom::enter_courtroom()
 {
-  set_evidence_page();
+  refresh_evidence_inventory();
 
   ui_flip->show();
   ui_additive->show();
@@ -1728,15 +1765,17 @@ void spritechat::Courtroom::list_music()
 // Todo: multithread this due to some servers having large as hell area list
 void spritechat::Courtroom::list_areas()
 {
-  const QList<AreaInfo> areas = area_registry.areas();
-  for (const AreaInfo &area : areas)
+  for (int i = ui_area_list->topLevelItemCount() - 1; i >= 0; --i)
   {
-    refresh_area(area.id);
+    if (!area_registry.area(ui_area_list->topLevelItem(i)->data(0, Qt::UserRole).toInt()))
+    {
+      delete ui_area_list->takeTopLevelItem(i);
+    }
   }
 
-  while (ui_area_list->topLevelItemCount() > areas.size())
+  for (const AreaInfo &area : area_registry.areas())
   {
-    ui_area_list->takeTopLevelItem(ui_area_list->topLevelItemCount() - 1);
+    refresh_area(area.id);
   }
 
   if (ui_music_search->text() != "")
@@ -1756,7 +1795,7 @@ void spritechat::Courtroom::refresh_area(theory::AreaId n_area)
   const AreaInfo area = maybe_area.value();
 
   QString i_area;
-  i_area.append(area.name);
+  i_area.append(area.displayName());
 
   i_area.append("\n  ");
   i_area.append(theory::encodeString(area.status).toUpper());
@@ -1778,12 +1817,22 @@ void spritechat::Courtroom::refresh_area(theory::AreaId n_area)
   i_area.append(" users | ");
   i_area.append(theory::encodeString(area.lock).toUpper());
 
-  QTreeWidgetItem *treeItem = ui_area_list->topLevelItem(n_area);
+  QTreeWidgetItem *treeItem = nullptr;
+  for (int i = 0; i < ui_area_list->topLevelItemCount(); ++i)
+  {
+    QTreeWidgetItem *item = ui_area_list->topLevelItem(i);
+    if (item->data(0, Qt::UserRole).toInt() == n_area)
+    {
+      treeItem = item;
+      break;
+    }
+  }
   if (treeItem == nullptr)
   {
     treeItem = new QTreeWidgetItem(ui_area_list);
+    treeItem->setData(0, Qt::UserRole, n_area);
   }
-  treeItem->setText(0, area.name);
+  treeItem->setText(0, area.displayName());
   treeItem->setText(1, i_area);
 
   // Coloring logic here.
@@ -1813,6 +1862,12 @@ void spritechat::Courtroom::refresh_area(theory::AreaId n_area)
     case theory::AreaStatus::Gaming:
       treeItem->setBackground(1, gaming_brush);
       break;
+    case theory::AreaStatus::Building:
+      treeItem->setBackground(1, building_brush);
+      break;
+    case theory::AreaStatus::Starting:
+      treeItem->setBackground(1, starting_brush);
+      break;
     }
   }
 }
@@ -1840,7 +1895,12 @@ void spritechat::Courtroom::append_server_chatmessage(const QString &p_name, con
     color = ao_app->get_color("server_chatlog_sender_color", "courtroom_fonts.ini").name();
   }
 
-  ui_server_chatlog->addMessage(p_name, p_message, color);
+  QString timestamp;
+  if (log_timestamp)
+  {
+    timestamp = QDateTime::currentDateTimeUtc().toString(log_timestamp_format);
+  }
+  ui_server_chatlog->addMessage(p_name, p_message, color, QString(), timestamp);
 
   if (Options::getInstance().logToTextFileEnabled() && !ao_app->log_filename.isEmpty())
   {
@@ -2030,9 +2090,9 @@ void spritechat::Courtroom::on_chat_return_pressed()
     music_stop(true);
   }
 
-  if (is_presenting_evidence && current_evidence < local_evidence_list.size())
+  if (const auto presented = ui_evidence_current->presentedEvidence())
   {
-    packet.evidenceId = local_evidence_list.at(current_evidence).id;
+    packet.evidenceId = presented.value();
   }
 
   packet.flip = ui_flip->isChecked();
@@ -2059,11 +2119,10 @@ void spritechat::Courtroom::on_chat_return_pressed()
     packet.characterName = f_showname;
   }
 
-  // Similarly, we send over whom we're paired with, unless we have chosen
-  // ourselves. Or a charid of -1 or lower, through some means.
-  if (other_charid != theory::NoCharacterId && other_charid != m_character)
+  // Similarly, we send over whom we're paired with, if anyone.
+  if (other_player_id != theory::NoPlayerId)
   {
-    packet.pair = theory::IcMessagePacket::Pair{.character = other_charid, .order = pair_order == 0 ? theory::PairOrder::InFront : theory::PairOrder::Behind};
+    packet.pair = theory::IcMessagePacket::Pair{.playerId = other_player_id, .order = pair_order == 0 ? theory::PairOrder::InFront : theory::PairOrder::Behind};
   }
 
   packet.offsetX = char_offset;
@@ -2118,14 +2177,13 @@ void spritechat::Courtroom::reset_ui()
   objection_state = 0;
   realization_state = 0;
   screenshake_state = 0;
-  is_presenting_evidence = false;
   ui_hold_it->setImage("holdit");
   ui_objection->setImage("objection");
   ui_take_that->setImage("takethat");
   ui_custom_objection->setImage("custom");
   ui_realization->setImage("realization");
   ui_screenshake->setImage("screenshake");
-  ui_evidence_present->setImage("present");
+  ui_evidence_current->stopPresenting();
 
   // If sticky sounds is disabled and we either have SFX on Idle enabled, or our Preanim checkbox is checked
   if (!Options::getInstance().clearSoundsDropdownOnPlayEnabled() && (Options::getInstance().playSelectedSFXOnIdle() || ui_pre->isChecked()))
@@ -2188,7 +2246,6 @@ void spritechat::Courtroom::unpack_chatmessage(theory::IcMessagePacket packet)
   ui_vp_chat_arrow->hide();
   text_state = 0;
   anim_state = 0;
-  evidence_presented = false;
   ui_vp_objection->stopPlayback();
   m_screenslide_timer->stop();
   chat_tick_timer->stop();
@@ -2247,15 +2304,11 @@ void spritechat::Courtroom::log_chatmessage()
       append_ic_text(shout_text, f_displayname, f_char, tr("shouts"), 0, selfname);
     }
 
-    // If the evidence ID is in the valid range
-    int f_evi_idx = global_evidence_index(m_chatmessage.evidenceId);
-    if (f_evi_idx != -1)
+    if (const auto item = evidence_registry.evidence(m_chatmessage.evidenceId))
     {
       blankpost = false;
-      // Obtain the evidence name
-      QString f_evi_name = global_evidence_list.at(f_evi_idx).evidence.name;
-      log_ic_text(f_char, f_displayname, f_evi_name, tr("has presented evidence"), 0, selfname);
-      append_ic_text(f_evi_name, f_displayname, f_char, tr("has presented evidence"), 0, selfname);
+      log_ic_text(f_char, f_displayname, item->evidence.name, tr("has presented evidence"), 0, selfname);
+      append_ic_text(item->evidence.name, f_displayname, f_char, tr("has presented evidence"), 0, selfname);
     }
   }
 
@@ -2920,17 +2973,15 @@ void spritechat::Courtroom::handle_callwords()
 void spritechat::Courtroom::display_evidence_image()
 {
   QString side = m_chatmessage.side;
-  int f_evi_idx = global_evidence_index(m_chatmessage.evidenceId);
-  if (f_evi_idx != -1)
+  if (const auto item = evidence_registry.evidence(m_chatmessage.evidenceId))
   {
-    QString f_image = global_evidence_list.at(f_evi_idx).evidence.image;
     //  def jud and hlp should display the evidence icon on the RIGHT side
     bool is_left_side = !(side.startsWith("def") || side == "hlp"); // FIXME : Hardcoded
-    ui_vp_evidence_display->show_evidence(f_evi_idx, f_image, is_left_side, sfx_player->volume());
+    ui_vp_evidence_display->show_evidence(item->id, item->evidence.image, is_left_side, sfx_player->volume());
   }
   else
   {
-    ui_vp_evidence_display->setLastEvidenceIndex(-1);
+    ui_vp_evidence_display->setLastEvidenceId(theory::NoEvidenceId);
   }
 }
 
@@ -3876,7 +3927,7 @@ void spritechat::Courtroom::chat_tick()
     msg_delay = text_crawl * message_display_mult[current_display_speed];
   }
 
-  if ((msg_delay <= 0 && tick_pos < f_message.size() - 1) || formatting_char)
+  if (!(tick_pos >= f_message.size()) && ((msg_delay <= 0 && tick_pos < f_message.size() - 1) || formatting_char))
   {
     {
       chat_tick_timer->start(0); // Don't bother rendering anything out as we're
@@ -4365,172 +4416,6 @@ void spritechat::Courtroom::on_ooc_return_pressed()
     {
       show_judge_controls(false);
     }
-  }
-
-  if (ooc_message.startsWith("/load_case"))
-  {
-    QStringList command = ooc_message.split(" ", Qt::SkipEmptyParts);
-    QDir casefolder(get_base_path() + "/cases");
-    if (!casefolder.exists())
-    {
-      QDir::current().mkdir(get_base_path() + casefolder.dirName());
-      append_server_chatmessage("CLIENT",
-                                tr("You don't have a `base/cases/` folder! It was just made for you, "
-                                   "but seeing as it WAS just made for you, it's likely the case "
-                                   "file you're looking for can't be found in there."),
-                                "1");
-      ui_ooc_chat_message->clear();
-      return;
-    }
-    QStringList caseslist = casefolder.entryList();
-    caseslist.removeOne(".");
-    caseslist.removeOne("..");
-    caseslist.replaceInStrings(".ini", "");
-
-    if (command.size() < 2)
-    {
-      append_server_chatmessage("CLIENT",
-                                tr("You need to give a filename to load (extension not needed)! Make "
-                                   "sure that it is in the `base/cases/` folder, and that it is a "
-                                   "correctly formatted ini.\nCases you can load: %1")
-                                    .arg(caseslist.join(", ")),
-                                "1");
-      ui_ooc_chat_message->clear();
-      return;
-    }
-
-    if (command.size() > 2)
-    {
-      append_server_chatmessage("CLIENT",
-                                tr("Too many arguments to load a case! You only need one filename, "
-                                   "without extension."),
-                                "1");
-      ui_ooc_chat_message->clear();
-      return;
-    }
-
-    QSettings casefile(get_base_path() + "/cases/" + command[1] + ".ini", QSettings::IniFormat);
-
-    QString caseauth = casefile.value("author", "").value<QString>();
-    QString casedoc = casefile.value("doc", "").value<QString>();
-    QString cmdoc = casefile.value("cmdoc", "").value<QString>();
-    QString casestatus = casefile.value("status", "").value<QString>();
-
-    if (!caseauth.isEmpty())
-    {
-      append_server_chatmessage(tr("CLIENT"), tr("Case made by %1.").arg(caseauth), "1");
-    }
-    if (!casedoc.isEmpty())
-    {
-      theory::OocMessagePacket packet;
-      packet.name = ui_ooc_chat_name->text();
-      packet.message = "/doc " + casedoc;
-      transport.shipPacket(packet);
-    }
-    if (!casestatus.isEmpty())
-    {
-      theory::OocMessagePacket packet;
-      packet.name = ui_ooc_chat_name->text();
-      packet.message = "/status " + casestatus;
-      transport.shipPacket(packet);
-    }
-    if (!cmdoc.isEmpty())
-    {
-      append_server_chatmessage("CLIENT", tr("Navigate to %1 for the CM doc.").arg(cmdoc), "1");
-    }
-
-    for (int i = local_evidence_list.size() - 1; i >= 0; i--)
-    {
-      theory::DeleteEvidencePacket packet;
-      packet.evidenceId = local_evidence_list.at(i).id;
-      transport.shipPacket(packet);
-    }
-
-    // sort the case_evidence numerically
-    QStringList case_evidence = casefile.childGroups();
-    std::sort(case_evidence.begin(), case_evidence.end(), [](const QString &a, const QString &b) { return a.toInt() < b.toInt(); });
-
-    // load evidence
-    for (const QString &evi : std::as_const(case_evidence))
-    {
-      if (evi == "General")
-      {
-        continue;
-      }
-
-      theory::AddEvidencePacket packet;
-      packet.evidence.name = casefile.value(evi + "/name", tr("UNKNOWN")).value<QString>();
-      packet.evidence.description = casefile.value(evi + "/description", tr("UNKNOWN")).value<QString>();
-      packet.evidence.image = casefile.value(evi + "/image", "UNKNOWN.png").value<QString>();
-
-      transport.shipPacket(packet);
-    }
-
-    append_server_chatmessage("CLIENT", tr("Your case \"%1\" was loaded!").arg(command[1]), "1");
-    ui_ooc_chat_message->clear();
-    return;
-  }
-  else if (ooc_message.startsWith("/save_case"))
-  {
-    QStringList command = ooc_message.split(" ", Qt::SkipEmptyParts);
-    QDir casefolder(get_base_path() + "cases");
-    if (!casefolder.exists())
-    {
-      QDir(get_base_path()).mkdir(casefolder.dirName());
-      append_server_chatmessage("CLIENT",
-                                tr("You don't have a `base/cases/` folder! It was just made for you, "
-                                   "but seeing as it WAS just made for you, it's likely that you "
-                                   "somehow deleted it."),
-                                "1");
-      ui_ooc_chat_message->clear();
-      return;
-    }
-    QStringList caseslist = casefolder.entryList();
-    caseslist.removeOne(".");
-    caseslist.removeOne("..");
-    caseslist.replaceInStrings(".ini", "");
-
-    if (command.size() < 3)
-    {
-      append_server_chatmessage("CLIENT",
-                                tr("You need to give a filename to save (extension not needed) and "
-                                   "the courtroom status!"),
-                                "1");
-      ui_ooc_chat_message->clear();
-      return;
-    }
-
-    if (command.size() > 3)
-    {
-      append_server_chatmessage("CLIENT",
-                                tr("Too many arguments to save a case! You only need a filename "
-                                   "without extension and the courtroom status!"),
-                                "1");
-      ui_ooc_chat_message->clear();
-      return;
-    }
-    QSettings casefile(get_base_path() + "/cases/" + command[1] + ".ini", QSettings::IniFormat);
-    casefile.setValue("author", ui_ooc_chat_name->text());
-    casefile.setValue("cmdoc", "");
-    casefile.setValue("doc", "");
-    casefile.setValue("status", command[2]);
-    casefile.sync();
-    static QRegularExpression owner_regexp("<owner = ...>...");
-    for (int i = 0; i < local_evidence_list.size(); i++)
-    {
-      QString clean_evidence_dsc = local_evidence_list[i].evidence.description.replace(owner_regexp, "");
-      clean_evidence_dsc = clean_evidence_dsc.replace(clean_evidence_dsc.lastIndexOf(">"), 1, "");
-      casefile.beginGroup(QString::number(i));
-      casefile.sync();
-      casefile.setValue("name", local_evidence_list[i].evidence.name);
-      casefile.setValue("description", local_evidence_list[i].evidence.description);
-      casefile.setValue("image", local_evidence_list[i].evidence.image);
-      casefile.endGroup();
-    }
-    casefile.sync();
-    append_server_chatmessage("CLIENT", tr("Succesfully saved, edit doc and cmdoc link on the ini!"), "1");
-    ui_ooc_chat_message->clear();
-    return;
   }
 
   theory::OocMessagePacket packet;
@@ -5093,48 +4978,16 @@ void spritechat::Courtroom::on_mute_list_clicked(QModelIndex p_index)
 
 void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
 {
-  QListWidgetItem *f_item = ui_pair_list->item(p_index.row());
-  QString f_char = f_item->text();
-  QString real_char;
-  theory::CharacterId f_cid = theory::NoCharacterId;
-
-  if (f_char.endsWith(" [x]"))
+  const theory::PlayerId clicked = ui_pair_list->item(p_index.row())->data(Qt::UserRole).toInt();
+  if (clicked == other_player_id)
   {
-    real_char = f_char.left(f_char.size() - 4);
-    f_item->setText(real_char);
+    other_player_id = theory::NoPlayerId;
   }
   else
   {
-    real_char = f_char;
-    f_cid = theory::CharacterId{real_char};
-
-    if (!char_list.contains(f_cid))
-    {
-      zWarning(log::character) << "" << real_char << " not present in char_list";
-      return;
-    }
+    other_player_id = clicked;
   }
-
-  other_charid = f_cid;
-
-  // Redo the character list.
-  QStringList sorted_pair_list;
-
-  for (const theory::CharacterId &i_char : std::as_const(char_list))
-  {
-    sorted_pair_list.append(i_char.toString());
-  }
-
-  sorted_pair_list.sort();
-
-  for (int i = 0; i < ui_pair_list->count(); i++)
-  {
-    ui_pair_list->item(i)->setText(sorted_pair_list.at(i));
-  }
-  if (other_charid != theory::NoCharacterId)
-  {
-    f_item->setText(real_char + " [x]");
-  }
+  set_pair_list();
 }
 
 void spritechat::Courtroom::on_music_list_double_clicked(QTreeWidgetItem *p_item, int column)
@@ -5365,14 +5218,8 @@ void spritechat::Courtroom::on_area_list_double_clicked(QTreeWidgetItem *p_item,
 {
   Q_UNUSED(column);
 
-  theory::AreaId n_area = ui_area_list->indexOfTopLevelItem(p_item);
-  if (n_area == theory::NoAreaId)
-  {
-    return;
-  }
-
   theory::ChangeAreaPacket packet;
-  packet.areaId = n_area;
+  packet.areaId = p_item->data(0, Qt::UserRole).toInt();
   transport.shipPacket(packet);
 }
 
@@ -5839,18 +5686,6 @@ void spritechat::Courtroom::on_reload_theme_clicked()
   set_background(current_background, true);
 }
 
-void spritechat::Courtroom::on_char_select_left_clicked()
-{
-  --current_char_page;
-  set_char_select_page();
-}
-
-void spritechat::Courtroom::on_char_select_right_clicked()
-{
-  ++current_char_page;
-  set_char_select_page();
-}
-
 void spritechat::Courtroom::on_spectator_clicked()
 {
   char_clicked(theory::NoCharacterId);
@@ -5903,14 +5738,14 @@ void spritechat::Courtroom::regenerate_ic_chatlog()
 
 void spritechat::Courtroom::on_evidence_button_clicked()
 {
-  if (ui_evidence->isHidden())
+  if (ui_evidence_current->isHidden())
   {
-    ui_evidence->show();
-    ui_evidence_overlay->hide();
+    ui_evidence_current->closeOverlay();
+    ui_evidence_current->show();
   }
   else
   {
-    ui_evidence->hide();
+    ui_evidence_current->hide();
   }
 }
 

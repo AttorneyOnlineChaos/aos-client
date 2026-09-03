@@ -2,6 +2,7 @@
 
 #include "aoapplication.h"
 #include "aoimage.h"
+#include "game/game_defs.h"
 
 #include <QDebug>
 #include <QEnterEvent>
@@ -15,19 +16,20 @@ class AOEvidenceButton : public QPushButton
   Q_OBJECT
 
 public:
-  AOEvidenceButton(int id, int width, int height, AOApplication *ao_app, QWidget *parent = nullptr);
+  AOEvidenceButton(theory::EvidenceId id, int width, int height, AOApplication *ao_app, QWidget *parent = nullptr);
 
   void setImage(const QString &fileName);
 
   void setThemeImage(const QString &fileName);
 
   void setSelected(bool enabled);
+  void setRevealed(bool revealed);
 
 Q_SIGNALS:
-  void evidenceClicked(int id);
-  void evidenceDoubleClicked(int id);
+  void evidenceClicked(theory::EvidenceId id);
+  void evidenceDoubleClicked(theory::EvidenceId id);
 
-  void mouseoverUpdated(int id, bool state);
+  void mouseoverUpdated(theory::EvidenceId id, bool state);
 
 protected:
   void enterEvent(QEnterEvent *e) override;
@@ -38,8 +40,9 @@ protected:
 private:
   AOApplication *ao_app;
 
-  int m_id = 0;
+  theory::EvidenceId m_id = theory::NoEvidenceId;
 
+  AOImage *ui_hidden;
   AOImage *ui_selected;
   AOImage *ui_selector;
 

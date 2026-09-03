@@ -2,12 +2,29 @@
 
 #include "file_functions.h"
 
-spritechat::AOEvidenceButton::AOEvidenceButton(int id, int width, int height, AOApplication *ao_app, QWidget *parent)
+#include <QPoint>
+
+spritechat::AOEvidenceButton::AOEvidenceButton(theory::EvidenceId id, int width, int height, AOApplication *ao_app, QWidget *parent)
     : QPushButton(parent)
     , ao_app(ao_app)
     , m_id(id)
 {
   resize(width, height);
+
+  ui_hidden = new AOImage(ao_app, this);
+  QPoint hidden_size = ao_app->get_button_spacing("evidence_hidden_size", "courtroom_design.ini");
+  if (hidden_size.x() <= 0 || hidden_size.y() <= 0)
+  {
+    hidden_size = QPoint{width / 3, height / 3};
+  }
+  ui_hidden->resize(hidden_size.x(), hidden_size.y());
+  ui_hidden->move(width - hidden_size.x(), height - hidden_size.y());
+  if (!ui_hidden->setImage("evidence_hidden"))
+  {
+    ui_hidden->setStyleSheet("background-color: rgba(0, 0, 0, 96);");
+  }
+  ui_hidden->setAttribute(Qt::WA_TransparentForMouseEvents);
+  ui_hidden->hide();
 
   ui_selected = new AOImage(ao_app, this);
   ui_selected->resize(width, height);
@@ -79,6 +96,11 @@ void spritechat::AOEvidenceButton::setSelected(bool p_selected)
   {
     ui_selected->hide();
   }
+}
+
+void spritechat::AOEvidenceButton::setRevealed(bool revealed)
+{
+  ui_hidden->setVisible(!revealed);
 }
 
 void spritechat::AOEvidenceButton::on_clicked()

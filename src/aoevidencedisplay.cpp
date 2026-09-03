@@ -17,7 +17,7 @@ spritechat::AOEvidenceDisplay::AOEvidenceDisplay(AOApplication *p_ao_app, QWidge
   connect(ui_prompt_details, &QPushButton::clicked, this, &AOEvidenceDisplay::icon_clicked);
 }
 
-void spritechat::AOEvidenceDisplay::show_evidence(int p_index, const QString &p_evidence_image, bool is_left_side, int p_volume)
+void spritechat::AOEvidenceDisplay::show_evidence(theory::EvidenceId p_id, const QString &p_evidence_image, bool is_left_side, int p_volume)
 {
   QString gif_name;
   QString icon_identifier;
@@ -48,10 +48,10 @@ void spritechat::AOEvidenceDisplay::show_evidence(int p_index, const QString &p_
   ui_prompt_details->resize(f_pixmap.rect().size());
   ui_prompt_details->move(icon_dimensions.x, icon_dimensions.y);
 
-  if (m_last_evidence_index != p_index)
+  if (m_last_evidence_id != p_id)
   {
     this->reset();
-    m_last_evidence_index = p_index;
+    m_last_evidence_id = p_id;
 
     m_evidence_movie->setPlayOnce(true);
     m_evidence_movie->loadAndPlayAnimation(gif_name, "");
@@ -78,9 +78,9 @@ void spritechat::AOEvidenceDisplay::show_done()
 
 void spritechat::AOEvidenceDisplay::icon_clicked()
 {
-  if (m_last_evidence_index != -1)
+  if (m_last_evidence_id != theory::NoEvidenceId)
   {
-    Q_EMIT show_evidence_details(m_last_evidence_index - 1); // i dont know why i have to subtract 1 here
+    Q_EMIT show_evidence_details(m_last_evidence_id);
   }
 }
 
@@ -91,7 +91,7 @@ void spritechat::AOEvidenceDisplay::combo_resize(int w, int h)
   m_evidence_movie->resize(w, h);
 }
 
-void spritechat::AOEvidenceDisplay::setLastEvidenceIndex(int f_index)
+void spritechat::AOEvidenceDisplay::setLastEvidenceId(theory::EvidenceId f_id)
 {
-  m_last_evidence_index = f_index;
+  m_last_evidence_id = f_id;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/evidence.h"
 #include "game/game_defs.h"
 
 #include <QList>
@@ -69,6 +70,7 @@ struct PlayerInfo
   std::optional<QString> characterName;
   theory::AreaId areaId = 0;
   theory::PlayerStatus status = theory::PlayerStatus::Online;
+  theory::InventoryId inventoryId = theory::NoInventoryId;
 };
 
 struct AreaInfo
@@ -78,6 +80,22 @@ struct AreaInfo
   theory::AreaStatus status = theory::AreaStatus::Idle;
   QList<theory::PlayerId> owners;
   theory::AreaLockStatus lock = theory::AreaLockStatus::Unlocked;
+  theory::InventoryId inventoryId = theory::NoInventoryId;
+
+  QString displayName() const;
+};
+
+struct InventoryInfo
+{
+  theory::InventoryId id = theory::NoInventoryId;
+  theory::InventoryPermission permission = theory::InventoryPermission::NoPermission;
+};
+
+struct EvidenceInfo
+{
+  theory::EvidenceId id = theory::NoEvidenceId;
+  theory::InventoryId inventoryId = theory::NoInventoryId;
+  theory::Evidence evidence;
 };
 
 } // namespace spritechat

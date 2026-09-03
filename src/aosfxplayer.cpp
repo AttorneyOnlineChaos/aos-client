@@ -105,7 +105,6 @@ void spritechat::AOSfxPlayer::stop(int streamId)
 void spritechat::AOSfxPlayer::setMuted(bool toggle)
 {
   m_muted = toggle;
-  // Update the audio volume
   updateInternalVolume();
 }
 

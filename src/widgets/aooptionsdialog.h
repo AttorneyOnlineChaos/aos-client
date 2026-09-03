@@ -76,7 +76,9 @@ private:
   QCheckBox *ui_category_stop_cb;
   QCheckBox *ui_sfx_on_idle_cb;
   QCheckBox *ui_restoreposition_cb;
+  QCheckBox *ui_offset_preview_cb;
   QLineEdit *ui_playerlist_format_edit;
+  QCheckBox *ui_mousewheel_grid_navigation_reversed_cb;
 
   // The callwords tab
   QPlainTextEdit *ui_callwords_textbox;

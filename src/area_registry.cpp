@@ -56,3 +56,16 @@ QList<spritechat::AreaInfo> spritechat::AreaRegistry::areas() const
 {
   return _map.values();
 }
+
+QList<spritechat::AreaInfo> spritechat::AreaRegistry::areasIf(const Condition &condition) const
+{
+  QList<AreaInfo> result;
+  for (const AreaInfo &area : _map)
+  {
+    if (condition(area))
+    {
+      result.append(area);
+    }
+  }
+  return result;
+}

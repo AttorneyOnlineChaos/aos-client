@@ -32,19 +32,31 @@ void spritechat::AOApplication::process(const theory::MusicListPacket &packet)
   w_courtroom->list_music();
 }
 
-void spritechat::AOApplication::process(const theory::AreaListPacket &packet)
+void spritechat::AOApplication::process(const theory::AreaRecordPacket &packet)
 {
-  m_area_registry.clear();
-
-  theory::AreaId id = 0;
-  for (const QString &area : packet.areas)
+  switch (packet.action)
   {
-    m_area_registry.add(id);
-    m_area_registry.update(id, AreaInfo{.id = id, .name = area});
-    ++id;
-  }
+  default:
+    return;
 
-  w_courtroom->list_areas();
+  case theory::AreaRecordPacket::Action::Add:
+    if (packet.areaId < 0)
+    {
+      zWarning(log::protocol) << QStringLiteral("area record with an invalid area id: %1").arg(packet.areaId);
+      return;
+    }
+    m_area_registry.add(packet.areaId);
+    if (auto area = m_area_registry.area(packet.areaId))
+    {
+      area->inventoryId = packet.inventoryId;
+      m_area_registry.update(packet.areaId, area.value());
+    }
+    break;
+
+  case theory::AreaRecordPacket::Action::Remove:
+    m_area_registry.remove(packet.areaId);
+    break;
+  }
 }
 
 void spritechat::AOApplication::process(const theory::CharacterAcceptedPacket &packet)
@@ -82,6 +94,10 @@ void spritechat::AOApplication::process(const theory::AreaUpdatePacket &packet)
   {
   default:
     return;
+
+  case theory::AreaUpdatePacket::Property::Name:
+    error = theory::decodeJson(packet.data, area.name);
+    break;
 
   case theory::AreaUpdatePacket::Property::Status:
     error = theory::decodeJson(packet.data, area.status);
@@ -200,24 +216,28 @@ void spritechat::AOApplication::process(const theory::SplashPacket &packet)
   w_courtroom->handle_wtce(packet);
 }
 
-void spritechat::AOApplication::process(const theory::EvidenceListPacket &packet)
-{
-  QList<theory::EvidenceItem> evidence = packet.items;
-  w_courtroom->set_evidence_list(evidence);
-}
-
-void spritechat::AOApplication::process(const theory::PlayerRosterPacket &packet)
+void spritechat::AOApplication::process(const theory::PlayerRecordPacket &packet)
 {
   switch (packet.action)
   {
   default:
     return;
 
-  case theory::PlayerRosterPacket::Action::Add:
+  case theory::PlayerRecordPacket::Action::Add:
+    if (packet.playerId < 0)
+    {
+      zWarning(log::protocol) << QStringLiteral("player record with an invalid player id: %1").arg(packet.playerId);
+      return;
+    }
     m_player_registry.add(packet.playerId);
+    if (auto player = m_player_registry.player(packet.playerId))
+    {
+      player->inventoryId = packet.inventoryId;
+      m_player_registry.update(packet.playerId, player.value());
+    }
     break;
 
-  case theory::PlayerRosterPacket::Action::Remove:
+  case theory::PlayerRecordPacket::Action::Remove:
     m_player_registry.remove(packet.playerId);
     break;
   }
@@ -267,6 +287,120 @@ void spritechat::AOApplication::process(const theory::PlayerUpdatePacket &packet
   m_player_registry.update(packet.playerId, player);
 }
 
+void spritechat::AOApplication::process(const theory::InventoryRecordPacket &packet)
+{
+  switch (packet.action)
+  {
+  default:
+    return;
+
+  case theory::InventoryRecordPacket::Action::Add:
+    if (packet.inventoryId < 0)
+    {
+      zWarning(log::protocol) << QStringLiteral("inventory record with an invalid inventory id: %1").arg(packet.inventoryId);
+      return;
+    }
+    m_inventory_registry.add(packet.inventoryId);
+    break;
+
+  case theory::InventoryRecordPacket::Action::Remove:
+    for (const EvidenceInfo &item : m_evidence_registry.evidenceIf([&packet](const EvidenceInfo &candidate) { return candidate.inventoryId == packet.inventoryId; }))
+    {
+      m_evidence_registry.remove(item.id);
+    }
+    m_inventory_registry.remove(packet.inventoryId);
+    break;
+  }
+}
+
+void spritechat::AOApplication::process(const theory::InventoryUpdatePacket &packet)
+{
+  const auto maybe_inventory = m_inventory_registry.inventory(packet.inventoryId);
+  if (!maybe_inventory)
+  {
+    zWarning(log::protocol) << QStringLiteral("inventory update for an unknown inventory: %1").arg(packet.inventoryId);
+    return;
+  }
+  InventoryInfo inventory = maybe_inventory.value();
+
+  std::optional<theory::JsonCodecError> error;
+  switch (packet.property)
+  {
+  default:
+    return;
+
+  case theory::InventoryUpdatePacket::Property::Permission:
+    error = theory::decodeJson(packet.data, inventory.permission);
+    break;
+  }
+
+  if (error)
+  {
+    zWarning(log::protocol) << QStringLiteral("inventory update for %1: %2").arg(QString::number(packet.inventoryId), error->toString());
+    return;
+  }
+
+  m_inventory_registry.update(packet.inventoryId, inventory);
+}
+
+void spritechat::AOApplication::process(const theory::EvidenceRecordPacket &packet)
+{
+  switch (packet.action)
+  {
+  default:
+    return;
+
+  case theory::EvidenceRecordPacket::Action::Add:
+    if (packet.evidenceId < 0)
+    {
+      zWarning(log::protocol) << QStringLiteral("evidence record with an invalid evidence id: %1").arg(packet.evidenceId);
+      return;
+    }
+    if (!m_inventory_registry.inventory(packet.inventoryId))
+    {
+      zWarning(log::protocol) << QStringLiteral("evidence roster names an unknown inventory: %1").arg(packet.inventoryId);
+      return;
+    }
+    m_evidence_registry.add(packet.evidenceId);
+    m_evidence_registry.update(packet.evidenceId, EvidenceInfo{.id = packet.evidenceId, .inventoryId = packet.inventoryId});
+    break;
+
+  case theory::EvidenceRecordPacket::Action::Remove:
+    m_evidence_registry.remove(packet.evidenceId);
+    break;
+  }
+}
+
+void spritechat::AOApplication::process(const theory::EvidenceUpdatePacket &packet)
+{
+  const auto maybe_item = m_evidence_registry.evidence(packet.evidenceId);
+  if (!maybe_item)
+  {
+    zWarning(log::protocol) << QStringLiteral("evidence update for an unknown item: %1").arg(packet.evidenceId);
+    return;
+  }
+  EvidenceInfo item = maybe_item.value();
+
+  std::optional<theory::JsonCodecError> error;
+  switch (packet.property)
+  {
+  default:
+    return;
+
+  case theory::EvidenceUpdatePacket::Property::Snapshot:
+    error = theory::decodeJson(packet.data, item.evidence);
+    break;
+  }
+
+  if (error)
+  {
+    zWarning(log::protocol) << QStringLiteral("evidence update for %1: %2").arg(QString::number(packet.evidenceId), error->toString());
+    return;
+  }
+
+  m_evidence_registry.update(packet.evidenceId, item);
+}
+
 void spritechat::AOApplication::process(const theory::ModCallNoticePacket &packet)
 {
   QString notice = tr("!!!MODCALL!!!\nArea: %1\nCaller: [%2]%3\n").arg(packet.area, QString::number(packet.callerPlayerId), packet.callerName);
@@ -296,6 +430,11 @@ void spritechat::AOApplication::process(const theory::AuthStatePacket &packet)
     w_courtroom->on_authentication_state_received(1);
     break;
   }
+}
+
+void spritechat::AOApplication::process(const theory::GameErrorPacket &packet)
+{
+  w_courtroom->append_server_chatmessage(tr("SERVER"), packet.error.toString(), QStringLiteral("1"));
 }
 
 void spritechat::AOApplication::process(const theory::ErrorPacket &packet)

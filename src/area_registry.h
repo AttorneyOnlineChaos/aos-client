@@ -7,6 +7,7 @@
 #include <QMap>
 #include <QObject>
 
+#include <functional>
 #include <optional>
 
 namespace spritechat
@@ -25,6 +26,9 @@ public:
 
   std::optional<AreaInfo> area(theory::AreaId id) const;
   QList<AreaInfo> areas() const;
+
+  using Condition = std::function<bool(const AreaInfo &)>;
+  QList<AreaInfo> areasIf(const Condition &condition) const;
 
 Q_SIGNALS:
   void added(theory::AreaId id);

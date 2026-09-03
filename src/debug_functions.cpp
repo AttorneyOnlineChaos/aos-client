@@ -32,7 +32,7 @@ void call_message(QMessageBox::Icon icon, const QString &p_message)
   auto *msgBox = new QMessageBox;
 
   msgBox->setAttribute(Qt::WA_DeleteOnClose);
-  msgBox->setIcon(icon);
+  msgBox->setIcon(QMessageBox::NoIcon);
   msgBox->setText(p_message);
   msgBox->setWindowTitle(title);
 

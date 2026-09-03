@@ -15,7 +15,7 @@ public:
   AOTextArea(QWidget *parent = nullptr);
   AOTextArea(int maximumLogLenth, QWidget *parent = nullptr);
 
-  void addMessage(const QString &name, QString message, const QString &nameColor, const QString &messageColor = QString());
+  void addMessage(const QString &name, QString message, const QString &nameColor, const QString &messageColor = QString(), const QString &timestamp = QString());
 
 private:
   void auto_scroll(const QTextCursor &old_cursor, int scrollbar_value, bool is_scrolled_down);

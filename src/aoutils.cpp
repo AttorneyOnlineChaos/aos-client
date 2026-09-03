@@ -25,7 +25,6 @@ void spritechat::migrateEffects(QSettings &p_effects_ini)
     p_effects_ini.clear();
     p_effects_ini.sync();
   }
-  // update revision
   p_effects_ini.beginGroup("version");
   p_effects_ini.setValue("major", "2");
   p_effects_ini.endGroup();

@@ -6,7 +6,9 @@
 #include "console_logger.h"
 #include "core/log.h"
 #include "datatypes.h"
+#include "evidence_registry.h"
 #include "game/emote_cue.h"
+#include "inventory_registry.h"
 #include "network/master_gateway.h"
 #include "network/packet.h"
 #include "network/packet_factory.h"
@@ -317,6 +319,8 @@ private:
 
   AreaRegistry m_area_registry;
   PlayerRegistry m_player_registry;
+  InventoryRegistry m_inventory_registry;
+  EvidenceRegistry m_evidence_registry;
   QList<Timer *> m_timers;
 
   Timer *timer(theory::TimerId id) const;
@@ -332,12 +336,12 @@ private:
 
   void process(const theory::CharacterListPacket &packet);
   void process(const theory::MusicListPacket &packet);
-  void process(const theory::AreaListPacket &packet);
 
   void process(const theory::CharacterAcceptedPacket &packet);
 
   void process(const theory::BackgroundPacket &packet);
   void process(const theory::SetPositionPacket &packet);
+  void process(const theory::AreaRecordPacket &packet);
   void process(const theory::AreaUpdatePacket &packet);
   void process(const theory::SubthemePacket &packet);
   void process(const theory::TimerPacket &packet);
@@ -348,13 +352,18 @@ private:
   void process(const theory::MusicChangedPacket &packet);
   void process(const theory::PenaltyPacket &packet);
   void process(const theory::SplashPacket &packet);
-  void process(const theory::EvidenceListPacket &packet);
 
-  void process(const theory::PlayerRosterPacket &packet);
+  void process(const theory::PlayerRecordPacket &packet);
   void process(const theory::PlayerUpdatePacket &packet);
+
+  void process(const theory::InventoryRecordPacket &packet);
+  void process(const theory::InventoryUpdatePacket &packet);
+  void process(const theory::EvidenceRecordPacket &packet);
+  void process(const theory::EvidenceUpdatePacket &packet);
 
   void process(const theory::ModCallNoticePacket &packet);
   void process(const theory::AuthStatePacket &packet);
+  void process(const theory::GameErrorPacket &packet);
   void process(const theory::ErrorPacket &packet);
 
   void process(const theory::SessionGrantPacket &packet);

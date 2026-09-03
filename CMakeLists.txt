@@ -72,6 +72,7 @@ qt_add_library(spritechat STATIC
   src/console_logger.h
   src/courtroom.cpp
   src/courtroom.h
+  src/datatypes.cpp
   src/datatypes.h
   src/debug_functions.cpp
   src/debug_functions.h
@@ -79,10 +80,14 @@ qt_add_library(spritechat STATIC
   src/eventfilters.cpp
   src/eventfilters.h
   src/evidence.cpp
+  src/evidence_registry.cpp
+  src/evidence_registry.h
   src/file_functions.cpp
   src/file_functions.h
   src/hardware_functions.cpp
   src/hardware_functions.h
+  src/inventory_registry.cpp
+  src/inventory_registry.h
   src/lobby.cpp
   src/lobby.h
   src/network_manager.cpp
@@ -110,6 +115,8 @@ qt_add_library(spritechat STATIC
   src/widgets/direct_connect_dialog.h
   src/widgets/server_editor_dialog.cpp
   src/widgets/server_editor_dialog.h
+  src/widgets/evidence_panel.h src/widgets/evidence_panel.cpp
+  src/widgets/inventory_dialog.h src/widgets/inventory_dialog.cpp
   src/widgets/playerlistwidget.h src/widgets/playerlistwidget.cpp
   src/widgets/moderator_dialog.h src/widgets/moderator_dialog.cpp
   src/screenslidetimer.h src/screenslidetimer.cpp
@@ -147,6 +154,7 @@ target_link_libraries(spritechat PUBLIC
   bassopus
   theory-game
   theory-protocol
+  theory-widgets
 )
 
 target_link_libraries(spritechat-runtime PRIVATE spritechat)

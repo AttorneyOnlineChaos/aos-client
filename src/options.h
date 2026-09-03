@@ -90,6 +90,9 @@ public:
   bool slidesEnabled() const;
   void setSlidesEnabled(bool value);
 
+  bool mousewheelGridNavigationReversed() const;
+  void setMousewheelGridNavigationReversed(bool value);
+
   // Returns the value of whether colored ic log should be a thing.
   // from the config.ini.
   bool colorLogEnabled() const;
@@ -264,6 +267,9 @@ public:
 
   bool restoreWindowPositionEnabled() const;
   void setRestoreWindowPositionEnabled(bool state);
+
+  bool offsetPreview() const;
+  void setOffsetPreview(bool enabled);
 
 private:
   /**

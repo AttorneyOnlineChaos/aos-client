@@ -25,8 +25,9 @@ void spritechat::Courtroom::construct_char_select()
   ui_char_list->setDropIndicatorShown(true);
   ui_char_list->setObjectName("ui_char_list");
 
-  ui_char_buttons = new QWidget(ui_char_select_background);
+  ui_char_buttons = new theory::NavigableGrid(ui_char_select_background);
   ui_char_buttons->setObjectName("ui_char_buttons");
+  char_button_navigator = new theory::MousewheelGridNavigator(ui_char_buttons);
 
   ui_back_to_lobby = new AOButton(ao_app, ui_char_select_background);
   ui_back_to_lobby->setObjectName("ui_back_to_lobby");
@@ -52,8 +53,10 @@ void spritechat::Courtroom::construct_char_select()
 
   connect(ui_back_to_lobby, &AOButton::clicked, this, &Courtroom::close);
 
-  connect(ui_char_select_left, &AOButton::clicked, this, &Courtroom::on_char_select_left_clicked);
-  connect(ui_char_select_right, &AOButton::clicked, this, &Courtroom::on_char_select_right_clicked);
+  connect(ui_char_select_left, &AOButton::clicked, ui_char_buttons, &theory::NavigableGrid::previousPage);
+  connect(ui_char_select_right, &AOButton::clicked, ui_char_buttons, &theory::NavigableGrid::nextPage);
+  connect(ui_char_buttons, &theory::NavigableGrid::layoutUpdated, this, &Courtroom::update_char_select_arrows);
+  connect(ui_char_buttons, &theory::NavigableGrid::currentPageChanged, this, &Courtroom::update_char_select_arrows);
 
   connect(ui_spectator, &AOButton::clicked, this, &Courtroom::on_spectator_clicked);
 
@@ -84,7 +87,7 @@ void spritechat::Courtroom::set_char_select()
   set_size_and_pos(ui_char_search, "char_search");
   set_size_and_pos(ui_char_list, "char_list");
   set_size_and_pos(ui_char_taken, "char_taken");
-  set_size_and_pos(ui_char_buttons, "char_buttons");
+  set_char_buttons();
 
   // Silence emission. This causes the signal to be emitted TWICE during server join!
   // Fuck this. Performance Sandwich.
@@ -101,58 +104,18 @@ void spritechat::Courtroom::set_char_select()
   ui_char_search->setFocus();
 }
 
-void spritechat::Courtroom::set_char_select_page()
+void spritechat::Courtroom::set_char_buttons()
 {
-  ui_char_select_left->hide();
-  ui_char_select_right->hide();
+  set_size_and_pos(ui_char_buttons, "char_buttons");
+  const QPoint spacing = ao_app->get_button_spacing("char_button_spacing", "courtroom_design.ini");
+  ui_char_buttons->setHorizontalSpacing(spacing.x());
+  ui_char_buttons->setVerticalSpacing(spacing.y());
+}
 
-  for (AOCharButton *i_button : std::as_const(ui_char_button_list))
-  {
-    i_button->hide();
-    i_button->move(0, 0);
-  }
-
-  int total_pages = ui_char_button_list_filtered.size() / max_chars_on_page;
-  int chars_on_page = 0;
-
-  if (ui_char_button_list_filtered.size() % max_chars_on_page != 0)
-  {
-    ++total_pages;
-    // i. e. not on the last page
-    if (total_pages > current_char_page + 1)
-    {
-      chars_on_page = max_chars_on_page;
-    }
-    else
-    {
-      chars_on_page = ui_char_button_list_filtered.size() % max_chars_on_page;
-    }
-  }
-  else
-  {
-    chars_on_page = max_chars_on_page;
-  }
-
-  if (total_pages > current_char_page + 1)
-  {
-    ui_char_select_right->show();
-  }
-
-  if (current_char_page > 0)
-  {
-    ui_char_select_left->show();
-  }
-
-  QPoint f_spacing = ao_app->get_button_spacing("char_button_spacing", "courtroom_design.ini");
-
-  int s_button_size = button_width * Options::getInstance().themeScalingFactor();
-
-  char_columns = ((ui_char_buttons->width() - s_button_size) / (f_spacing.x() + s_button_size)) + 1;
-  char_rows = ((ui_char_buttons->height() - s_button_size) / (f_spacing.y() + s_button_size)) + 1;
-
-  max_chars_on_page = char_columns * char_rows;
-
-  put_button_in_place(current_char_page * max_chars_on_page, chars_on_page);
+void spritechat::Courtroom::update_char_select_arrows()
+{
+  ui_char_select_left->setVisible(ui_char_buttons->currentPage() > 0);
+  ui_char_select_right->setVisible(ui_char_buttons->currentPage() + 1 < ui_char_buttons->pageCount());
 }
 
 void spritechat::Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item, int column)
@@ -234,38 +197,6 @@ void spritechat::Courtroom::on_char_button_context_menu_requested(const QPoint &
   menu->popup(button->mapToGlobal(pos));
 }
 
-void spritechat::Courtroom::put_button_in_place(int starting, int chars_on_this_page)
-{
-  if (ui_char_button_list_filtered.size() == 0)
-  {
-    return;
-  }
-
-  QPoint f_spacing = ao_app->get_button_spacing("char_button_spacing", "courtroom_design.ini");
-
-  int x_mod_count = 0;
-  int y_mod_count = 0;
-
-  int startout = starting;
-  int size = button_width * Options::getInstance().themeScalingFactor();
-  for (int n = starting; n < startout + chars_on_this_page; ++n)
-  {
-    int x_pos = (size + f_spacing.x()) * x_mod_count;
-    int y_pos = (size + f_spacing.y()) * y_mod_count;
-
-    ui_char_button_list_filtered.at(n)->move(x_pos, y_pos);
-    ui_char_button_list_filtered.at(n)->show();
-
-    ++x_mod_count;
-
-    if (x_mod_count == char_columns)
-    {
-      ++y_mod_count;
-      x_mod_count = 0;
-    }
-  }
-}
-
 void spritechat::Courtroom::character_loading_finished()
 {
   // Zeroeth, we'll clear any leftover characters from previous server visits.
@@ -330,7 +261,7 @@ void spritechat::Courtroom::character_loading_finished()
 
 void spritechat::Courtroom::filter_character_list()
 {
-  ui_char_button_list_filtered.clear();
+  QList<QWidget *> shown;
   for (AOCharButton *current_char : std::as_const(ui_char_button_list))
   {
     const theory::CharacterId character = current_char->character();
@@ -374,11 +305,11 @@ void spritechat::Courtroom::filter_character_list()
       current_char_item->setDisabled(true);
     }
 
-    ui_char_button_list_filtered.append(current_char);
+    shown.append(current_char);
   }
 
-  current_char_page = 0;
-  set_char_select_page();
+  ui_char_buttons->setWidgets(shown);
+  ui_char_buttons->setCurrentPage(0);
 }
 
 void spritechat::Courtroom::on_char_search_changed()

@@ -370,6 +370,16 @@ void spritechat::Options::setSlidesEnabled(bool value)
   config.setValue("slides", value);
 }
 
+bool spritechat::Options::mousewheelGridNavigationReversed() const
+{
+  return config.value("mousewheel_grid_navigation_reversed", false).toBool();
+}
+
+void spritechat::Options::setMousewheelGridNavigationReversed(bool value)
+{
+  config.setValue("mousewheel_grid_navigation_reversed", value);
+}
+
 bool spritechat::Options::colorLogEnabled() const
 {
   return config.value("colorlog", true).toBool();
@@ -762,4 +772,14 @@ bool spritechat::Options::restoreWindowPositionEnabled() const
 void spritechat::Options::setRestoreWindowPositionEnabled(bool state)
 {
   config.setValue("windows/restore", state);
+}
+
+bool spritechat::Options::offsetPreview() const
+{
+  return config.value("offset_preview", true).toBool();
+}
+
+void spritechat::Options::setOffsetPreview(bool enabled)
+{
+  config.setValue("offset_preview", enabled);
 }
