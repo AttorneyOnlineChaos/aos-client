@@ -20,13 +20,14 @@
 
 // #define DEBUG_TRANSITION
 
-spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, InventoryRegistry &p_inventory_registry, EvidenceRegistry &p_evidence_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library)
+spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, InventoryRegistry &p_inventory_registry, EvidenceRegistry &p_evidence_registry, ServerSettingsHandle &p_server_settings, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library)
     : QMainWindow()
     , ao_app{p_ao_app}
     , area_registry{p_area_registry}
     , player_registry{p_player_registry}
     , inventory_registry{p_inventory_registry}
     , evidence_registry{p_evidence_registry}
+    , server_settings{p_server_settings}
     , timers{p_timers}
     , transport{p_transport}
     , track_library{p_track_library}
@@ -222,7 +223,6 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_ooc_chat_name = new QLineEdit(this);
   ui_ooc_chat_name->setFrame(false);
   ui_ooc_chat_name->setPlaceholderText(tr("Name"));
-  ui_ooc_chat_name->setMaxLength(30);
   ui_ooc_chat_name->setText(Options::getInstance().username());
   ui_ooc_chat_name->setObjectName("ui_ooc_chat_name");
 
@@ -527,6 +527,8 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
 
   connect(m_screenslide_timer, &ScreenSlideTimer::finished, this, &Courtroom::post_transition_cleanup);
 
+  connect(&server_settings, &ServerSettingsHandle::settingsChanged, this, &Courtroom::apply_server_settings);
+
   connect(&area_registry, &AreaRegistry::added, this, &Courtroom::list_areas);
   connect(&area_registry, &AreaRegistry::removed, this, &Courtroom::list_areas);
   connect(&area_registry, &AreaRegistry::updated, this, &Courtroom::refresh_area);
@@ -657,6 +659,20 @@ void spritechat::Courtroom::update_message_capacity()
   const int capacity = Options::getInstance().messageCapacity();
   ui_ic_chat_message->setCapacity(capacity);
   ui_ooc_chat_message->setCapacity(capacity);
+}
+
+void spritechat::Courtroom::apply_server_settings()
+{
+  ui_ooc_chat_name->setMaxLength(server_settings->maxNameLength);
+  ui_ic_chat_name->setMaxLength(server_settings->maxCharacterNameLength);
+  ui_ooc_chat_message->setMaxLength(server_settings->maxMessageLength);
+  ui_ic_chat_message->setMaxLength(server_settings->maxIcMessageLength);
+
+  if (server_settings->messageOfTheDay != shown_motd)
+  {
+    shown_motd = server_settings->messageOfTheDay;
+    append_server_chatmessage(tr("SERVER"), QStringLiteral("=== MOTD ===\r\n%1\r\n=============").arg(shown_motd), QStringLiteral("1"));
+  }
 }
 
 void spritechat::Courtroom::update_mousewheel_direction()
@@ -4172,9 +4188,10 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
 
   theory::CharacterId n_char = packet.character;
 
-  if (!is_stop && !file_exists(ao_app->get_sfx_suffix(ao_app->get_music_path(f_song))) && !f_song.startsWith("http") && !ao_app->m_server_data.get_asset_url().isEmpty())
+  const QString asset_url = server_settings->assetUrl;
+  if (!is_stop && !file_exists(ao_app->get_sfx_suffix(ao_app->get_music_path(f_song))) && !f_song.startsWith("http") && !asset_url.isEmpty())
   {
-    f_song = (ao_app->m_server_data.get_asset_url() + "sounds/music/" + f_song).toLower();
+    f_song = (asset_url + "sounds/music/" + f_song).toLower();
   }
 
   AOTrack track;

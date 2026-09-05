@@ -9,8 +9,10 @@
 #include "evidence_registry.h"
 #include "game/evidence.h"
 #include "game/game_defs.h"
+#include "server_settings_handle.h"
 #include "widgets/mousewheel_grid_navigator.h"
 #include "widgets/navigable_grid.h"
+#include "widgets/text_length_filter.h"
 
 #include <QComboBox>
 #include <QHash>
@@ -46,7 +48,7 @@ public:
     QString label;
   };
 
-  EvidencePanel(Mode mode, AOApplication *app, const EvidenceRegistry &registry, QWidget *parent = nullptr);
+  EvidencePanel(Mode mode, AOApplication *app, const EvidenceRegistry &registry, const ServerSettingsHandle &serverSettings, QWidget *parent = nullptr);
 
   Mode mode() const;
 
@@ -79,9 +81,11 @@ private:
   Mode _mode;
   AOApplication *ao_app;
   const EvidenceRegistry &_registry;
+  const ServerSettingsHandle &_serverSettings;
 
   QMap<theory::InventoryId, QMap<theory::EvidenceId, AOEvidenceButton *>> _byInventory;
   QHash<theory::EvidenceId, theory::InventoryId> _inventoryOf;
+  QList<InventoryChoice> _choices;
   theory::InventoryId _inventory = theory::NoInventoryId;
   QPoint _buttonSize;
   theory::EvidenceId _selected = theory::NoEvidenceId;
@@ -111,8 +115,10 @@ private:
   AOButton *_x;
   AOButton *_ok;
   QPlainTextEdit *_description;
+  theory::TextLengthFilter *_descriptionFilter;
 
   bool editable() const;
+  theory::InventoryId inventoryOf(int index) const;
   void updateSizeAndPosition(QWidget *widget, const QString &key);
   void setShown(QWidget *widget, bool shown);
 
@@ -150,5 +156,6 @@ private Q_SLOTS:
   void saveEvidence();
   void chooseEvidenceImage();
   void refreshSaveButton();
+  void applyServerSettings();
 };
 } // namespace spritechat

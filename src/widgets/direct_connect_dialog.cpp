@@ -104,6 +104,6 @@ void spritechat::DirectConnectDialog::onServerInfoSettled()
 
   ui_direct_connection_status_lbl->setText("Connected!");
   ui_direct_connection_status_lbl->setStyleSheet("color: rgb(0,128,0)");
-  Q_EMIT connection_requested(m_info_gateway->server(), m_info_gateway->info());
+  Q_EMIT connection_requested(m_info_gateway->server());
   close();
 }

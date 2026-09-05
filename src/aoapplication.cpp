@@ -98,7 +98,7 @@ void spritechat::AOApplication::construct_courtroom()
     return;
   }
 
-  w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_inventory_registry, m_evidence_registry, m_timers, *net_manager, m_track_library);
+  w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_inventory_registry, m_evidence_registry, m_server_settings, m_timers, *net_manager, m_track_library);
 
   connect(w_courtroom, &Courtroom::aboutToClose, this, [this] {
     drop_session();
@@ -135,6 +135,7 @@ void spritechat::AOApplication::reset_server_instance()
   m_player_registry.clear();
   m_evidence_registry.clear();
   m_inventory_registry.clear();
+  m_server_settings.clear();
   for (Timer *l_timer : m_timers)
   {
     l_timer->reset();

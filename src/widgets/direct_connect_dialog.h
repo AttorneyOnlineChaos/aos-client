@@ -2,7 +2,6 @@
 
 #include "network/server_bookmark.h"
 #include "network/server_info_gateway.h"
-#include "protocol/server_info.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -22,7 +21,7 @@ public:
   explicit DirectConnectDialog(QWidget *parent = nullptr);
 
 Q_SIGNALS:
-  void connection_requested(const ServerBookmark &server, const theory::ServerInfo &info);
+  void connection_requested(const ServerBookmark &server);
 
 private:
   static const QString UI_FILE_PATH;

@@ -4,7 +4,6 @@
 #include "network/master_gateway.h"
 #include "network/server_info_gateway.h"
 #include "network_manager.h"
-#include "protocol/server_info.h"
 
 #include <QLabel>
 #include <QLineEdit>
@@ -34,7 +33,7 @@ public:
   std::optional<ServerBookmark> current_server() const;
 
 Q_SIGNALS:
-  void connection_requested(const ServerBookmark &server, const theory::ServerInfo &info);
+  void connection_requested(const ServerBookmark &server);
 
 private:
   AOApplication *ao_app;

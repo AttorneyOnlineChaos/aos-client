@@ -22,6 +22,7 @@ void spritechat::AOApplication::shipPacket(const theory::Packet &packet)
 void spritechat::AOApplication::register_packet_routes()
 {
   m_router.registerRoute<theory::SessionGrantPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::ServerSettingsPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::WelcomePacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::CharacterListPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::MusicListPacket>(&AOApplication::process, this);
@@ -79,7 +80,7 @@ void spritechat::AOApplication::handle_network_error(const theory::CargoError &e
   call_warning(tr("Connection error.\n\nDetails: %1").arg(error.toString()));
 }
 
-void spritechat::AOApplication::connect_to_server(const ServerBookmark &server, const theory::ServerInfo &info)
+void spritechat::AOApplication::connect_to_server(const ServerBookmark &server)
 {
   if (net_manager->status() != NetworkManager::NotConnected)
   {
@@ -88,12 +89,8 @@ void spritechat::AOApplication::connect_to_server(const ServerBookmark &server, 
   }
 
   m_server = server;
-  m_server_info = info;
 
-  m_server_data.set_server_software(info.softwareName);
-  m_server_data.set_asset_url(info.assetUrl);
-
-  server_name = info.name.isEmpty() ? server.name : info.name;
+  server_name = server.name;
   window_title = server_name;
 
   QString server_address = QString("%1:%2").arg(server.address, QString::number(server.port));
@@ -173,6 +170,15 @@ void spritechat::AOApplication::process(const theory::SessionGrantPacket &packet
 {
   m_tokens.insert(m_server.join_url(), packet.sessionToken);
   m_recovered_session = packet.result == theory::SessionGrantPacket::Recovered;
+}
+
+void spritechat::AOApplication::process(const theory::ServerSettingsPacket &packet)
+{
+  server_name = packet.settings.name.isEmpty() ? m_server.name : packet.settings.name;
+  window_title = server_name;
+  w_courtroom->setWindowTitle(window_title);
+
+  m_server_settings.setSettings(packet.settings);
 }
 
 void spritechat::AOApplication::process(const theory::WelcomePacket &packet)

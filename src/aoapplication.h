@@ -27,8 +27,7 @@
 #include "protocol/packets/music_packets.h"
 #include "protocol/packets/roster_packets.h"
 #include "protocol/packets/session_packets.h"
-#include "protocol/server_info.h"
-#include "serverdata.h"
+#include "server_settings_handle.h"
 #include "timer.h"
 #include "widgets/aooptionsdialog.h"
 
@@ -288,10 +287,6 @@ public:
   // The file name of the log file in base/logs.
   QString log_filename;
 
-  /// Stores everything related to the server the client is connected to, if
-  /// any.
-  ServerData m_server_data;
-
   // client ID. Not useful, to be removed eventually
   theory::PlayerId m_player_id = theory::NoPlayerId;
 
@@ -304,7 +299,6 @@ private:
 
   NetworkManager *net_manager;
   ServerBookmark m_server;
-  theory::ServerInfo m_server_info;
   theory::PacketRouter m_router;
 
   QString window_title;
@@ -314,13 +308,14 @@ private:
   void shipPacket(const theory::Packet &packet) override;
   void register_packet_routes();
 
-  void connect_to_server(const ServerBookmark &server, const theory::ServerInfo &info);
+  void connect_to_server(const ServerBookmark &server);
   void reconnect_to_server();
 
   AreaRegistry m_area_registry;
   PlayerRegistry m_player_registry;
   InventoryRegistry m_inventory_registry;
   EvidenceRegistry m_evidence_registry;
+  ServerSettingsHandle m_server_settings;
   QList<Timer *> m_timers;
 
   Timer *timer(theory::TimerId id) const;
@@ -367,6 +362,7 @@ private:
   void process(const theory::ErrorPacket &packet);
 
   void process(const theory::SessionGrantPacket &packet);
+  void process(const theory::ServerSettingsPacket &packet);
   void process(const theory::WelcomePacket &packet);
 
 private Q_SLOTS:

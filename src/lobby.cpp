@@ -458,7 +458,7 @@ void spritechat::Lobby::on_connect_released()
     return;
   }
 
-  Q_EMIT connection_requested(server.value(), server_info_gateway->info());
+  Q_EMIT connection_requested(server.value());
 }
 
 void spritechat::Lobby::on_server_info_settled()

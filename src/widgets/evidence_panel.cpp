@@ -14,11 +14,12 @@
 
 #include <utility>
 
-spritechat::EvidencePanel::EvidencePanel(Mode mode, AOApplication *app, const EvidenceRegistry &registry, QWidget *parent)
+spritechat::EvidencePanel::EvidencePanel(Mode mode, AOApplication *app, const EvidenceRegistry &registry, const ServerSettingsHandle &serverSettings, QWidget *parent)
     : AOImage{app, parent}
     , _mode{mode}
     , ao_app{app}
     , _registry{registry}
+    , _serverSettings{serverSettings}
 {
   _switch = new AOButton(ao_app, this);
   _switch->setObjectName("ui_evidence_switch");
@@ -27,7 +28,6 @@ spritechat::EvidencePanel::EvidencePanel(Mode mode, AOApplication *app, const Ev
   _inventories->view()->setTextElideMode(Qt::ElideRight);
   _inventories->setToolTip(tr("Choose which inventory to look at."));
   _inventories->setObjectName("ui_evidence_inventory_dropdown");
-  _inventories->addItem(tr("Everyone"));
 
   _name = new QLineEdit(this);
   _nameFilter = new AOLineEditFilter();
@@ -84,11 +84,13 @@ spritechat::EvidencePanel::EvidencePanel(Mode mode, AOApplication *app, const Ev
   _description->setFrameStyle(QFrame::NoFrame);
   _description->setToolTip(tr("Click to edit. Press [X] to update your changes."));
   _description->setObjectName("ui_evidence_description");
+  _descriptionFilter = new theory::TextLengthFilter(_description, _serverSettings->maxEvidenceDescriptionLength);
 
   connect(&_registry, &EvidenceRegistry::added, this, &EvidencePanel::syncEvidence);
   connect(&_registry, &EvidenceRegistry::updated, this, &EvidencePanel::syncEvidence);
   connect(&_registry, &EvidenceRegistry::removed, this, &EvidencePanel::dropEvidence);
   connect(&_registry, &EvidenceRegistry::cleared, this, &EvidencePanel::dropAllEvidence);
+  connect(&_serverSettings, &ServerSettingsHandle::settingsChanged, this, &EvidencePanel::applyServerSettings);
 
   connect(_switch, &AOButton::clicked, this, &EvidencePanel::switchRequested);
   connect(_inventories, &QComboBox::currentIndexChanged, this, &EvidencePanel::selectInventory);
@@ -141,7 +143,7 @@ void spritechat::EvidencePanel::applyTheme()
   }
 
   updateSizeAndPosition(_inventories, "evidence_inventory_dropdown");
-  setShown(_inventories, true);
+  setShown(_inventories, editable());
 
   updateSizeAndPosition(_name, "evidence_name");
   updateSizeAndPosition(_reveal, "evidence_reveal");
@@ -210,34 +212,42 @@ QPlainTextEdit *spritechat::EvidencePanel::descriptionEdit() const
 
 void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inventories)
 {
-  bool unchanged = _inventories->count() == inventories.size() + 1;
+  bool unchanged = _choices.size() == inventories.size();
   for (int index = 0; unchanged && index < inventories.size(); ++index)
   {
+    const InventoryChoice &listed = _choices.at(index);
     const InventoryChoice &choice = inventories.at(index);
-    unchanged = _inventories->itemData(index + 1).toInt() == choice.id && _inventories->itemText(index + 1) == choice.label;
+    unchanged = listed.id == choice.id && listed.label == choice.label;
   }
   if (unchanged)
   {
     return;
   }
+  _choices = inventories;
+
+  if (!editable())
+  {
+    display();
+    return;
+  }
 
   const QSignalBlocker blocker{_inventories};
   _inventories->clear();
-  _inventories->addItem(tr("Everyone"));
-  for (const InventoryChoice &choice : inventories)
+  for (const InventoryChoice &choice : _choices)
   {
     _inventories->addItem(choice.label, choice.id);
   }
 
-  int index = 0;
+  int index = -1;
   if (_inventory != theory::NoInventoryId)
   {
     index = _inventories->findData(_inventory);
   }
   if (index < 0)
   {
-    _inventories->setCurrentIndex(0);
-    selectTab(theory::NoInventoryId);
+    index = _inventories->count() > 0 ? 0 : -1;
+    _inventories->setCurrentIndex(index);
+    selectTab(inventoryOf(index));
     return;
   }
   _inventories->setCurrentIndex(index);
@@ -246,14 +256,6 @@ void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inv
 
 void spritechat::EvidencePanel::showItem(theory::EvidenceId id)
 {
-  const theory::InventoryId inventory = _inventoryOf.value(id, theory::NoInventoryId);
-  if (_inventory != theory::NoInventoryId && _inventory != inventory)
-  {
-    const QSignalBlocker blocker{_inventories};
-    _inventories->setCurrentIndex(0);
-    selectTab(theory::NoInventoryId);
-  }
-
   _grid->showPageOf(buttonFor(id));
   openOverlay(id);
 }
@@ -295,6 +297,16 @@ void spritechat::EvidencePanel::stopPresenting()
 bool spritechat::EvidencePanel::editable() const
 {
   return _mode == Mode::Private;
+}
+
+theory::InventoryId spritechat::EvidencePanel::inventoryOf(int index) const
+{
+  const QVariant data = _inventories->itemData(index);
+  if (data.isValid())
+  {
+    return data.toInt();
+  }
+  return theory::NoInventoryId;
 }
 
 void spritechat::EvidencePanel::updateSizeAndPosition(QWidget *widget, const QString &key)
@@ -445,9 +457,9 @@ void spritechat::EvidencePanel::display()
   QList<QWidget *> widgets;
   if (_inventory == theory::NoInventoryId)
   {
-    for (int index = 1; index < _inventories->count(); ++index)
+    for (const InventoryChoice &choice : _choices)
     {
-      appendButtons(widgets, _byInventory.value(_inventories->itemData(index).toInt()));
+      appendButtons(widgets, _byInventory.value(choice.id));
     }
   }
   else
@@ -752,12 +764,7 @@ void spritechat::EvidencePanel::togglePresenting()
 
 void spritechat::EvidencePanel::selectInventory(int index)
 {
-  const QVariant data = _inventories->itemData(index);
-  theory::InventoryId inventory = theory::NoInventoryId;
-  if (data.isValid())
-  {
-    inventory = data.toInt();
-  }
+  const theory::InventoryId inventory = inventoryOf(index);
   if (inventory == _inventory)
   {
     return;
@@ -854,4 +861,10 @@ void spritechat::EvidencePanel::refreshSaveButton()
   edited.image = _imageName->text();
   edited.revealed = _overlayRevealed;
   setShown(_ok, editable() && edited != item->evidence);
+}
+
+void spritechat::EvidencePanel::applyServerSettings()
+{
+  _name->setMaxLength(_serverSettings->maxEvidenceNameLength);
+  _descriptionFilter->setMaxLength(_serverSettings->maxEvidenceDescriptionLength);
 }

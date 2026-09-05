@@ -10,9 +10,9 @@
 
 void spritechat::Courtroom::initialize_evidence()
 {
-  ui_evidence_public = new EvidencePanel(EvidencePanel::Mode::Public, ao_app, evidence_registry, this);
+  ui_evidence_public = new EvidencePanel(EvidencePanel::Mode::Public, ao_app, evidence_registry, server_settings, this);
   ui_evidence_public->setObjectName("ui_evidence");
-  ui_evidence_private = new EvidencePanel(EvidencePanel::Mode::Private, ao_app, evidence_registry, this);
+  ui_evidence_private = new EvidencePanel(EvidencePanel::Mode::Private, ao_app, evidence_registry, server_settings, this);
   ui_evidence_private->setObjectName("ui_evidence");
   ui_evidence_current = ui_evidence_public;
 
@@ -346,6 +346,15 @@ void spritechat::Courtroom::open_evidence_file_dialog()
 
 void spritechat::Courtroom::evidence_transfer(theory::InventoryTransferPacket::Mode mode, const QList<theory::Evidence> &list)
 {
+  for (const theory::Evidence &evidence : list)
+  {
+    if (evidence.name.size() > server_settings->maxEvidenceNameLength || evidence.description.size() > server_settings->maxEvidenceDescriptionLength)
+    {
+      append_server_chatmessage(tr("CLIENT"), tr("Evidence \"%1\" exceeds the server's limits (name: %2, description: %3 characters).").arg(evidence.name).arg(server_settings->maxEvidenceNameLength).arg(server_settings->maxEvidenceDescriptionLength), "1");
+      return;
+    }
+  }
+
   theory::InventoryTransferPacket packet;
   packet.mode = mode;
   packet.inventoryId = current_inventory;

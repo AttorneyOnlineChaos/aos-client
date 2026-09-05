@@ -35,6 +35,7 @@
 #include "protocol/packets/music_packets.h"
 #include "screenslidetimer.h"
 #include "scrolltext.h"
+#include "server_settings_handle.h"
 #include "timer.h"
 #include "widgets/aooptionsdialog.h"
 #include "widgets/evidence_panel.h"
@@ -87,7 +88,7 @@ class Courtroom : public QMainWindow
   Q_OBJECT
 
 public:
-  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, InventoryRegistry &p_inventory_registry, EvidenceRegistry &p_evidence_registry, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library);
+  explicit Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, InventoryRegistry &p_inventory_registry, EvidenceRegistry &p_evidence_registry, ServerSettingsHandle &p_server_settings, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library);
   ~Courtroom();
 
   void update_audio_volume();
@@ -101,6 +102,7 @@ public:
 
   void update_message_capacity();
   void update_mousewheel_direction();
+  void apply_server_settings();
 
   void refresh_area(theory::AreaId n_area);
 
@@ -319,12 +321,14 @@ private:
   PlayerRegistry &player_registry;
   InventoryRegistry &inventory_registry;
   EvidenceRegistry &evidence_registry;
+  ServerSettingsHandle &server_settings;
   const QList<Timer *> &timers;
   theory::PacketTransmitter &transport;
   const AOTrackLibrary &track_library;
 
   QList<ChatLogPiece> ic_chatlog_history;
   QString last_ic_message;
+  QString shown_motd;
 
   // determines how fast messages tick onto screen
   QTimer *chat_tick_timer;
