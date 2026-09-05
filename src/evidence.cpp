@@ -47,6 +47,10 @@ void spritechat::Courtroom::initialize_evidence()
   connect(&area_registry, &AreaRegistry::removed, this, &Courtroom::schedule_evidence_refresh);
   connect(&area_registry, &AreaRegistry::updated, this, &Courtroom::schedule_evidence_refresh);
   connect(&area_registry, &AreaRegistry::cleared, this, &Courtroom::schedule_evidence_refresh);
+
+  connect(&evidence_registry, &EvidenceRegistry::added, this, &Courtroom::schedule_evidence_refresh);
+  connect(&evidence_registry, &EvidenceRegistry::removed, this, &Courtroom::schedule_evidence_refresh);
+  connect(&evidence_registry, &EvidenceRegistry::cleared, this, &Courtroom::schedule_evidence_refresh);
 }
 
 void spritechat::Courtroom::refresh_evidence()
@@ -175,7 +179,8 @@ QList<spritechat::InventoryInfo> spritechat::Courtroom::public_evidence_inventor
     }
     else if (const auto owner = evidence_inventory_owner(inventory.id))
     {
-      if (owner->areaId == my_area)
+      const bool exist = !evidence_registry.evidenceIf([id = inventory.id](const EvidenceInfo &item) { return item.inventoryId == id; }).isEmpty();
+      if (owner->areaId == my_area && exist)
       {
         players.append(inventory);
       }

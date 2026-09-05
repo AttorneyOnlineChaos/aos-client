@@ -368,7 +368,9 @@ spritechat::AOEvidenceButton *spritechat::EvidencePanel::buttonFor(theory::Evide
 
 void spritechat::EvidencePanel::fileEvidence(const EvidenceInfo &item)
 {
-  if (_mode == Mode::Public && !item.evidence.revealed)
+  // TODO MUST be removed when party system is implemented
+  const bool showConcealed = true;
+  if (_mode == Mode::Public && !item.evidence.revealed && !showConcealed)
   {
     unfileEvidence(item.id);
     return;
