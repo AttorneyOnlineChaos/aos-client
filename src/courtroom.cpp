@@ -4439,9 +4439,9 @@ void spritechat::Courtroom::on_ooc_return_pressed()
   packet.name = ui_ooc_chat_name->text();
   packet.message = ooc_message;
 
-  if (server_ooc && !packet.verify())
+  if (server_ooc)
   {
-    transport.shipPacket(packet);
+    transport.shipVerifiedPacket(packet);
   }
 
   ui_ooc_chat_message->clear();

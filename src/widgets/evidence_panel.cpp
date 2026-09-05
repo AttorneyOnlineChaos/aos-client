@@ -28,6 +28,10 @@ spritechat::EvidencePanel::EvidencePanel(Mode mode, AOApplication *app, const Ev
   _inventories->view()->setTextElideMode(Qt::ElideRight);
   _inventories->setToolTip(tr("Choose which inventory to look at."));
   _inventories->setObjectName("ui_evidence_inventory_dropdown");
+  if (!editable())
+  {
+    _inventories->addItem(tr("All"));
+  }
 
   _name = new QLineEdit(this);
   _nameFilter = new AOLineEditFilter();
@@ -143,7 +147,7 @@ void spritechat::EvidencePanel::applyTheme()
   }
 
   updateSizeAndPosition(_inventories, "evidence_inventory_dropdown");
-  setShown(_inventories, editable());
+  setShown(_inventories, true);
 
   updateSizeAndPosition(_name, "evidence_name");
   updateSizeAndPosition(_reveal, "evidence_reveal");
@@ -225,14 +229,12 @@ void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inv
   }
   _choices = inventories;
 
-  if (!editable())
-  {
-    display();
-    return;
-  }
-
   const QSignalBlocker blocker{_inventories};
   _inventories->clear();
+  if (!editable())
+  {
+    _inventories->addItem(tr("All"));
+  }
   for (const InventoryChoice &choice : _choices)
   {
     _inventories->addItem(choice.label, choice.id);
@@ -256,6 +258,14 @@ void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inv
 
 void spritechat::EvidencePanel::showItem(theory::EvidenceId id)
 {
+  const theory::InventoryId inventory = _inventoryOf.value(id, theory::NoInventoryId);
+  if (_inventory != theory::NoInventoryId && _inventory != inventory)
+  {
+    const QSignalBlocker blocker{_inventories};
+    _inventories->setCurrentIndex(0);
+    selectTab(inventoryOf(0));
+  }
+
   _grid->showPageOf(buttonFor(id));
   openOverlay(id);
 }
