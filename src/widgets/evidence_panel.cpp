@@ -368,7 +368,7 @@ spritechat::AOEvidenceButton *spritechat::EvidencePanel::buttonFor(theory::Evide
 
 void spritechat::EvidencePanel::fileEvidence(const EvidenceInfo &item)
 {
-  // TODO MUST be removed when party system is implemented
+  // TODO This is a temporary bandaid that needs to be removed when the party system is implemented. Chop chop!
   const bool showConcealed = true;
   if (_mode == Mode::Public && !item.evidence.revealed && !showConcealed)
   {
