@@ -4439,7 +4439,7 @@ void spritechat::Courtroom::on_ooc_return_pressed()
   packet.name = ui_ooc_chat_name->text();
   packet.message = ooc_message;
 
-  if (server_ooc)
+  if (server_ooc && !packet.verify())
   {
     transport.shipPacket(packet);
   }
