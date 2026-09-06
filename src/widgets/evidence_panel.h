@@ -12,7 +12,7 @@
 #include "server_settings_handle.h"
 #include "widgets/mousewheel_grid_navigator.h"
 #include "widgets/navigable_grid.h"
-#include "widgets/text_length_filter.h"
+#include "widgets/text_overflow_monitor.h"
 
 #include <QComboBox>
 #include <QHash>
@@ -99,6 +99,7 @@ private:
   QComboBox *_inventories;
   QLineEdit *_name;
   AOLineEditFilter *_nameFilter;
+  theory::TextOverflowMonitor *_nameBox;
   AOButton *_reveal;
   theory::NavigableGrid *_grid;
   theory::MousewheelGridNavigator *_gridNavigator;
@@ -115,7 +116,7 @@ private:
   AOButton *_x;
   AOButton *_ok;
   QPlainTextEdit *_description;
-  theory::TextLengthFilter *_descriptionFilter;
+  theory::TextOverflowMonitor *_descriptionBox;
 
   bool editable() const;
   theory::InventoryId inventoryOf(int index) const;

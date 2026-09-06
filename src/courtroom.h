@@ -39,9 +39,10 @@
 #include "timer.h"
 #include "widgets/aooptionsdialog.h"
 #include "widgets/evidence_panel.h"
+#include "widgets/mousewheel_grid_navigator.h"
 #include "widgets/navigable_grid.h"
 #include "widgets/playerlistwidget.h"
-#include "widgets/mousewheel_grid_navigator.h"
+#include "widgets/text_overflow_monitor.h"
 
 #include <QBrush>
 #include <QCheckBox>
@@ -574,11 +575,15 @@ private:
 
   AOLineEdit *ui_ic_chat_message;
   AOLineEditFilter *ui_ic_chat_message_filter;
+  theory::TextOverflowMonitor *ui_ic_chat_message_box;
   QLineEdit *ui_ic_chat_name;
+  theory::TextOverflowMonitor *ui_ic_chat_name_box;
   QLineEdit *ui_custom_blips;
 
   AOLineEdit *ui_ooc_chat_message;
+  theory::TextOverflowMonitor *ui_ooc_chat_message_box;
   QLineEdit *ui_ooc_chat_name;
+  theory::TextOverflowMonitor *ui_ooc_chat_name_box;
 
   // QLineEdit *ui_area_password;
   QLineEdit *ui_music_search;

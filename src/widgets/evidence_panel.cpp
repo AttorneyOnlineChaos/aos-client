@@ -41,6 +41,10 @@ spritechat::EvidencePanel::EvidencePanel(Mode mode, AOApplication *app, const Ev
   _name->setFrame(false);
   _name->setObjectName("ui_evidence_name");
   _name->setReadOnly(true);
+  _nameBox = new theory::TextOverflowMonitor(_name, this);
+  _nameBox->setObjectName("ui_evidence_name_box");
+  _nameBox->counter()->setObjectName("ui_evidence_name_counter");
+  _nameBox->setMaxLength(_serverSettings->maxEvidenceNameLength);
   _reveal = new AOButton(ao_app, this);
   _reveal->setObjectName("ui_evidence_reveal");
 
@@ -88,7 +92,10 @@ spritechat::EvidencePanel::EvidencePanel(Mode mode, AOApplication *app, const Ev
   _description->setFrameStyle(QFrame::NoFrame);
   _description->setToolTip(tr("Click to edit. Press [X] to update your changes."));
   _description->setObjectName("ui_evidence_description");
-  _descriptionFilter = new theory::TextLengthFilter(_description, _serverSettings->maxEvidenceDescriptionLength);
+  _descriptionBox = new theory::TextOverflowMonitor(_description, _overlay);
+  _descriptionBox->setObjectName("ui_evidence_description_box");
+  _descriptionBox->counter()->setObjectName("ui_evidence_description_counter");
+  _descriptionBox->setMaxLength(_serverSettings->maxEvidenceDescriptionLength);
 
   connect(&_registry, &EvidenceRegistry::added, this, &EvidencePanel::syncEvidence);
   connect(&_registry, &EvidenceRegistry::updated, this, &EvidencePanel::syncEvidence);
@@ -149,12 +156,12 @@ void spritechat::EvidencePanel::applyTheme()
   updateSizeAndPosition(_inventories, "evidence_inventory_dropdown");
   setShown(_inventories, true);
 
-  updateSizeAndPosition(_name, "evidence_name");
+  updateSizeAndPosition(_nameBox, "evidence_name");
   updateSizeAndPosition(_reveal, "evidence_reveal");
   int inset = 0;
-  if (!_unthemed.contains(_reveal) && _reveal->geometry().intersects(_name->geometry()))
+  if (!_unthemed.contains(_reveal) && _reveal->geometry().intersects(_nameBox->geometry()))
   {
-    const QRect bar = _name->geometry();
+    const QRect bar = _nameBox->geometry();
     const QRect toggle = _reveal->geometry();
     inset = qMin(toggle.right() - bar.left(), bar.right() - toggle.left()) + 1;
   }
@@ -187,7 +194,7 @@ void spritechat::EvidencePanel::applyTheme()
   _x->setImage("evidence_x");
   updateSizeAndPosition(_ok, "evidence_ok");
   _ok->setImage("evidence_ok");
-  updateSizeAndPosition(_description, "evidence_description");
+  updateSizeAndPosition(_descriptionBox, "evidence_description");
 
   updateSizeAndPosition(_file, "evidence_save");
   _file->setImage("evidence_save");
@@ -812,7 +819,7 @@ void spritechat::EvidencePanel::saveEvidence()
 {
   _ok->hide();
   const auto item = _registry.evidence(_selected);
-  if (!item || !editable())
+  if (!item || !editable() || _nameBox->isOverflowing() || _descriptionBox->isOverflowing())
   {
     return;
   }
@@ -872,11 +879,11 @@ void spritechat::EvidencePanel::refreshSaveButton()
   edited.description = _description->toPlainText();
   edited.image = _imageName->text();
   edited.revealed = _overlayRevealed;
-  setShown(_ok, editable() && edited != item->evidence);
+  setShown(_ok, editable() && edited != item->evidence && !_nameBox->isOverflowing() && !_descriptionBox->isOverflowing());
 }
 
 void spritechat::EvidencePanel::applyServerSettings()
 {
-  _name->setMaxLength(_serverSettings->maxEvidenceNameLength);
-  _descriptionFilter->setMaxLength(_serverSettings->maxEvidenceDescriptionLength);
+  _nameBox->setMaxLength(_serverSettings->maxEvidenceNameLength);
+  _descriptionBox->setMaxLength(_serverSettings->maxEvidenceDescriptionLength);
 }

@@ -204,6 +204,9 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_ic_chat_name->setPlaceholderText(tr("Showname"));
   ui_ic_chat_name->setText(Options::getInstance().shownameOnJoin());
   ui_ic_chat_name->setObjectName("ui_ic_chat_name");
+  ui_ic_chat_name_box = new theory::TextOverflowMonitor(ui_ic_chat_name, this);
+  ui_ic_chat_name_box->setObjectName("ui_ic_chat_name_box");
+  ui_ic_chat_name_box->counter()->setObjectName("ui_ic_chat_name_counter");
 
   ui_ic_chat_message = new AOLineEdit(this);
   ui_ic_chat_message->setFrame(false);
@@ -212,11 +215,17 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_ic_chat_message_filter->preserve_selection = true;
   ui_ic_chat_message->installEventFilter(ui_ic_chat_message_filter);
   ui_ic_chat_message->setObjectName("ui_ic_chat_message");
+  ui_ic_chat_message_box = new theory::TextOverflowMonitor(ui_ic_chat_message, this);
+  ui_ic_chat_message_box->setObjectName("ui_ic_chat_message_box");
+  ui_ic_chat_message_box->counter()->setObjectName("ui_ic_chat_message_counter");
 
   ui_ooc_chat_message = new AOLineEdit(this);
   ui_ooc_chat_message->setFrame(false);
   ui_ooc_chat_message->setObjectName("ui_ooc_chat_message");
   ui_ooc_chat_message->setPlaceholderText(tr("Message out-of-character"));
+  ui_ooc_chat_message_box = new theory::TextOverflowMonitor(ui_ooc_chat_message, this);
+  ui_ooc_chat_message_box->setObjectName("ui_ooc_chat_message_box");
+  ui_ooc_chat_message_box->counter()->setObjectName("ui_ooc_chat_message_counter");
 
   update_message_capacity();
 
@@ -225,6 +234,9 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_ooc_chat_name->setPlaceholderText(tr("Name"));
   ui_ooc_chat_name->setText(Options::getInstance().username());
   ui_ooc_chat_name->setObjectName("ui_ooc_chat_name");
+  ui_ooc_chat_name_box = new theory::TextOverflowMonitor(ui_ooc_chat_name, this);
+  ui_ooc_chat_name_box->setObjectName("ui_ooc_chat_name_box");
+  ui_ooc_chat_name_box->counter()->setObjectName("ui_ooc_chat_name_counter");
 
   // ui_area_password = new QLineEdit(this);
   // ui_area_password->setFrame(false);
@@ -663,10 +675,10 @@ void spritechat::Courtroom::update_message_capacity()
 
 void spritechat::Courtroom::apply_server_settings()
 {
-  ui_ooc_chat_name->setMaxLength(server_settings->maxNameLength);
-  ui_ic_chat_name->setMaxLength(server_settings->maxCharacterNameLength);
-  ui_ooc_chat_message->setMaxLength(server_settings->maxMessageLength);
-  ui_ic_chat_message->setMaxLength(server_settings->maxIcMessageLength);
+  ui_ooc_chat_name_box->setMaxLength(server_settings->maxNameLength);
+  ui_ic_chat_name_box->setMaxLength(server_settings->maxCharacterNameLength);
+  ui_ooc_chat_message_box->setMaxLength(server_settings->maxMessageLength);
+  ui_ic_chat_message_box->setMaxLength(server_settings->maxIcMessageLength);
 
   if (server_settings->messageOfTheDay != shown_motd)
   {
@@ -928,17 +940,17 @@ void spritechat::Courtroom::set_widgets()
     set_size_and_pos(ui_clock[i], "clock_" + QString::number(i));
   }
 
-  set_size_and_pos(ui_ic_chat_message, "ao2_ic_chat_message");
-  set_size_and_pos(ui_ic_chat_name, "ao2_ic_chat_name");
+  set_size_and_pos(ui_ic_chat_message_box, "ao2_ic_chat_message");
+  set_size_and_pos(ui_ic_chat_name_box, "ao2_ic_chat_name");
 
   initialize_chatbox();
 
   ui_vp_sticker->move(ui_viewport->x(), ui_viewport->y());
   ui_vp_sticker->resize(ui_viewport->width(), ui_viewport->height());
 
-  set_size_and_pos(ui_ooc_chat_message, "ooc_chat_message");
+  set_size_and_pos(ui_ooc_chat_message_box, "ooc_chat_message");
 
-  set_size_and_pos(ui_ooc_chat_name, "ooc_chat_name");
+  set_size_and_pos(ui_ooc_chat_name_box, "ooc_chat_name");
 
   // set_size_and_pos(ui_area_password, "area_password");
   set_size_and_pos(ui_music_search, "music_search");
@@ -1959,6 +1971,11 @@ void spritechat::Courtroom::closeEvent(QCloseEvent *event)
 
 void spritechat::Courtroom::on_chat_return_pressed()
 {
+  if (ui_ic_chat_message_box->isOverflowing() || ui_ic_chat_name_box->isOverflowing())
+  {
+    return;
+  }
+
   ui_ic_chat_message->blockSignals(true);
   QTimer::singleShot(Options::getInstance().chatRateLimit(), this, [this] { ui_ic_chat_message->blockSignals(false); });
 
@@ -4420,6 +4437,11 @@ void spritechat::Courtroom::mod_called(const QString &p_ip)
 
 void spritechat::Courtroom::on_ooc_return_pressed()
 {
+  if (ui_ooc_chat_message_box->isOverflowing() || ui_ooc_chat_name_box->isOverflowing())
+  {
+    return;
+  }
+
   QString ooc_message = ui_ooc_chat_message->text();
   ui_ooc_chat_message->record();
 
