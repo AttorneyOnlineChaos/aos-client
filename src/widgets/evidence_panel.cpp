@@ -165,6 +165,7 @@ void spritechat::EvidencePanel::applyTheme()
     const QRect toggle = _reveal->geometry();
     inset = qMin(toggle.right() - bar.left(), bar.right() - toggle.left()) + 1;
   }
+
   _name->setTextMargins(inset, 0, inset, 0);
   updateSizeAndPosition(_grid, "evidence_buttons");
   const QPoint spacing = ao_app->get_button_spacing("evidence_button_spacing", "courtroom_design.ini");
@@ -230,10 +231,12 @@ void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inv
     const InventoryChoice &choice = inventories.at(index);
     unchanged = listed.id == choice.id && listed.label == choice.label;
   }
+
   if (unchanged)
   {
     return;
   }
+
   _choices = inventories;
 
   const QSignalBlocker blocker{_inventories};
@@ -242,6 +245,7 @@ void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inv
   {
     _inventories->addItem(tr("All"));
   }
+
   for (const InventoryChoice &choice : _choices)
   {
     _inventories->addItem(choice.label, choice.id);
@@ -252,6 +256,7 @@ void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inv
   {
     index = _inventories->findData(_inventory);
   }
+
   if (index < 0)
   {
     index = _inventories->count() > 0 ? 0 : -1;
@@ -259,6 +264,7 @@ void spritechat::EvidencePanel::setInventories(const QList<InventoryChoice> &inv
     selectTab(inventoryOf(index));
     return;
   }
+
   _inventories->setCurrentIndex(index);
   display();
 }
@@ -302,6 +308,7 @@ std::optional<theory::EvidenceId> spritechat::EvidencePanel::presentedEvidence()
   {
     return std::nullopt;
   }
+
   return _selected;
 }
 
@@ -323,6 +330,7 @@ theory::InventoryId spritechat::EvidencePanel::inventoryOf(int index) const
   {
     return data.toInt();
   }
+
   return theory::NoInventoryId;
 }
 
@@ -390,6 +398,7 @@ void spritechat::EvidencePanel::fileEvidence(const EvidenceInfo &item)
     _byInventory[item.inventoryId].insert(item.id, button);
     _inventoryOf.insert(item.id, item.inventoryId);
   }
+
   button->setImage(item.evidence.image);
   button->setRevealed(item.evidence.revealed);
 
@@ -414,6 +423,7 @@ void spritechat::EvidencePanel::unfileEvidence(theory::EvidenceId id)
   {
     return;
   }
+
   const theory::InventoryId inventory = filed.value();
   _inventoryOf.erase(filed);
 
@@ -423,6 +433,7 @@ void spritechat::EvidencePanel::unfileEvidence(theory::EvidenceId id)
   {
     _byInventory.remove(inventory);
   }
+
   button->hide();
   button->deleteLater();
 
@@ -445,6 +456,7 @@ void spritechat::EvidencePanel::clearButtons()
       button->deleteLater();
     }
   }
+
   _byInventory.clear();
   _inventoryOf.clear();
 }
@@ -456,6 +468,7 @@ void spritechat::EvidencePanel::rebuildButtons()
   {
     fileEvidence(item);
   }
+
   display();
 }
 
@@ -467,6 +480,7 @@ void spritechat::EvidencePanel::appendButtons(QList<QWidget *> &widgets, const Q
     {
       it.value()->setToolTip(QString::number(widgets.size() + 1) + ": " + item->evidence.name);
     }
+
     widgets.append(it.value());
   }
 }
@@ -491,10 +505,12 @@ void spritechat::EvidencePanel::display()
   {
     widgets.append(_addEvidence);
   }
+
   if (widgets != _grid->widgets())
   {
     _grid->setWidgets(widgets);
   }
+
   setShown(_file, specific);
   updateNavigationArrows();
   refreshSelection();
@@ -641,6 +657,7 @@ void spritechat::EvidencePanel::promptOverlayChange(const EvidenceInfo &latest)
   {
     revealed = tr("yes");
   }
+
   prompt->setDetailedText(tr("Name: %1\n"
                              "Image: %2\n"
                              "Revealed: %3\n"
@@ -653,6 +670,7 @@ void spritechat::EvidencePanel::promptOverlayChange(const EvidenceInfo &latest)
     {
       return;
     }
+
     if (const auto current = _registry.evidence(id))
     {
       fillOverlay(current->evidence);
@@ -733,6 +751,7 @@ void spritechat::EvidencePanel::previewEvidence(theory::EvidenceId id, bool hove
     restoreSelectedName();
     return;
   }
+
   if (const auto item = _registry.evidence(id))
   {
     _name->setText(item->evidence.name);
@@ -778,6 +797,7 @@ void spritechat::EvidencePanel::togglePresenting()
   {
     _present->setImage("present");
   }
+
   Q_EMIT presentingChanged(_presenting);
 }
 
@@ -788,6 +808,7 @@ void spritechat::EvidencePanel::selectInventory(int index)
   {
     return;
   }
+
   selectTab(inventory);
 }
 
@@ -811,6 +832,7 @@ void spritechat::EvidencePanel::toggleReveal()
   {
     return;
   }
+
   setRevealState(!_overlayRevealed);
   refreshSaveButton();
 }
@@ -846,6 +868,7 @@ void spritechat::EvidencePanel::chooseEvidenceImage()
   {
     filenames = dialog.selectedFiles();
   }
+
   if (filenames.size() != 1)
   {
     return;
@@ -863,6 +886,7 @@ void spritechat::EvidencePanel::chooseEvidenceImage()
       break;
     }
   }
+
   _imageName->setText(dir.relativeFilePath(filename));
 }
 

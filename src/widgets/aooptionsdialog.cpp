@@ -137,6 +137,7 @@ void spritechat::AOOptionsDialog::setWidgetData(QComboBox *widget, const QString
       return;
     }
   }
+
   zWarning(log::ui) << "value" << value << "not found for widget" << widget->objectName();
 }
 
@@ -184,6 +185,7 @@ QStringList spritechat::AOOptionsDialog::widgetData(QListWidget *widget) const
   {
     paths.append(widget->item(i)->text());
   }
+
   return paths;
 }
 
@@ -248,6 +250,7 @@ void spritechat::AOOptionsDialog::updateValues()
     {
       document = tr("Couldn't get the privacy policy.");
     }
+
     ui_privacy_policy->setHtml(document);
   });
   ao_app->master_gateway->requestPrivacyPolicy();
@@ -270,6 +273,7 @@ void spritechat::AOOptionsDialog::savePressed()
   {
     Q_EMIT reloadThemeRequest();
   }
+
   close();
 }
 
@@ -327,6 +331,7 @@ void spritechat::AOOptionsDialog::themeChanged(int i)
     zDebug(log::ui) << "Unable to locate ressource file" << l_ressource_name;
     return;
   }
+
   QResource::registerResource(l_resource);
 }
 
@@ -340,6 +345,7 @@ void spritechat::AOOptionsDialog::setupUI()
     zWarning(log::ui) << "Unable to open file " << l_uiFile.fileName();
     return;
   }
+
   ui_settings_widget = l_loader.load(&l_uiFile, this);
 
   auto l_layout = new QVBoxLayout(this);
@@ -373,6 +379,7 @@ void spritechat::AOOptionsDialog::setupUI()
     {
       return;
     }
+
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
 
@@ -411,8 +418,8 @@ void spritechat::AOOptionsDialog::setupUI()
 
   registerOption<QDoubleSpinBox, double>("theme_scaling_factor_sb", &Options::themeScalingFactor, &Options::setThemeScalingFactor);
   registerOption<QCheckBox, bool>("animated_theme_cb", &Options::animatedThemeEnabled, &Options::setAnimatedThemeEnabled);
-  registerOption<QSpinBox, int>("text_crawl_spinbox", &Options::textCrawlSpeed, &Options::setTextCrawlSpeed);
-  registerOption<QSpinBox, int>("chat_ratelimit_spinbox", &Options::chatRateLimit, &Options::setChatRateLimit);
+  registerOption<QSpinBox, int>("text_crawl_spinbox", &Options::textCrawlSpeedMs, &Options::setTextCrawlSpeedMs);
+  registerOption<QSpinBox, int>("chat_ratelimit_spinbox", &Options::chatRateLimitMs, &Options::setChatRateLimitMs);
   registerOption<QSlider, int>("overflow_warning_slider", &Options::overflowWarningThreshold, &Options::setOverflowWarningThreshold);
   registerOption<QSpinBox, int>("message_capacity_spinbox", &Options::messageCapacity, &Options::setMessageCapacity);
   registerOption<QLineEdit, QString>("username_textbox", &Options::username, &Options::setUsername);
@@ -474,6 +481,7 @@ void spritechat::AOOptionsDialog::setupUI()
   registerOption<QCheckBox, bool>("loopsfx_cb", &Options::loopingSfx, &Options::setLoopingSfx);
   registerOption<QCheckBox, bool>("objectmusic_cb", &Options::objectionStopMusic, &Options::setObjectionStopMusic);
   registerOption<QCheckBox, bool>("disablestreams_cb", &Options::streamingEnabled, &Options::setStreamingEnabled);
+  registerOption<QCheckBox, bool>("insecure_tls_cb", &Options::allowInsecureTls, &Options::setAllowInsecureTls);
 
   // Asset tab
   l_ui.find(ui_mount_list, "mount_list");
@@ -489,12 +497,14 @@ void spritechat::AOOptionsDialog::setupUI()
     {
       return;
     }
+
     QDir dir(get_app_path());
     QString relative = dir.relativeFilePath(path);
     if (!relative.contains("../"))
     {
       path = relative;
     }
+
     QListWidgetItem *dir_item = new QListWidgetItem(path);
     ui_mount_list->addItem(dir_item);
     ui_mount_list->setCurrentItem(dir_item);
@@ -510,6 +520,7 @@ void spritechat::AOOptionsDialog::setupUI()
     {
       return;
     }
+
     delete selected[0];
     Q_EMIT ui_mount_list->itemSelectionChanged();
     asset_cache_dirty = true;
@@ -522,6 +533,7 @@ void spritechat::AOOptionsDialog::setupUI()
     {
       return;
     }
+
     auto *item = selected[0];
     int row = ui_mount_list->row(item);
     ui_mount_list->takeItem(row);
@@ -538,6 +550,7 @@ void spritechat::AOOptionsDialog::setupUI()
     {
       return;
     }
+
     auto *item = selected[0];
     int row = ui_mount_list->row(item);
     ui_mount_list->takeItem(row);
@@ -570,6 +583,7 @@ void spritechat::AOOptionsDialog::setupUI()
     {
       ui_mount_up->setEnabled(false);
     }
+
     if (row >= ui_mount_list->count() - 1)
     {
       ui_mount_down->setEnabled(false);

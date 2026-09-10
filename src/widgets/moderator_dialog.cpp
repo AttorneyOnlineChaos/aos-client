@@ -11,8 +11,6 @@
 #include <QUiLoader>
 #include <QVBoxLayout>
 
-#include <chrono>
-
 const QString spritechat::ModeratorDialog::UI_FILE_PATH = "moderator_action_dialog.ui";
 
 spritechat::ModeratorDialog::ModeratorDialog(theory::PlayerId playerId, bool ban, AOApplication *ao_app, theory::PacketTransmitter &transport, QWidget *parent)
@@ -100,10 +98,7 @@ void spritechat::ModeratorDialog::onAcceptedClicked()
     }
     else
     {
-      qint64 duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::days(ui_duration_dd->value())).count();
-      duration = duration + std::chrono::duration_cast<std::chrono::seconds>(std::chrono::hours(ui_duration_hh->value())).count();
-      duration = duration + std::chrono::duration_cast<std::chrono::seconds>(std::chrono::minutes(ui_duration_mm->value())).count();
-      packet.durationSeconds = duration;
+      packet.durationSeconds = qint64{ui_duration_dd->value()} * 86400 + qint64{ui_duration_hh->value()} * 3600 + qint64{ui_duration_mm->value()} * 60;
     }
   }
   else

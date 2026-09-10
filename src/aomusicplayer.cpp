@@ -57,8 +57,8 @@ void spritechat::AOMusicPlayer::play(const AOTrack &track, theory::MusicEffects 
   QWORD loopEnd = 0;
   if (track.sample)
   {
-    const auto introStartPos = bytePosition(handle, track.sample->intro.start);
-    const auto introEndPos = bytePosition(handle, track.sample->intro.end);
+    const auto introStartPos = bytePosition(handle, track.sample->intro.startFrame);
+    const auto introEndPos = bytePosition(handle, track.sample->intro.endFrame);
     if (introStartPos && introEndPos)
     {
       segments = true;
@@ -70,8 +70,8 @@ void spritechat::AOMusicPlayer::play(const AOTrack &track, theory::MusicEffects 
       zWarning(log::audio) << "sample" << track.sample->title << "intro exceeds track length, ignoring intro:" << track.url.toString();
     }
 
-    const auto loopStartPos = bytePosition(handle, track.sample->loop.start);
-    const auto loopEndPos = bytePosition(handle, track.sample->loop.end);
+    const auto loopStartPos = bytePosition(handle, track.sample->loop.startFrame);
+    const auto loopEndPos = bytePosition(handle, track.sample->loop.endFrame);
     if (loopStartPos && loopEndPos)
     {
       segments = true;
@@ -120,6 +120,7 @@ void spritechat::AOMusicPlayer::play(const AOTrack &track, theory::MusicEffects 
     {
       BASS_ChannelSetSync(handle, BASS_SYNC_END | BASS_SYNC_MIXTIME | BASS_SYNC_ONETIME, 0, beginLoop, stream);
     }
+
     BASS_ChannelSetSync(handle, BASS_SYNC_FREE, 0, finishLoop, stream);
   }
 
@@ -135,6 +136,7 @@ void spritechat::AOMusicPlayer::play(const AOTrack &track, theory::MusicEffects 
   {
     BASS_ChannelSetAttribute(handle, BASS_ATTRIB_VOL, calculateVolume());
   }
+
   BASS_ChannelPlay(handle, FALSE);
 }
 
@@ -181,6 +183,7 @@ HSTREAM spritechat::AOMusicPlayer::createStream(const QUrl &url)
   {
     BASS_ChannelSetDevice(handle, BASS_GetDevice());
   }
+
   return handle;
 }
 
@@ -198,6 +201,7 @@ std::optional<QWORD> spritechat::AOMusicPlayer::bytePosition(HSTREAM stream, qin
   {
     frameSize = 4;
   }
+
   frameSize *= info.chans;
 
   const QWORD length = BASS_ChannelGetLength(stream, BASS_POS_BYTE);
@@ -211,6 +215,7 @@ std::optional<QWORD> spritechat::AOMusicPlayer::bytePosition(HSTREAM stream, qin
   {
     return std::nullopt;
   }
+
   return frame * frameSize;
 }
 
@@ -230,5 +235,6 @@ void spritechat::AOMusicPlayer::destroyStream(bool fadeOut)
   {
     BASS_ChannelStop(_handle);
   }
+
   _handle = 0;
 }

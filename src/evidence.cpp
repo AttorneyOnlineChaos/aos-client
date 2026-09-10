@@ -86,6 +86,7 @@ theory::InventoryId spritechat::Courtroom::personal_inventory() const
   {
     return theory::NoInventoryId;
   }
+
   return me->inventoryId;
 }
 
@@ -95,11 +96,13 @@ std::optional<spritechat::PlayerInfo> spritechat::Courtroom::evidence_inventory_
   {
     return std::nullopt;
   }
+
   const QList<PlayerInfo> owners = player_registry.playersIf([inventory_id](const PlayerInfo &player) { return player.inventoryId == inventory_id; });
   if (owners.isEmpty())
   {
     return std::nullopt;
   }
+
   return owners.first();
 }
 
@@ -109,11 +112,13 @@ std::optional<spritechat::AreaInfo> spritechat::Courtroom::evidence_inventory_ar
   {
     return std::nullopt;
   }
+
   const QList<AreaInfo> areas = area_registry.areasIf([inventory_id](const AreaInfo &area) { return area.inventoryId == inventory_id; });
   if (areas.isEmpty())
   {
     return std::nullopt;
   }
+
   return areas.first();
 }
 
@@ -131,10 +136,12 @@ QString spritechat::Courtroom::evidence_player_label(const PlayerInfo &owner) co
   {
     return owner.name;
   }
+
   if (owner.character != theory::NoCharacterId)
   {
     return owner.character.toString();
   }
+
   return tr("Player %1").arg(owner.id);
 }
 
@@ -151,6 +158,7 @@ QString spritechat::Courtroom::evidence_inventory_label(const InventoryInfo &inv
     {
       return tr("Personal");
     }
+
     return evidence_player_label(owner.value());
   }
 
@@ -186,6 +194,7 @@ QList<spritechat::InventoryInfo> spritechat::Courtroom::public_evidence_inventor
       }
     }
   }
+
   return areas + players;
 }
 
@@ -241,6 +250,7 @@ void spritechat::Courtroom::show_evidence(theory::EvidenceId id)
   {
     switch_evidence_view();
   }
+
   ui_evidence_current->show();
   ui_evidence_public->showItem(id);
 }
@@ -257,6 +267,7 @@ void spritechat::Courtroom::refresh_evidence_inventory()
   {
     choices.append(EvidencePanel::InventoryChoice{.id = inventory.id, .label = evidence_inventory_label(inventory)});
   }
+
   ui_evidence_private->setInventories(choices);
 
   QList<EvidencePanel::InventoryChoice> shared_choices;
@@ -264,6 +275,7 @@ void spritechat::Courtroom::refresh_evidence_inventory()
   {
     shared_choices.append(EvidencePanel::InventoryChoice{.id = inventory.id, .label = public_evidence_inventory_label(inventory)});
   }
+
   ui_evidence_public->setInventories(shared_choices);
 }
 

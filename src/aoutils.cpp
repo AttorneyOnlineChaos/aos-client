@@ -55,6 +55,7 @@ void spritechat::migrateEffects(QSettings &p_effects_ini)
     {
       continue;
     }
+
     l_key_list.append(i.key());
   }
 
@@ -86,6 +87,7 @@ void spritechat::migrateEffects(QSettings &p_effects_ini)
 
     p_effects_ini.endGroup();
   }
+
   p_effects_ini.sync();
 }
 

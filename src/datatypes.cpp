@@ -9,5 +9,6 @@ QString spritechat::AreaInfo::displayName() const
   {
     return QObject::tr("Area #%1").arg(id);
   }
+
   return name;
 }

@@ -18,11 +18,12 @@
 
 #include <utility>
 
-spritechat::Lobby::Lobby(AOApplication *p_ao_app, NetworkManager &network, MasterGateway &master)
+spritechat::Lobby::Lobby(AOApplication *p_ao_app, NetworkManager &network, MasterGateway &master, const theory::BadgeClientFactory &p_badge_factory)
     : QMainWindow{}
     , ao_app{p_ao_app}
     , net_manager{network}
     , master_gateway{master}
+    , badge_factory{p_badge_factory}
 {
   server_info_gateway = new ServerInfoGateway(this);
   connect(server_info_gateway, &ServerInfoGateway::infoSettled, this, &Lobby::on_server_info_settled);
@@ -83,16 +84,19 @@ int spritechat::Lobby::get_selected_server() const
     {
       return item->text(0).toInt();
     }
+
     break;
   case FAVORITES:
     if (auto item = ui_favorites_tree->currentItem())
     {
       return item->text(0).toInt();
     }
+
     break;
   default:
     break;
   }
+
   return -1;
 }
 
@@ -348,6 +352,7 @@ void spritechat::Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int colu
   {
     return;
   }
+
   last_index = n_server;
 
   if (n_server < 0)
@@ -371,6 +376,7 @@ void spritechat::Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int colu
 
   set_server_status(ServerStatus::Checking);
 
+  server_info_gateway->setAllowInsecureTls(Options::getInstance().allowInsecureTls());
   server_info_gateway->requestInfo(f_server);
 }
 
@@ -383,6 +389,7 @@ void spritechat::Lobby::on_list_doubleclicked(QTreeWidgetItem *p_item, int colum
   {
     return;
   }
+
   on_connect_released();
 }
 
@@ -396,6 +403,7 @@ void spritechat::Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int co
   {
     return;
   }
+
   last_index = n_server;
 
   if (n_server < 0)
@@ -422,6 +430,7 @@ void spritechat::Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int co
 
   set_server_status(ServerStatus::Checking);
 
+  server_info_gateway->setAllowInsecureTls(Options::getInstance().allowInsecureTls());
   server_info_gateway->requestInfo(f_server);
 }
 
@@ -445,6 +454,7 @@ void spritechat::Lobby::on_server_search_edited(const QString &p_text)
       {
         item->parent()->setHidden(false);
       }
+
       item->setHidden(false);
     }
   }
@@ -486,7 +496,27 @@ void spritechat::Lobby::on_server_info_settled()
     {
       set_server_description(info.description);
     }
-    set_server_status(ServerStatus::Online);
+
+    const QStringList installed = badge_factory.available();
+    bool badge_installed = false;
+    for (const QString &badge_id : info.badgeIds)
+    {
+      if (installed.contains(badge_id))
+      {
+        badge_installed = true;
+        break;
+      }
+    }
+
+    if (badge_installed)
+    {
+      set_server_status(ServerStatus::Online);
+    }
+    else
+    {
+      m_missing_badge_ids = info.badgeIds;
+      set_server_status(ServerStatus::MissingBadge);
+    }
   }
 
   update_connect_button();
@@ -523,24 +553,11 @@ void spritechat::Lobby::list_servers()
   {
     QTreeWidgetItem *treeItem = new QTreeWidgetItem(ui_serverlist_tree);
     treeItem->setData(0, Qt::DisplayRole, i);
-
-    if (i_server.protocol == "tcp")
-    {
-      treeItem->setText(1, "(Legacy) " + i_server.name);
-      treeItem->setBackground(0, Qt::darkRed);
-      treeItem->setBackground(1, Qt::darkRed);
-
-      QString tooltip = tr("Unable to connect to server. Server is missing WebSocket support.");
-      treeItem->setToolTip(0, tooltip);
-      treeItem->setToolTip(1, tooltip);
-    }
-    else
-    {
-      treeItem->setText(1, i_server.name);
-    }
+    treeItem->setText(1, i_server.name);
 
     i++;
   }
+
   ui_serverlist_tree->setSortingEnabled(true);
   ui_serverlist_tree->sortItems(0, Qt::SortOrder::AscendingOrder);
   ui_serverlist_tree->resizeColumnToContents(0);
@@ -556,24 +573,11 @@ void spritechat::Lobby::list_favorites()
   {
     QTreeWidgetItem *treeItem = new QTreeWidgetItem(ui_favorites_tree);
     treeItem->setData(0, Qt::DisplayRole, i);
-
-    if (i_server.protocol == "tcp")
-    {
-      treeItem->setText(1, "(Legacy) " + i_server.name);
-      treeItem->setBackground(0, Qt::darkRed);
-      treeItem->setBackground(1, Qt::darkRed);
-
-      QString tooltip = tr("Unable to connect to server. Server is missing WebSocket support.");
-      treeItem->setToolTip(0, tooltip);
-      treeItem->setToolTip(1, tooltip);
-    }
-    else
-    {
-      treeItem->setText(1, i_server.name);
-    }
+    treeItem->setText(1, i_server.name);
 
     i++;
   }
+
   ui_favorites_tree->setSortingEnabled(true);
   ui_favorites_tree->sortItems(0, Qt::SortOrder::AscendingOrder);
   ui_favorites_tree->resizeColumnToContents(0);
@@ -640,6 +644,17 @@ void spritechat::Lobby::set_server_status(ServerStatus status)
     break;
   case ServerStatus::Incompatible:
     ui_server_player_count_lbl->setText(tr("Incompatible server"));
+    break;
+  case ServerStatus::MissingBadge:
+    if (m_missing_badge_ids.isEmpty())
+    {
+      ui_server_player_count_lbl->setText(tr("Server offers no badges"));
+    }
+    else
+    {
+      ui_server_player_count_lbl->setText(tr("Missing badge: %1").arg(m_missing_badge_ids.join(", ")));
+    }
+
     break;
   case ServerStatus::Online:
     ui_server_player_count_lbl->setText(tr("Online: %1/%2").arg(m_player_count).arg(m_max_players));

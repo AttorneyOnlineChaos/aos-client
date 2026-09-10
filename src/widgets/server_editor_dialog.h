@@ -2,6 +2,7 @@
 
 #include "network/server_bookmark.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -32,6 +33,7 @@ private:
   QLineEdit *ui_hostname;
   QSpinBox *ui_port;
   QPlainTextEdit *ui_description;
+  QCheckBox *ui_secure;
   QDialogButtonBox *ui_button_box;
 
   QLineEdit *ui_legacy_edit;

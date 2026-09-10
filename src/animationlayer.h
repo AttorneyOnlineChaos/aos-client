@@ -69,8 +69,7 @@ public:
   void setResetCacheWhenStopped(bool enabled);
   void setFlipped(bool enabled);
   void setResizeMode(RESIZE_MODE mode);
-  void setMinimumDurationPerFrame(int duration);
-  void setMaximumDurationPerFrame(int duration);
+  void setMaximumDurationPerFrame(int durationMs);
 
 public Q_SLOTS:
   void setMaskingRect(QRect rect);
@@ -90,8 +89,7 @@ private:
   bool m_stretch_to_fit = false;
   bool m_reset_cache_when_stopped = false;
   bool m_flipped = false;
-  int m_minimum_duration = 0;
-  int m_maximum_duration = 0;
+  int m_maximum_duration_ms = 0;
   RESIZE_MODE m_resize_mode = AUTO_RESIZE_MODE;
   Qt::TransformationMode m_transformation_mode = Qt::FastTransformation;
   AnimationLoader *m_loader = nullptr;

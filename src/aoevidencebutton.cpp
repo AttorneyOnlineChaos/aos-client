@@ -17,12 +17,14 @@ spritechat::AOEvidenceButton::AOEvidenceButton(theory::EvidenceId id, int width,
   {
     hidden_size = QPoint{width / 3, height / 3};
   }
+
   ui_hidden->resize(hidden_size.x(), hidden_size.y());
   ui_hidden->move(width - hidden_size.x(), height - hidden_size.y());
   if (!ui_hidden->setImage("evidence_hidden"))
   {
     ui_hidden->setStyleSheet("background-color: rgba(0, 0, 0, 96);");
   }
+
   ui_hidden->setAttribute(Qt::WA_TransparentForMouseEvents);
   ui_hidden->hide();
 
@@ -70,7 +72,7 @@ void spritechat::AOEvidenceButton::setImage(const QString &fileName)
 void spritechat::AOEvidenceButton::setThemeImage(const QString &fileName)
 {
   QString theme_image_path = ao_app->get_real_path(ao_app->get_theme_path(fileName));
-  QString default_image_path = ao_app->get_real_path(ao_app->get_theme_path(fileName, ao_app->default_theme));
+  QString default_image_path = ao_app->get_real_path(ao_app->get_theme_path(fileName, ao_app->DEFAULT_THEME));
 
   QString final_image_path;
 

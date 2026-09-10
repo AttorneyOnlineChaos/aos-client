@@ -45,6 +45,7 @@ std::optional<theory::TrackSheet> spritechat::AOTrackLibrary::sheet(const QStrin
   {
     return std::nullopt;
   }
+
   return it.value();
 }
 
@@ -63,6 +64,7 @@ spritechat::AOTrack spritechat::AOTrackLibrary::track(const QString &fileName, i
   {
     return track;
   }
+
   track.url = QUrl::fromLocalFile(realPath);
 
   auto it = _tracks.constFind(fileName.toLower());
@@ -70,9 +72,11 @@ spritechat::AOTrack spritechat::AOTrackLibrary::track(const QString &fileName, i
   {
     it = _tracks.constFind(QStringLiteral("%1.%2").arg(fileName, QFileInfo(realPath).suffix()).toLower());
   }
+
   if (it != _tracks.constEnd())
   {
     track.sample = it->sample(sampleIndex);
   }
+
   return track;
 }

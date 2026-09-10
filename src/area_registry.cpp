@@ -10,6 +10,7 @@ void spritechat::AreaRegistry::add(theory::AreaId id)
   {
     return;
   }
+
   _map.insert(id, AreaInfo{.id = id});
   Q_EMIT added(id);
 }
@@ -28,6 +29,7 @@ void spritechat::AreaRegistry::update(theory::AreaId id, const AreaInfo &area)
   {
     return;
   }
+
   _map.insert(id, area);
   Q_EMIT updated(id);
 }
@@ -38,6 +40,7 @@ void spritechat::AreaRegistry::clear()
   {
     return;
   }
+
   _map.clear();
   Q_EMIT cleared();
 }
@@ -49,6 +52,7 @@ std::optional<spritechat::AreaInfo> spritechat::AreaRegistry::area(theory::AreaI
   {
     return std::nullopt;
   }
+
   return *it;
 }
 
@@ -67,5 +71,6 @@ QList<spritechat::AreaInfo> spritechat::AreaRegistry::areasIf(const Condition &c
       result.append(area);
     }
   }
+
   return result;
 }

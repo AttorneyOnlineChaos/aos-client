@@ -302,7 +302,7 @@ private:
   bool message_is_centered = false;
 
   int current_display_speed = 3;
-  int text_crawl = 40;
+  int text_crawl_ms = 40;
   double message_display_mult[7] = {0, 0.25, 0.65, 1, 1.25, 1.75, 2.25};
 
   // The player this user wants to appear alongside with.
@@ -380,28 +380,20 @@ private:
   // delay before sfx plays
   QTimer *sfx_delay_timer;
 
-  // the amount of time non-animated objection/hold it/takethat images stay
-  // onscreen for in ms, and the maximum amount of time any interjections are
-  // allowed to play
-  const int shout_static_time = 724;
-  const int shout_max_time = 1500;
+  // the amount of time shouts are allowed to play in milliseconds
+  static constexpr int SHOUT_MAX_TIME_MS = 1500;
 
-  // the amount of time non-animated guilty/not guilty images stay onscreen for
-  // in ms, and the maximum amount of time g/ng images are allowed to play
-  const int verdict_static_time = 3000;
-  const int verdict_max_time = 4000;
+  // the amount of time splashes are allowed to play in milliseconds
+  static constexpr int VERDICT_MAX_TIME_MS = 4000;
 
-  // the amount of time non-animated witness testimony/cross-examination images
-  // stay onscreen for in ms, and the maximum time any wt/ce image is allowed to
-  // play
-  const int wtce_static_time = 1500;
-  const int wtce_max_time = 4000;
+  // the amount of time splash hints are allowed to play in milliseconds
+  static constexpr int WTCE_MAX_TIME_MS = 4000;
 
   // characters we consider punctuation
-  const QString punctuation_chars = ".,?!:;";
+  static inline const QString PUNCTUATION_CHARS = QStringLiteral(".,?!:;");
 
   // amount by which we multiply the delay when we parse punctuation chars
-  const int punctuation_modifier = 3;
+  static constexpr int PUNCTUATION_MODIFIER = 3;
 
   theory::IcMessagePacket m_chatmessage;
   theory::IcMessagePacket m_previous_chatmessage;
@@ -542,8 +534,8 @@ private:
 
   StickerAnimationLayer *ui_vp_sticker;
 
-  static const int max_clocks = theory::TimerCount;
-  AOClockLabel *ui_clock[max_clocks];
+  static constexpr int MAX_CLOCKS = theory::TimerCount;
+  AOClockLabel *ui_clock[MAX_CLOCKS];
 
   AOButton *ui_pair_button;
   QListWidget *ui_pair_list;

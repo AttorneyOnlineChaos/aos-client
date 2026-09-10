@@ -90,6 +90,9 @@ public:
   bool slidesEnabled() const;
   void setSlidesEnabled(bool value);
 
+  bool allowInsecureTls() const;
+  void setAllowInsecureTls(bool value);
+
   bool mousewheelGridNavigationReversed() const;
   void setMousewheelGridNavigationReversed(bool value);
 
@@ -140,13 +143,13 @@ public:
   void setMaxLogSize(int value);
 
   // Returns the letter display speed during text crawl in in-character messages
-  int textCrawlSpeed() const;
-  void setTextCrawlSpeed(int value);
+  int textCrawlSpeedMs() const;
+  void setTextCrawlSpeedMs(int value);
 
   // Returns Minimum amount of time (in miliseconds) that must pass before the
   // next Enter key press will send your IC message. (new behaviour)
-  int chatRateLimit() const;
-  void setChatRateLimit(int value);
+  int chatRateLimitMs() const;
+  void setChatRateLimitMs(int value);
 
   int messageCapacity() const;
   void setMessageCapacity(int value);

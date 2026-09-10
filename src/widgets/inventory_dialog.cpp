@@ -21,6 +21,7 @@ spritechat::InventoryDialog::InventoryDialog(const QString &directory, QWidget *
     zCritical(log::ui) << "Unable to open file " << file.fileName();
     return;
   }
+
   _widget = loader.load(&file, this);
 
   auto layout = new QVBoxLayout(this);
@@ -50,6 +51,7 @@ theory::InventoryTransferPacket::Mode spritechat::InventoryDialog::transferMode(
   {
     return theory::InventoryTransferPacket::Append;
   }
+
   return theory::InventoryTransferPacket::Replace;
 }
 
@@ -81,6 +83,7 @@ void spritechat::InventoryDialog::loadInventory()
     Q_EMIT errorOccurred(tr("Failed to load inventory: %1").arg(error->toString()));
     return;
   }
+
   Q_EMIT transferRequested(transferMode(), list);
   accept();
 }

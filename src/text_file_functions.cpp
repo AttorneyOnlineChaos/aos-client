@@ -94,6 +94,7 @@ bool spritechat::AssetLookup::write_to_file(const QString &p_text, const QString
     f_log.close();
     return true;
   }
+
   return false;
 }
 
@@ -103,6 +104,7 @@ bool spritechat::AssetLookup::append_to_file(const QString &p_text, const QStrin
   {
     return write_to_file(p_text, p_file, make_dir);
   }
+
   QString path = QFileInfo(p_file).path();
   // Create the dir if it doesn't exist yet
   if (make_dir)
@@ -128,6 +130,7 @@ bool spritechat::AssetLookup::append_to_file(const QString &p_text, const QStrin
     f_log.close();
     return true;
   }
+
   return false;
 }
 
@@ -148,6 +151,7 @@ QString spritechat::AssetLookup::read_design_ini(const QString &p_identifier, co
   {
     return value.toString();
   }
+
   return "";
 }
 
@@ -171,7 +175,7 @@ spritechat::RESIZE_MODE spritechat::AssetLookup::get_scaling(const QString &p_sc
 
 QPoint spritechat::AssetLookup::get_button_spacing(const QString &p_identifier, const QString &p_file)
 {
-  QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme);
+  QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME);
   QPoint return_value;
 
   return_value.setX(0);
@@ -188,6 +192,7 @@ QPoint spritechat::AssetLookup::get_button_spacing(const QString &p_identifier, 
   {
     return return_value;
   }
+
   return_value.setX(sub_line_elements.at(0).toInt() * Options::getInstance().themeScalingFactor());
   return_value.setY(sub_line_elements.at(1).toInt() * Options::getInstance().themeScalingFactor());
 
@@ -221,17 +226,18 @@ spritechat::pos_size_type spritechat::AssetLookup::get_element_dimensions(const 
 }
 QString spritechat::AssetLookup::get_design_element(const QString &p_identifier, const QString &p_file, const QString &p_misc)
 {
-  QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_misc);
+  QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, p_misc);
   if (!value.isEmpty())
   {
     return value;
   }
+
   return "";
 }
 
 QColor spritechat::AssetLookup::get_color(const QString &p_identifier, const QString &p_file)
 {
-  QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme);
+  QString value = get_config_value(p_identifier, p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME);
   QColor return_color(0, 0, 0);
 
   if (value.isEmpty())
@@ -255,7 +261,7 @@ QColor spritechat::AssetLookup::get_color(const QString &p_identifier, const QSt
 
 QString spritechat::AssetLookup::get_stylesheet(const QString &p_file)
 {
-  QString path = get_asset(p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme);
+  QString path = get_asset(p_file, Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME);
   QFile design_ini;
   design_ini.setFileName(path);
   if (!design_ini.open(QIODevice::ReadOnly))
@@ -279,7 +285,7 @@ QString spritechat::AssetLookup::get_stylesheet(const QString &p_file)
 QString spritechat::AssetLookup::get_chat_markup(const QString &p_identifier, const QString &p_chat)
 {
   // New Chadly method
-  QString value = get_config_value(p_identifier, "chat_config.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_chat);
+  QString value = get_config_value(p_identifier, "chat_config.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, p_chat);
   if (!value.isEmpty())
   {
     return value.toUtf8();
@@ -326,7 +332,7 @@ QColor spritechat::AssetLookup::get_chat_color(const QString &p_identifier, cons
 QList<theory::ChatMarkup> spritechat::AssetLookup::get_chat_colors(const QString &p_chat)
 {
   static const QList<theory::ChatMarkup> defaults = theory::defaultChatMarkups();
-  const QString path = get_asset("chat_config.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_chat);
+  const QString path = get_asset("chat_config.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, p_chat);
   if (path.isEmpty())
   {
     zInfo(log::asset) << "chat_config.ini not found, using built-in chat markups";
@@ -350,16 +356,17 @@ QList<theory::ChatMarkup> spritechat::AssetLookup::get_chat_colors(const QString
 
 QString spritechat::AssetLookup::get_penalty_value(const QString &p_identifier)
 {
-  return get_config_value(p_identifier, "penalty/penalty.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, "");
+  return get_config_value(p_identifier, "penalty/penalty.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, "");
 }
 
 QString spritechat::AssetLookup::get_court_sfx(const QString &p_identifier, const QString &p_misc)
 {
-  QString value = get_config_value(p_identifier, "courtroom_sounds.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_misc);
+  QString value = get_config_value(p_identifier, "courtroom_sounds.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, p_misc);
   if (!value.isEmpty())
   {
     return value.toUtf8();
   }
+
   return "";
 }
 
@@ -378,6 +385,7 @@ QString spritechat::AssetLookup::get_sfx_suffix(const VPath &sound_to_check)
       return get_real_path(sound_to_check);
     }
   }
+
   // Otherwise, ignore the provided suffix and check our own
   return get_real_path(sound_to_check, suffixes);
 }
@@ -389,6 +397,7 @@ QString spritechat::AssetLookup::get_image_suffix(const VPath &path_to_check, bo
   {
     suffixes.append({".webp", ".apng", ".gif"});
   }
+
   suffixes.append(".png");
 
   // Check if we were provided a direct filepath with a suffix already
@@ -403,6 +412,7 @@ QString spritechat::AssetLookup::get_image_suffix(const VPath &path_to_check, bo
       return get_real_path(path_to_check);
     }
   }
+
   // Otherwise, ignore the provided suffix and check our own
   return get_real_path(path_to_check, suffixes);
 }
@@ -428,16 +438,19 @@ QStringList spritechat::AssetLookup::read_ini_tags(const VPath &p_path, const QS
   {
     settings.beginGroup(target_tag);
   }
+
   QStringList keys = settings.allKeys();
   for (const QString &key : std::as_const(keys))
   {
     QString value = settings.value(key).value<QString>();
     r_values << key + "=" + value;
   }
+
   if (!settings.group().isEmpty())
   {
     settings.endGroup();
   }
+
   return r_values;
 }
 
@@ -464,10 +477,12 @@ QString spritechat::AssetLookup::get_showname(const QString &p_char, int p_emote
   {
     return "";
   }
+
   if (f_result == "")
   {
     return p_char;
   }
+
   return f_result;
 }
 
@@ -479,6 +494,7 @@ QString spritechat::AssetLookup::get_char_side(const QString &p_char)
   {
     return "wit";
   }
+
   return f_result;
 }
 
@@ -508,6 +524,7 @@ QString spritechat::AssetLookup::get_blipname(const QString &p_char, int p_emote
       f_result = "male";
     }
   }
+
   return f_result;
 }
 QString spritechat::AssetLookup::get_blips(const QString &p_blipname)
@@ -521,6 +538,7 @@ QString spritechat::AssetLookup::get_blips(const QString &p_blipname)
 
     return "sfx-blip" + p_blipname; // Return legacy variant
   }
+
   return p_blipname;
 }
 
@@ -532,6 +550,7 @@ QString spritechat::AssetLookup::get_emote_property(const QString &p_char, const
     f_result = read_char_ini(p_char, p_property,
                              "Options"); // global for this character
   }
+
   return f_result;
 }
 
@@ -563,6 +582,7 @@ QString spritechat::AssetLookup::get_chat(const QString &p_char)
   {
     return "default";
   }
+
   QString f_result = read_char_ini(p_char, "chat", "Options");
   return f_result;
 }
@@ -582,6 +602,7 @@ int spritechat::AssetLookup::get_chat_size(const QString &p_char)
   {
     return -1;
   }
+
   return f_result.toInt();
 }
 
@@ -593,6 +614,7 @@ int spritechat::AssetLookup::get_emote_number(const QString &p_char)
   {
     return 0;
   }
+
   return f_result.toInt();
 }
 
@@ -607,6 +629,7 @@ QString spritechat::AssetLookup::get_emote_comment(const QString &p_char, int p_
     zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << p_emote;
     return "normal";
   }
+
   return result_contents.at(0);
 }
 
@@ -621,6 +644,7 @@ QString spritechat::AssetLookup::get_pre_emote(const QString &p_char, int p_emot
     zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << p_emote;
     return "";
   }
+
   return result_contents.at(1);
 }
 
@@ -635,6 +659,7 @@ QString spritechat::AssetLookup::get_emote(const QString &p_char, int p_emote)
     zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << p_emote;
     return "normal";
   }
+
   return result_contents.at(2);
 }
 
@@ -649,6 +674,7 @@ int spritechat::AssetLookup::get_emote_mod(const QString &p_char, int p_emote)
     zWarning(log::character) << "misformatted char.ini: " << p_char << ", " << QString::number(p_emote);
     return 0;
   }
+
   return result_contents.at(3).toInt();
 }
 
@@ -680,6 +706,7 @@ QString spritechat::AssetLookup::get_sfx_name(const QString &p_char, int p_emote
   {
     return "1";
   }
+
   return f_result;
 }
 
@@ -691,6 +718,7 @@ int spritechat::AssetLookup::get_sfx_delay(const QString &p_char, int p_emote)
   {
     return 0;
   }
+
   return f_result.toInt() * 40;
 }
 
@@ -737,10 +765,13 @@ QList<theory::EmoteCue> spritechat::AssetLookup::get_emote_cues(const QString &p
         {
           continue;
         }
+
         cue.data = theory::encodeJson(sound);
       }
+
       cues.append(cue);
     }
+
     settings.endGroup();
   };
 
@@ -754,8 +785,8 @@ QList<theory::EmoteCue> spritechat::AssetLookup::get_emote_cues(const QString &p
 QStringList spritechat::AssetLookup::get_effects(const QString &p_char)
 {
   const QStringList l_filepath_list{
-      get_asset("effects/effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, ""),
-      get_asset("effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, read_char_ini(p_char, "effects", "Options")),
+      get_asset("effects/effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, ""),
+      get_asset("effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, read_char_ini(p_char, "effects", "Options")),
   };
 
   QStringList l_effect_name_list;
@@ -811,6 +842,7 @@ QStringList spritechat::AssetLookup::get_effects(const QString &p_char)
       l_effect_name_list.append(l_effect_name);
     }
   }
+
   return l_effect_name_list;
 }
 
@@ -821,7 +853,7 @@ QString spritechat::AssetLookup::get_effect(const QString &effect, const QString
     p_folder = read_char_ini(p_char, "effects", "Options");
   }
 
-  QStringList paths{get_image("effects/" + effect, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, ""), get_image(effect, Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_folder)};
+  QStringList paths{get_image("effects/" + effect, Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, ""), get_image(effect, Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, p_folder)};
 
   for (const auto &p : paths)
   {
@@ -830,6 +862,7 @@ QString spritechat::AssetLookup::get_effect(const QString &effect, const QString
       return p;
     }
   }
+
   return {};
 }
 
@@ -840,8 +873,8 @@ QString spritechat::AssetLookup::get_effect_property(const QString &fx_name, con
     p_folder = read_char_ini(p_char, "effects", "Options");
   }
 
-  const auto paths = get_asset_paths("effects/effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, "");
-  const auto misc_paths = get_asset_paths("effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), default_theme, p_folder);
+  const auto paths = get_asset_paths("effects/effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, "");
+  const auto misc_paths = get_asset_paths("effects.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), DEFAULT_THEME, p_folder);
   QString path;
   QString f_result;
   for (const VPath &p : paths + misc_paths)
@@ -866,10 +899,12 @@ QString spritechat::AssetLookup::get_effect_property(const QString &fx_name, con
       }
     }
   }
+
   if (fx_name == "realization" && p_property == "sound")
   {
     f_result = get_custom_realization(p_char);
   }
+
   return f_result;
 }
 
@@ -880,6 +915,7 @@ QString spritechat::AssetLookup::get_custom_realization(const QString &p_char)
   {
     return get_court_sfx("realization");
   }
+
   return get_sfx_suffix(get_sounds_path(f_result));
 }
 
@@ -890,6 +926,7 @@ bool spritechat::AssetLookup::get_pos_is_judge(const QString &p_pos)
   {
     return p_pos == "jud"; // Hardcoded BS only if we have no judges= defined
   }
+
   return positions.contains(p_pos.trimmed());
 }
 

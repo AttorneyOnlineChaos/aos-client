@@ -76,6 +76,7 @@ void spritechat::Courtroom::refresh_emotes()
     connect(f_emote, &AOEmoteButton::emoteClicked, this, &Courtroom::select_emote);
     connect(f_emote, &AOEmoteButton::customContextMenuRequested, this, &Courtroom::show_emote_menu);
   }
+
   ui_emotes->setWidgets(buttons);
 }
 
@@ -91,6 +92,7 @@ void spritechat::Courtroom::set_emote_dropdown()
     QString icon_path = ao_app->get_image_suffix(ao_app->get_character_path(m_character.toString(), "emotions/button" + QString::number(n + 1) + "_off"));
     ui_emote_dropdown->setItemIcon(n, QIcon(icon_path));
   }
+
   if (current_emote > -1 && current_emote < ui_emote_dropdown->count())
   {
     ui_emote_dropdown->setCurrentIndex(current_emote);
@@ -159,6 +161,7 @@ void spritechat::Courtroom::show_emote_menu(const QPoint &pos)
     AOEmoteButton *emote_button = qobject_cast<AOEmoteButton *>(sender());
     id = emote_button->id();
   }
+
   emote_menu->clear();
   emote_menu->setDefaultAction(emote_menu->addAction("Preview Selected", this, [this] {
     emote_preview->show();
@@ -184,6 +187,7 @@ void spritechat::Courtroom::show_emote_menu(const QPoint &pos)
       emote_menu->addAction("Preview postanimation: " + f_emote, this, [this, f_emote] { preview_emote(f_emote, CharacterAnimationLayer::PostEmote); });
     }
   }
+
   emote_menu->popup(button->mapToGlobal(pos));
 }
 

@@ -120,7 +120,7 @@ public:
 private:
   QString _currentBackground;
 
-  const QString default_theme = "default";
+  static inline const QString DEFAULT_THEME = QStringLiteral("default");
 
   QHash<size_t, QString> asset_lookup_cache;
   QHash<size_t, QString> dir_listing_cache;

@@ -23,7 +23,7 @@ void spritechat::AOButton::setImage(const QString &image_name)
 {
   deleteMovie();
 
-  QString file_path = ao_app->get_image(image_name, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, QString(), QString(), QString(), !Options::getInstance().animatedThemeEnabled());
+  QString file_path = ao_app->get_image(image_name, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->DEFAULT_THEME, QString(), QString(), QString(), !Options::getInstance().animatedThemeEnabled());
   if (file_path.isEmpty())
   {
     setStyleSheet(QString());

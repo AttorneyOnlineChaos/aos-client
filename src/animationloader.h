@@ -16,7 +16,7 @@ class AnimationFrame
 {
 public:
   QPixmap texture;
-  int duration = 0;
+  int durationMs = 0;
 };
 
 class AnimationLoader

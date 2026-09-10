@@ -10,6 +10,7 @@ void spritechat::PlayerRegistry::add(theory::PlayerId id)
   {
     return;
   }
+
   _map.insert(id, PlayerInfo{.id = id});
   Q_EMIT added(id);
 }
@@ -21,6 +22,7 @@ void spritechat::PlayerRegistry::remove(theory::PlayerId id)
   {
     return;
   }
+
   _map.erase(it);
   Q_EMIT removed(id);
 }
@@ -32,6 +34,7 @@ void spritechat::PlayerRegistry::update(theory::PlayerId id, const PlayerInfo &p
   {
     return;
   }
+
   *it = player;
   Q_EMIT updated(id);
 }
@@ -42,6 +45,7 @@ void spritechat::PlayerRegistry::clear()
   {
     return;
   }
+
   _map.clear();
   Q_EMIT cleared();
 }
@@ -53,6 +57,7 @@ std::optional<spritechat::PlayerInfo> spritechat::PlayerRegistry::player(theory:
   {
     return std::nullopt;
   }
+
   return *it;
 }
 
@@ -71,5 +76,6 @@ QList<spritechat::PlayerInfo> spritechat::PlayerRegistry::playersIf(const Condit
       result.append(player);
     }
   }
+
   return result;
 }

@@ -10,6 +10,7 @@ void spritechat::InventoryRegistry::add(theory::InventoryId id)
   {
     return;
   }
+
   _map.insert(id, InventoryInfo{.id = id});
   Q_EMIT added(id);
 }
@@ -21,6 +22,7 @@ void spritechat::InventoryRegistry::remove(theory::InventoryId id)
   {
     return;
   }
+
   _map.erase(it);
   Q_EMIT removed(id);
 }
@@ -32,6 +34,7 @@ void spritechat::InventoryRegistry::update(theory::InventoryId id, const Invento
   {
     return;
   }
+
   *it = inventory;
   Q_EMIT updated(id);
 }
@@ -42,6 +45,7 @@ void spritechat::InventoryRegistry::clear()
   {
     return;
   }
+
   _map.clear();
   Q_EMIT cleared();
 }
@@ -53,6 +57,7 @@ std::optional<spritechat::InventoryInfo> spritechat::InventoryRegistry::inventor
   {
     return std::nullopt;
   }
+
   return *it;
 }
 
@@ -71,5 +76,6 @@ QList<spritechat::InventoryInfo> spritechat::InventoryRegistry::inventoriesIf(co
       result.append(inventory);
     }
   }
+
   return result;
 }

@@ -32,6 +32,9 @@ public:
 
   void connectToServer(const ServerBookmark &server);
 
+  bool allowInsecureTls() const;
+  void setAllowInsecureTls(bool allow);
+
   bool hasPendingPacket() const;
   theory::PacketPointer nextPacket();
 
@@ -46,13 +49,14 @@ Q_SIGNALS:
   void statusChanged(Status status);
   void errorOccurred(const theory::CargoError &error);
   void pendingPacketAvailable();
-  void pong(quint64 elapsedTime);
+  void pong(quint64 elapsedMs);
 
 private:
   const theory::PacketFactory &_packetFactory;
 
   theory::CargoSocket _socket;
   Status _status = NotConnected;
+  bool _allowInsecureTls = false;
 
   void setStatus(Status status);
 

@@ -23,6 +23,7 @@ spritechat::ServerEditorDialog::ServerEditorDialog(QWidget *parent)
     qFatal("Unable to open file %s", qPrintable(file.fileName()));
     return;
   }
+
   ui_body = loader.load(&file, this);
 
   auto layout = new QVBoxLayout(this);
@@ -34,6 +35,7 @@ spritechat::ServerEditorDialog::ServerEditorDialog(QWidget *parent)
   l_ui.find(ui_hostname, "hostname");
   l_ui.find(ui_port, "port");
   l_ui.find(ui_description, "description");
+  l_ui.find(ui_secure, "secure");
   l_ui.find(ui_button_box, "button_box");
 
   l_ui.find(ui_legacy_edit, "legacy_edit");
@@ -52,6 +54,7 @@ spritechat::ServerEditorDialog::ServerEditorDialog(const ServerBookmark &server,
   ui_hostname->setText(server.address);
   ui_port->setValue(server.port);
   ui_description->setPlainText(server.description);
+  ui_secure->setChecked(server.protocol == QStringLiteral("wss"));
 }
 
 spritechat::ServerBookmark spritechat::ServerEditorDialog::currentServerBookmark() const
@@ -61,6 +64,7 @@ spritechat::ServerBookmark spritechat::ServerEditorDialog::currentServerBookmark
   server.address = ui_hostname->text();
   server.port = ui_port->value();
   server.description = ui_description->toPlainText();
+  server.protocol = ui_secure->isChecked() ? QStringLiteral("wss") : QStringLiteral("ws");
   return server;
 }
 

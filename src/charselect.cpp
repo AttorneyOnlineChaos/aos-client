@@ -80,6 +80,7 @@ void spritechat::Courtroom::set_char_select()
   {
     this->setFixedSize(f_charselect.width, f_charselect.height);
   }
+
   ui_char_select_background->resize(f_charselect.width, f_charselect.height);
   ui_char_select_background->setImage("charselect_background");
 
@@ -132,6 +133,7 @@ void spritechat::Courtroom::on_char_list_double_clicked(QTreeWidgetItem *p_item,
     p_item->setExpanded(false);
     return;
   }
+
   char_clicked(cid);
 }
 
@@ -157,6 +159,7 @@ void spritechat::Courtroom::char_clicked(const theory::CharacterId &n_char)
     changePacket.character = n_char;
     transport.shipPacket(changePacket);
   }
+
   if (n_char == m_character || n_char == theory::NoCharacterId)
   {
     update_character(n_char);
@@ -192,6 +195,7 @@ void spritechat::Courtroom::on_char_button_context_menu_requested(const QPoint &
     {
       return;
     }
+
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
   menu->popup(button->mapToGlobal(pos));
@@ -206,6 +210,7 @@ void spritechat::Courtroom::character_loading_finished()
     {
       delete item;
     }
+
     ui_char_button_list.clear();
     ui_char_list->clear();
   }
@@ -253,6 +258,7 @@ void spritechat::Courtroom::character_loading_finished()
     connect(char_button, &AOCharButton::clicked, this, [this, character]() { this->char_clicked(character); });
     connect(char_button, &AOCharButton::customContextMenuRequested, this, &Courtroom::on_char_button_context_menu_requested);
   }
+
   ui_char_list->sortItems(0, Qt::AscendingOrder);
   ui_char_list->expandAll();
 

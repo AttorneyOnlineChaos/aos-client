@@ -51,6 +51,7 @@ void spritechat::MasterClient::post(const QUrl &url, const QString &path, const 
     {
       notifyError(path, reply->errorString());
     }
+
     reply->deleteLater();
   });
 }

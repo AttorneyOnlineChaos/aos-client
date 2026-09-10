@@ -55,6 +55,7 @@ void spritechat::PlayerListWidget::onCustomContextMenuRequested(const QPoint &po
   {
     return;
   }
+
   const theory::PlayerId id = item->data(Qt::UserRole).toInt();
   QString name = item->text();
 
@@ -125,6 +126,7 @@ void spritechat::PlayerListWidget::refreshPlayer(theory::PlayerId id)
   {
     return;
   }
+
   const PlayerInfo player = maybe_player.value();
 
   item->setText(formatLabel(player));
@@ -141,6 +143,7 @@ void spritechat::PlayerListWidget::refreshPlayer(theory::PlayerId id)
     {
       tooltip = QObject::tr("%1 aka %2").arg(player.character.toString(), player.characterName.value());
     }
+
     item->setToolTip(tooltip);
     item->setIcon(QIcon(ao_app->get_image_suffix(ao_app->get_character_path(player.character.toString(), "char_icon"), true)));
   }

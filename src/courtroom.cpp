@@ -195,7 +195,7 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
   ui_player_list = new PlayerListWidget(ao_app, player_registry, transport, this);
   ui_player_list->setObjectName("ui_player_list");
 
-  for (int i = 0; i < max_clocks; i++)
+  for (int i = 0; i < MAX_CLOCKS; i++)
   {
     ui_clock[i] = new AOClockLabel(this);
     ui_clock[i]->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -582,12 +582,13 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
 
   for (Timer *l_timer : timers)
   {
-    if (l_timer->id() < 0 || l_timer->id() >= max_clocks)
+    if (l_timer->id() < 0 || l_timer->id() >= MAX_CLOCKS)
     {
       continue;
     }
+
     connect(l_timer, &Timer::stateChanged, this, [this, l_timer] { refresh_clock(l_timer); });
-    connect(l_timer, &Timer::remainingChanged, this, [this, l_timer] { refresh_clock(l_timer); });
+    connect(l_timer, &Timer::remainingMsChanged, this, [this, l_timer] { refresh_clock(l_timer); });
     connect(l_timer, &Timer::visibilityChanged, this, [this, l_timer] { refresh_clock(l_timer); });
     refresh_clock(l_timer);
   }
@@ -597,6 +598,7 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
     {
       return;
     }
+
     if (const auto me = player_registry.player(id))
     {
       ui_player_list->setArea(me->areaId);
@@ -633,6 +635,7 @@ void spritechat::Courtroom::on_application_state_changed(Qt::ApplicationState st
     // Suppressed audio setting
     suppress_audio = Options::getInstance().defaultSuppressAudio();
   }
+
   update_audio_volume();
 }
 
@@ -643,6 +646,7 @@ void spritechat::Courtroom::update_audio_volume()
   {
     remaining_percent = 1;
   }
+
   if (remaining_percent < 0)
   {
     remaining_percent = 0;
@@ -743,6 +747,7 @@ void spritechat::Courtroom::set_courtroom_size()
 
     this->setFixedSize(m_courtroom_width, m_courtroom_height);
   }
+
   ui_background->move(0, 0);
   ui_background->resize(m_courtroom_width, m_courtroom_height);
   ui_background->setImage("courtroombackground");
@@ -768,6 +773,7 @@ void spritechat::Courtroom::set_mute_list()
     {
       label.append(" [x]");
     }
+
     QListWidgetItem *item = new QListWidgetItem(label, ui_mute_list);
     item->setData(Qt::UserRole, player.id);
   }
@@ -796,6 +802,7 @@ void spritechat::Courtroom::set_pair_list()
       label.append(" [x]");
       partner_listed = true;
     }
+
     QListWidgetItem *item = new QListWidgetItem(label, ui_pair_list);
     item->setData(Qt::UserRole, player.id);
   }
@@ -961,9 +968,10 @@ void spritechat::Courtroom::set_widgets()
     ui_music_display->move(design_ini_result.x, design_ini_result.y);
     ui_music_display->resize(design_ini_result.width, design_ini_result.height);
   }
+
   ui_music_display->loadAndPlayAnimation("music_display", "");
 
-  for (int i = 0; i < max_clocks; i++)
+  for (int i = 0; i < MAX_CLOCKS; i++)
   {
     set_size_and_pos(ui_clock[i], "clock_" + QString::number(i));
   }
@@ -1115,6 +1123,7 @@ void spritechat::Courtroom::set_widgets()
   {
     ui_settings->setImage("settings"); // pre-2.10 filename
   }
+
   ui_settings->setToolTip(tr("Allows you to change various aspects of the client."));
 
   set_size_and_pos(ui_switch_area_music, "switch_area_music");
@@ -1262,7 +1271,7 @@ void spritechat::Courtroom::set_fonts(const QString &p_char)
   set_font(ui_area_list, "", "area_list", p_char);
   set_font(ui_music_name, "", "music_name", p_char);
 
-  for (int i = 0; i < max_clocks; i++)
+  for (int i = 0; i < MAX_CLOCKS; i++)
   {
     set_font(ui_clock[i], "", "clock_" + QString::number(i), p_char);
   }
@@ -1277,10 +1286,12 @@ void spritechat::Courtroom::set_font(QWidget *widget, const QString &class_name,
   {
     f_pointsize = ao_app->get_design_element(p_identifier, design_file, ao_app->get_chat(p_char)).toInt() * Options::getInstance().themeScalingFactor();
   }
+
   if (font_name == "")
   {
     font_name = ao_app->get_design_element(p_identifier + "_font", design_file, ao_app->get_chat(p_char));
   }
+
   QString f_color_result = ao_app->get_design_element(p_identifier + "_color", design_file, ao_app->get_chat(p_char));
   QColor f_color(0, 0, 0);
   if (f_color_result != "")
@@ -1294,6 +1305,7 @@ void spritechat::Courtroom::set_font(QWidget *widget, const QString &class_name,
       f_color.setBlue(color_list.at(2).toInt());
     }
   }
+
   bool bold = ao_app->get_design_element(p_identifier + "_bold", design_file, ao_app->get_chat(p_char)) == "1";       // is the font bold or not?
   bool antialias = ao_app->get_design_element(p_identifier + "_sharp", design_file, ao_app->get_chat(p_char)) != "1"; // is the font anti-aliased or not?
 
@@ -1315,6 +1327,7 @@ void spritechat::Courtroom::set_font(QWidget *widget, const QString &class_name,
         outline_color.setBlue(o_color_list.at(2).toInt());
       }
     }
+
     outline_width = ao_app->get_design_element(p_identifier + "_outline_width", design_file, ao_app->get_chat(p_char)).toInt() * Options::getInstance().themeScalingFactor();
   }
 
@@ -1460,6 +1473,7 @@ void spritechat::Courtroom::set_background(const QString &p_background, bool dis
       pos_list.append(pos_pair.first); // the dropdown always uses the new style
     }
   }
+
   if (file_exists(ao_app->get_image_suffix(ao_app->get_background_path("court"))))
   {
     const QStringList overrides = {"def", "wit", "pro"};
@@ -1471,6 +1485,7 @@ void spritechat::Courtroom::set_background(const QString &p_background, bool dis
       }
     }
   }
+
   for (const QString &pos : ao_app->read_design_ini("positions", ao_app->get_background_path("design.ini")).split(","))
   {
     QString real_pos = pos.split(":")[0];
@@ -1503,6 +1518,7 @@ void spritechat::Courtroom::set_background(const QString &p_background, bool dis
     {
       ui_vp_sticker->stopPlayback();
     }
+
     // Stop the chat arrow from animating
     ui_vp_chat_arrow->hide();
 
@@ -1536,6 +1552,7 @@ void spritechat::Courtroom::set_pos_dropdown(const QStringList &pos_dropdowns)
     {
       image = image.scaledToHeight(ui_pos_dropdown->iconSize().height());
     }
+
     ui_pos_dropdown->setItemIcon(n, image);
   }
 
@@ -1596,9 +1613,11 @@ void spritechat::Courtroom::update_character(const theory::CharacterId &p_cid)
       {
         action = custom_obj_menu->addAction("Default");
       }
+
       custom_obj_menu->setDefaultAction(action);
       objection_custom = "";
     }
+
     QString custom_objection_dir = ao_app->get_real_path(ao_app->get_character_path(m_character.toString(), "custom_objections"));
     if (dir_exists(custom_objection_dir))
     {
@@ -1625,11 +1644,13 @@ void spritechat::Courtroom::update_character(const theory::CharacterId &p_cid)
           custom_objection.name = filename.left(filename.lastIndexOf("."));
           action = custom_obj_menu->addAction(custom_objection.name);
         }
+
         if (custom_obj_menu->defaultAction() == nullptr)
         {
           custom_obj_menu->setDefaultAction(action);
           objection_custom = custom_objection.filename;
         }
+
         custom_objections_list.append(custom_objection);
       }
     }
@@ -1643,6 +1664,7 @@ void spritechat::Courtroom::update_character(const theory::CharacterId &p_cid)
   {
     ui_ic_chat_name->setPlaceholderText("Spectator");
   }
+
   ui_char_select_background->hide();
   ui_ic_chat_message->setEnabled(m_character != theory::NoCharacterId);
   focus_ic_input();
@@ -1773,6 +1795,7 @@ void spritechat::Courtroom::list_music()
       {
         treeItem = new QTreeWidgetItem(ui_music_list);
       }
+
       treeItem->setText(0, i_track.displayName());
       treeItem->setText(1, i_track.fileName);
       treeItem->setText(2, "0");
@@ -1808,6 +1831,7 @@ void spritechat::Courtroom::list_music()
       pCategory->setExpanded(false);
     }
   }
+
   // restore animated state
   ui_music_list->setAnimated(was_animated);
 
@@ -1863,6 +1887,7 @@ void spritechat::Courtroom::refresh_area(theory::AreaId n_area)
       const auto owner = player_registry.player(owner_id);
       owner_labels.append("[" + QString::number(owner_id) + "] " + (owner ? owner->character.toString() : QString()));
     }
+
     i_area.append(" | CM: ");
     i_area.append(owner_labels.join(", "));
   }
@@ -1882,11 +1907,13 @@ void spritechat::Courtroom::refresh_area(theory::AreaId n_area)
       break;
     }
   }
+
   if (treeItem == nullptr)
   {
     treeItem = new QTreeWidgetItem(ui_area_list);
     treeItem->setData(0, Qt::UserRole, n_area);
   }
+
   treeItem->setText(0, area.displayName());
   treeItem->setText(1, i_area);
 
@@ -1945,6 +1972,7 @@ void spritechat::Courtroom::append_server_chatmessage(const QString &p_name, con
   {
     color = ao_app->get_color("ms_chatlog_sender_color", "courtroom_fonts.ini").name();
   }
+
   if (p_color == "1")
   {
     color = ao_app->get_color("server_chatlog_sender_color", "courtroom_fonts.ini").name();
@@ -1955,6 +1983,7 @@ void spritechat::Courtroom::append_server_chatmessage(const QString &p_name, con
   {
     timestamp = QDateTime::currentDateTimeUtc().toString(log_timestamp_format);
   }
+
   ui_server_chatlog->addMessage(p_name, p_message, color, QString(), timestamp);
 
   if (Options::getInstance().logToTextFileEnabled() && !ao_app->log_filename.isEmpty())
@@ -2004,7 +2033,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
   }
 
   ui_ic_chat_message->blockSignals(true);
-  QTimer::singleShot(Options::getInstance().chatRateLimit(), this, [this] { ui_ic_chat_message->blockSignals(false); });
+  QTimer::singleShot(Options::getInstance().chatRateLimitMs(), this, [this] { ui_ic_chat_message->blockSignals(false); });
 
   theory::IcMessagePacket packet;
 
@@ -2033,16 +2062,19 @@ void spritechat::Courtroom::on_chat_return_pressed()
   {
     f_emote_mod = PREANIM;
   }
+
   // No clue what emote_mod 3 is even supposed to be.
   if (f_emote_mod == 3)
   {
     f_emote_mod = IDLE;
   }
+
   // Emote_mod 4 seems to be a legacy bugfix that just refers it to emote_mod 5 which is zoom emote
   if (f_emote_mod == 4)
   {
     f_emote_mod = ZOOM;
   }
+
   // If we have "pre" on, and immediate is not checked
   if (ui_pre->isChecked() && !ui_immediate->isChecked())
   {
@@ -2056,6 +2088,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
     {
       f_emote_mod = PREANIM_ZOOM;
     }
+
     // Play the sfx
     f_sfx = get_char_sfx();
   }
@@ -2101,6 +2134,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
   {
     packet.preAnimation = f_pre;
   }
+
   packet.character = m_character;
   packet.emote = ao_app->get_emote(m_character.toString(), current_emote);
   packet.message = ui_ic_chat_message->toPlainText();
@@ -2110,9 +2144,10 @@ void spritechat::Courtroom::on_chat_return_pressed()
   {
     f_sfx.clear();
   }
+
   if (!f_sfx.isEmpty())
   {
-    packet.sound = theory::IcMessagePacket::Sound{.name = f_sfx, .delay = f_sfx_delay, .loop = ao_app->get_sfx_looping(m_character.toString(), current_emote) == "1"};
+    packet.sound = theory::IcMessagePacket::Sound{.name = f_sfx, .delayMs = f_sfx_delay, .loop = ao_app->get_sfx_looping(m_character.toString(), current_emote) == "1"};
   }
 
   switch (f_emote_mod)
@@ -2139,6 +2174,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
   {
     packet.shout.type = static_cast<theory::ShoutType>(objection_state);
   }
+
   if (packet.shout.type == theory::ShoutType::Custom)
   {
     packet.shout.custom = objection_custom;
@@ -2174,6 +2210,7 @@ void spritechat::Courtroom::on_chat_return_pressed()
   {
     f_showname = ao_app->get_showname(m_character.toString(), current_emote);
   }
+
   if (!f_showname.isEmpty())
   {
     packet.characterName = f_showname;
@@ -2234,6 +2271,7 @@ void spritechat::Courtroom::reset_ui()
   {
     ui_ic_chat_message->insertPlainText(" ");
   }
+
   objection_state = 0;
   realization_state = 0;
   screenshake_state = 0;
@@ -2253,6 +2291,7 @@ void spritechat::Courtroom::reset_ui()
     ui_sfx_remove->hide();
     custom_sfx = "";
   }
+
   // Why was this in the IC enter key handler before...? Whatever. Hopefully putting it here instead doesn't break anything.
   if (!Options::getInstance().clearEffectsDropdownOnPlayEnabled() && !ao_app->get_effect_property(effect, m_character.toString(), ao_app->read_char_ini(m_character.toString(), "effects", "Options"), "sticky").startsWith("true"))
   {
@@ -2261,6 +2300,7 @@ void spritechat::Courtroom::reset_ui()
     ui_effects_dropdown->blockSignals(false);
     effect = "";
   }
+
   // If sticky preanims is disabled
   if (!Options::getInstance().clearPreOnPlayEnabled())
   {
@@ -2298,6 +2338,7 @@ void spritechat::Courtroom::unpack_chatmessage(theory::IcMessagePacket packet)
   {
     packet.textColor = int(theory::ChatColor::White);
   }
+
   m_chatmessage = packet;
 
   log_chatmessage();
@@ -2360,8 +2401,10 @@ void spritechat::Courtroom::log_chatmessage()
         {
           shout_text = "custom";
         }
+
         break;
       }
+
       log_ic_text(f_char, f_displayname, shout_text, tr("shouts"), 0, selfname);
       append_ic_text(shout_text, f_displayname, f_char, tr("shouts"), 0, selfname);
     }
@@ -2391,10 +2434,12 @@ QString spritechat::Courtroom::current_showname()
   {
     return m_chatmessage.characterName.value();
   }
+
   if (m_chatmessage.character != theory::NoCharacterId)
   {
     return ao_app->get_showname(m_chatmessage.character.toString());
   }
+
   return m_chatmessage.characterName.value_or(QString());
 }
 
@@ -2407,7 +2452,7 @@ bool spritechat::Courtroom::handle_objection()
     ui_vp_message->setVisible(chatbox_always_show);
     ui_vp_chat_arrow->setVisible(chatbox_always_show);
     ui_vp_showname->setVisible(chatbox_always_show);
-    ui_vp_objection->setMaximumDurationPerFrame(shout_max_time);
+    ui_vp_objection->setMaximumDurationPerFrame(SHOUT_MAX_TIME_MS);
     QString filename;
     switch (m_chatmessage.shout.type)
     {
@@ -2440,17 +2485,21 @@ bool spritechat::Courtroom::handle_objection()
         filename = "custom";
         objection_player->findAndPlayCharacterShout("custom", m_chatmessage.character.toString(), ao_app->get_chat(m_chatmessage.character.toString()));
       }
+
       break;
     }
+
     ui_vp_objection->loadAndPlayAnimation(filename, m_chatmessage.character.toString(), ao_app->get_chat(m_chatmessage.character.toString()));
     sfx_player->stopAll(); // Objection played! Cut all sfx.
     ui_vp_player_char->setPlayOnce(true);
     return true;
   }
+
   if (!m_chatmessage.emote.isEmpty())
   {
     display_character();
   }
+
   return false;
 }
 
@@ -2549,6 +2598,7 @@ void spritechat::Courtroom::handle_emote_mod(theory::EmoteMode emote_mode, bool 
       // This behavior is a bit jank (why is emote mod affected by immediate?) but eh it functions
       play_preanim(true);
     }
+
     break;
   }
 }
@@ -2595,21 +2645,22 @@ void spritechat::Courtroom::do_screenshake()
     QPropertyAnimation *screenshake_animation = new QPropertyAnimation(ui_element, "pos", this);
     QPoint pos_default = QPoint(ui_element->x(), ui_element->y());
 
-    int duration = 300; // How long does the screenshake last
-    int frequency = 20; // How often in ms is there a "jolt" frame
+    int duration_ms = 300; // How long does the screenshake last
+    int frequency_ms = 20; // How often in ms is there a "jolt" frame
     // Maximum deviation from the origin position. This is 7 pixels for a 256x192 viewport,
     // so we scale that value in accordance with the current viewport height so the shake
     // is roughly the same intensity regardless of viewport size. Done as a float operation for maximum accuracy.
     int max_deviation = 7 * (float(ui_viewport->height()) / 192);
-    int maxframes = 15; // duration / frequency;
-    screenshake_animation->setDuration(duration);
+    int maxframes = 15; // duration_ms / frequency_ms
+    screenshake_animation->setDuration(duration_ms);
     for (int frame = 0; frame < maxframes; frame++)
     {
-      double fraction = double(frame * frequency) / duration;
+      double fraction = double(frame * frequency_ms) / duration_ms;
       int rand_x = QRandomGenerator::system()->bounded(-max_deviation, max_deviation);
       int rand_y = QRandomGenerator::system()->bounded(-max_deviation, max_deviation);
       screenshake_animation->setKeyValueAt(fraction, QPoint(pos_default.x() + rand_x, pos_default.y() + rand_y));
     }
+
     screenshake_animation->setEndValue(pos_default);
     screenshake_animation->setEasingCurve(QEasingCurve::Linear);
     m_screenshake_anim_group->addAnimation(screenshake_animation);
@@ -2631,6 +2682,7 @@ void spritechat::Courtroom::do_transition(theory::DeskMod p_desk_mod, const QStr
     {
       t_old_pos = "court:" + oldPosId;
     }
+
     if (legacy_pos.contains(newPosId))
     {
       t_new_pos = "court:" + newPosId;
@@ -2801,6 +2853,7 @@ void spritechat::Courtroom::do_effect(const QString &fx_path, const QString &fx_
   {
     return;
   }
+
   QString effect = ao_app->get_effect(fx_path, p_char, p_folder);
   if (effect.isEmpty())
   {
@@ -2819,6 +2872,7 @@ void spritechat::Courtroom::do_effect(const QString &fx_path, const QString &fx_
   {
     return;
   }
+
   ui_vp_effect->setStretchToFit(ao_app->get_effect_property(fx_path, p_char, p_folder, "stretch").startsWith("true"));
   ui_vp_effect->setResizeMode(ao_app->get_scaling(ao_app->get_effect_property(fx_path, p_char, p_folder, "scaling")));
   ui_vp_effect->setFlipped(ao_app->get_effect_property(fx_path, p_char, p_folder, "respect_flip").startsWith("true") && m_chatmessage.flip);
@@ -2861,6 +2915,7 @@ void spritechat::Courtroom::do_effect(const QString &fx_path, const QString &fx_
     effect_x = ui_viewport->x();
     effect_y = ui_viewport->y();
   }
+
   // This effect respects the character offset settings
   if (ao_app->get_effect_property(fx_path, p_char, p_folder, "respect_offset") == "true")
   {
@@ -2869,6 +2924,7 @@ void spritechat::Courtroom::do_effect(const QString &fx_path, const QString &fx_
     effect_x += ui_viewport->width() * m_chatmessage.offsetX / percent;
     effect_y += ui_viewport->height() * m_chatmessage.offsetY / percent;
   }
+
   ui_vp_effect->move(effect_x, effect_y);
 
   ui_vp_effect->setMaximumDurationPerFrame(max_duration);
@@ -2889,6 +2945,7 @@ void spritechat::Courtroom::initialize_chatbox()
   {
     customchar = m_chatmessage.character.toString();
   }
+
   QString p_misc = ao_app->get_chat(customchar);
 
   set_size_and_pos(ui_vp_chatbox, "ao2_chatbox", p_misc);
@@ -2998,6 +3055,7 @@ void spritechat::Courtroom::initialize_chatbox()
   {
     f_pointsize = chatsize;
   }
+
   set_font(ui_vp_message, "", "message", customchar, font_name, f_pointsize);
 }
 
@@ -3105,7 +3163,7 @@ void spritechat::Courtroom::handle_ic_speaking()
 
 struct PauseInfo
 {
-  int ms;
+  int pauseMs;
   int digit_count;
 };
 
@@ -3144,6 +3202,7 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
     {
       target_pos = qMax(0, target_pos - 2);
     }
+
     align = "center";
   }
   else if (p_text.trimmed().startsWith("~>"))
@@ -3153,6 +3212,7 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
     {
       target_pos = qMax(0, target_pos - 2);
     }
+
     align = "right";
   }
   else if (p_text.trimmed().startsWith("<>"))
@@ -3162,6 +3222,7 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
     {
       target_pos = qMax(0, target_pos - 2);
     }
+
     align = "justify";
   }
 
@@ -3239,6 +3300,7 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
             markdown_start = markdown_start.toHtmlEscaped();
             markdown_end = markdown_end.toHtmlEscaped();
           }
+
           bool markdown_remove = chat_colors.at(c).removeSymbols;
           if (markdown_start.isEmpty()) // Not defined
           {
@@ -3260,8 +3322,10 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
                 {
                   ic_color_stack.push(c); // Begin our coloring
                 }
+
                 color_update = true;
               }
+
               skip = markdown_remove;
               break; // Prevent it from looping forward for whatever reason
             }
@@ -3279,12 +3343,15 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
               {
                 ic_color_stack.push(c); // Begin our coloring
               }
+
               color_update = true;
             }
+
             skip = markdown_remove;
             break; // Prevent it from looping forward for whatever reason
           }
         }
+
         // Parse the newest color stack
         if (color_update && (target_pos <= -1 || check_pos < target_pos))
         {
@@ -3304,6 +3371,7 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
               check_pos_escaped += f_char_length; // So the closing char is captured too
               skip = true;
             }
+
             p_text_escaped.insert(check_pos_escaped, appendage);
             check_pos_escaped += appendage.size();
           }
@@ -3319,10 +3387,12 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
         {
           appendage = "\\n "; // visual representation of a newline
         }
+
         p_text_escaped.insert(check_pos_escaped, appendage);
         check_pos_escaped += appendage.size();
         skip = true;
       }
+
       if (f_character == "s" || f_character == "f" || f_character == "p") // screenshake/flash/pause
       {
         skip = true;
@@ -3360,16 +3430,19 @@ QString spritechat::Courtroom::filter_ic_text(QString p_text, bool html, int tar
 
         appendage += "</font>";
       }
+
       ic_color_stack.push(-1); // Dummy colorstack push for maximum </font> appendage
       appendage += "<font color=\"#00000000\">";
       p_text_escaped.insert(check_pos_escaped, appendage);
       check_pos_escaped += appendage.size();
     }
+
     if (!skip)
     {
       p_text_escaped.insert(check_pos_escaped, f_character);
       check_pos_escaped += f_char_length;
     }
+
     check_pos += f_char_bytes;
   }
 
@@ -3509,6 +3582,7 @@ void spritechat::Courtroom::append_ic_text(const QString &p_text, const QString 
     {
       ui_ic_chatlog->textCursor().insertText(": ", normal);
     }
+
     // Format the result in italics
     ui_ic_chatlog->textCursor().insertText(p_text + ".", italics);
   }
@@ -3525,6 +3599,7 @@ void spritechat::Courtroom::append_ic_text(const QString &p_text, const QString 
     {
       ui_ic_chatlog->textCursor().insertText(": ", normal);
     }
+
     // Format the result according to html
     if (log_colors)
     {
@@ -3535,6 +3610,7 @@ void spritechat::Courtroom::append_ic_text(const QString &p_text, const QString 
         QColor color_result = default_color_rgb_list.at(c);
         p_text_filtered = p_text_filtered.replace("$c" + QString::number(c), color_result.name(QColor::HexArgb));
       }
+
       ui_ic_chatlog->textCursor().insertHtml(p_text_filtered);
     }
     else
@@ -3583,7 +3659,7 @@ void spritechat::Courtroom::append_ic_text(const QString &p_text, const QString 
 void spritechat::Courtroom::play_preanim(bool immediate)
 {
   QString f_char = m_chatmessage.character.toString();
-  sfx_delay_timer->start(m_chatmessage.sound ? m_chatmessage.sound->delay : 0);
+  sfx_delay_timer->start(m_chatmessage.sound ? m_chatmessage.sound->delayMs : 0);
 
   bool preanim_found = false;
   if (m_chatmessage.preAnimation)
@@ -3595,6 +3671,7 @@ void spritechat::Courtroom::play_preanim(bool immediate)
       zWarning(log::ic) << "could not find preanim" << m_chatmessage.preAnimation.value() << "for character" << f_char;
     }
   }
+
   if (!preanim_found)
   {
     if (immediate)
@@ -3605,6 +3682,7 @@ void spritechat::Courtroom::play_preanim(bool immediate)
     {
       anim_state = 1;
     }
+
     preanim_done();
     return;
   }
@@ -3650,6 +3728,7 @@ void spritechat::Courtroom::preanim_done()
   {
     return;
   }
+
   anim_state = 1;
 
   handle_ic_speaking();
@@ -3698,10 +3777,12 @@ void spritechat::Courtroom::start_chat_ticking()
     this->do_flash();
     sfx_player->findAndPlaySfx(ao_app->get_custom_realization(m_chatmessage.character.toString()));
   }
+
   if ((m_chatmessage.emoteMode == theory::EmoteMode::Idle || m_chatmessage.emoteMode == theory::EmoteMode::Zoom) && m_chatmessage.screenshake)
   {
     this->do_screenshake();
   }
+
   if (m_chatmessage.message.isEmpty())
   {
     // since the message is empty, it's technically done ticking
@@ -3727,6 +3808,7 @@ void spritechat::Courtroom::start_chat_ticking()
         ui_vp_sticker->stopPlayback();
       }
     }
+
     return;
   }
 
@@ -3747,7 +3829,7 @@ void spritechat::Courtroom::start_chat_ticking()
 
   tick_pos = 0;
   blip_ticker = 0;
-  text_crawl = Options::getInstance().textCrawlSpeed();
+  text_crawl_ms = Options::getInstance().textCrawlSpeedMs();
   blip_rate = Options::getInstance().blipRate();
   blank_blip = Options::getInstance().blankBlip();
 
@@ -3768,6 +3850,7 @@ void spritechat::Courtroom::start_chat_ticking()
   {
     f_blips = ao_app->get_blips(m_chatmessage.blips);
   }
+
   blip_player->setBlip(f_blips);
 
   // means text is currently ticking
@@ -3817,6 +3900,7 @@ void spritechat::Courtroom::chat_tick()
     {
       anim_state = 3;
     }
+
     QString f_char;
     QString f_custom_theme;
     if (Options::getInstance().customChatboxEnabled())
@@ -3824,6 +3908,7 @@ void spritechat::Courtroom::chat_tick()
       f_char = m_chatmessage.character.toString();
       f_custom_theme = ao_app->get_chat(f_char);
     }
+
     ui_vp_chat_arrow->setResizeMode(ao_app->get_misc_scaling(f_custom_theme));
     ui_vp_chat_arrow->loadAndPlayAnimation("chat_arrow", f_custom_theme); // Chat stopped being processed, indicate that.
     QString f_message_filtered = filter_ic_text(f_message, true, -1, m_chatmessage.textColor);
@@ -3843,6 +3928,7 @@ void spritechat::Courtroom::chat_tick()
         f_message_filtered = f_message_filtered.replace("$c" + QString::number(c), default_color_rgb_list.at(c).name(QColor::HexRgb));
       }
     }
+
     additive_previous = additive_previous + f_message_filtered;
     real_tick_pos = ui_vp_message->toPlainText().size();
     return;
@@ -3861,6 +3947,7 @@ void spritechat::Courtroom::chat_tick()
       tick_pos += 2;
     }
   }
+
   f_rest.remove(0, tick_pos);
   QTextBoundaryFinder tbf(QTextBoundaryFinder::Grapheme, f_rest);
   QString f_character;
@@ -3922,6 +4009,7 @@ void spritechat::Courtroom::chat_tick()
           {
             formatting_char = true;
           }
+
           break;
         }
       }
@@ -3933,16 +4021,19 @@ void spritechat::Courtroom::chat_tick()
     {
       formatting_char = true; // it's a newline
     }
+
     if (f_character == "s") // Screenshake.
     {
       this->do_screenshake();
       formatting_char = true;
     }
+
     if (f_character == "f") // Flash.
     {
       this->do_flash();
       formatting_char = true;
     }
+
     if (f_character == "p")
     {
       formatting_char = true;
@@ -3950,10 +4041,11 @@ void spritechat::Courtroom::chat_tick()
       {
         tick_pos += info->digit_count;
         real_tick_pos += f_char_length;
-        chat_tick_timer->start(info->ms);
+        chat_tick_timer->start(info->pauseMs);
         return;
       }
     }
+
     next_character_is_not_special = false;
   }
 
@@ -3969,7 +4061,7 @@ void spritechat::Courtroom::chat_tick()
 
   if (msg_delay == 0)
   {
-    msg_delay = text_crawl * message_display_mult[current_display_speed];
+    msg_delay = text_crawl_ms * message_display_mult[current_display_speed];
   }
 
   if (!(tick_pos >= f_message.size()) && ((msg_delay <= 0 && tick_pos < f_message.size() - 1) || formatting_char))
@@ -4004,6 +4096,7 @@ void spritechat::Courtroom::chat_tick()
         f_message_filtered = f_message_filtered.replace("$c" + QString::number(c), default_color_rgb_list.at(c).name(QColor::HexRgb));
       }
     }
+
     ui_vp_message->setHtml(additive_previous + f_message_filtered);
 
     // This should always be done AFTER setHtml. Scroll the chat window with the
@@ -4031,8 +4124,9 @@ void spritechat::Courtroom::chat_tick()
       // 40/25 = 1.6 = 2
       // And if it's faster than that:
       // 40/10 = 4
-      b_rate = qMax(b_rate, qRound(static_cast<float>(text_crawl) / msg_delay));
+      b_rate = qMax(b_rate, qRound(static_cast<float>(text_crawl_ms) / msg_delay));
     }
+
     if ((blip_rate <= 0 && blip_ticker < 1) || (b_rate > 0 && blip_ticker % b_rate == 0))
     {
       // ignoring white space unless blank_blip is enabled.
@@ -4051,12 +4145,12 @@ void spritechat::Courtroom::chat_tick()
     }
 
     // Punctuation delayer, only kicks in on speed ticks less than }}
-    if (current_display_speed > 1 && punctuation_chars.contains(f_character))
+    if (current_display_speed > 1 && PUNCTUATION_CHARS.contains(f_character))
     {
       // Making the user have to wait any longer than 1.5 of the slowest speed
       // is downright unreasonable
-      int max_delay = text_crawl * message_display_mult[6] * 1.5;
-      msg_delay = qMin(max_delay, msg_delay * punctuation_modifier);
+      int max_delay = text_crawl_ms * message_display_mult[6] * 1.5;
+      msg_delay = qMin(max_delay, msg_delay * PUNCTUATION_MODIFIER);
     }
 
     if (m_chatmessage.emote != "")
@@ -4078,6 +4172,7 @@ void spritechat::Courtroom::chat_tick()
         ui_vp_player_char->startPlayback();
       }
     }
+
     // Continue ticking
     chat_tick_timer->start(msg_delay);
   }
@@ -4089,6 +4184,7 @@ void spritechat::Courtroom::play_sfx()
   {
     this->do_screenshake();
   }
+
   if (!m_chatmessage.sound || m_chatmessage.sound->name == "1")
   {
     return;
@@ -4139,6 +4235,7 @@ void spritechat::Courtroom::set_scene(bool show_desk, const QString &f_side)
     scaled_frame_size = frame_size * scale;
     scaled_pos = QPoint(-(pos.origin.value() * scale - viewport_width / 2), 0);
   }
+
   ui_vp_background->resize(scaled_frame_size);
   ui_vp_background->move(scaled_pos);
   ui_vp_desk->resize(scaled_frame_size);
@@ -4237,6 +4334,7 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
     {
       str_show = packet.characterName.value();
     }
+
     if (!muted_players.contains(packet.playerId))
     {
       bool selfname = n_char == m_character;
@@ -4254,6 +4352,7 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
           f_message = QStringLiteral("%1 (%2)").arg(f_song, track.sample->title);
           f_text = QStringLiteral("%1 (%2)").arg(f_song_clear, track.sample->title);
         }
+
         log_ic_text(str_char, str_show, f_message, tr("has played a song"), 0, selfname);
         append_ic_text(f_text, str_show, str_char, tr("has played a song"), 0, selfname);
       }
@@ -4284,6 +4383,7 @@ void spritechat::Courtroom::handle_song(const theory::MusicChangedPacket &packet
     {
       ambient_player->stop(effects);
     }
+
     return;
   }
 
@@ -4302,7 +4402,7 @@ void spritechat::Courtroom::handle_wtce(const theory::SplashPacket &packet)
   QString bg_misc = ao_app->read_design_ini("misc", ao_app->get_background_path("design.ini"));
   QString sfx_name;
   QString filename;
-  ui_vp_wtce->setMaximumDurationPerFrame(wtce_max_time);
+  ui_vp_wtce->setMaximumDurationPerFrame(WTCE_MAX_TIME_MS);
 
   switch (packet.type)
   {
@@ -4318,6 +4418,7 @@ void spritechat::Courtroom::handle_wtce(const theory::SplashPacket &packet)
     {
       sfx_name = ao_app->get_court_sfx("witnesstestimony", bg_misc);
     }
+
     filename = "witnesstestimony_bubble";
     ui_vp_testimony->loadAndPlayAnimation("testimony", "", bg_misc);
     break;
@@ -4328,30 +4429,32 @@ void spritechat::Courtroom::handle_wtce(const theory::SplashPacket &packet)
     {
       sfx_name = ao_app->get_court_sfx("crossexamination", bg_misc);
     }
+
     filename = "crossexamination_bubble";
     ui_vp_testimony->stopPlayback();
     break;
 
   case theory::SplashType::NotGuilty:
-    ui_vp_wtce->setMaximumDurationPerFrame(verdict_max_time);
+    ui_vp_wtce->setMaximumDurationPerFrame(VERDICT_MAX_TIME_MS);
     sfx_name = ao_app->get_court_sfx("not_guilty", bg_misc);
     if (sfx_name == "")
     {
       sfx_name = ao_app->get_court_sfx("notguilty", bg_misc);
     }
+
     filename = "notguilty_bubble";
     ui_vp_testimony->stopPlayback();
     break;
 
   case theory::SplashType::Guilty:
-    ui_vp_wtce->setMaximumDurationPerFrame(verdict_max_time);
+    ui_vp_wtce->setMaximumDurationPerFrame(VERDICT_MAX_TIME_MS);
     sfx_name = ao_app->get_court_sfx("guilty", bg_misc);
     filename = "guilty_bubble";
     ui_vp_testimony->stopPlayback();
     break;
 
   case theory::SplashType::Custom:
-    ui_vp_wtce->setMaximumDurationPerFrame(verdict_max_time);
+    ui_vp_wtce->setMaximumDurationPerFrame(VERDICT_MAX_TIME_MS);
     sfx_name = packet.custom.value_or(QString());
     filename = packet.custom.value_or(QString());
     break;
@@ -4514,6 +4617,7 @@ void spritechat::Courtroom::on_music_search_edited(const QString &p_text)
       (*it)->setHidden(p_text != "");
       ++it;
     }
+
     last_music_search = p_text;
   }
 
@@ -4525,6 +4629,7 @@ void spritechat::Courtroom::on_music_search_edited(const QString &p_text)
       (*ait)->setHidden(p_text != "");
       ++ait;
     }
+
     last_area_search = p_text;
   }
 
@@ -4540,6 +4645,7 @@ void spritechat::Courtroom::on_music_search_edited(const QString &p_text)
         {
           item->parent()->setHidden(false);
         }
+
         item->setHidden(false);
       }
     }
@@ -4554,6 +4660,7 @@ void spritechat::Courtroom::on_music_search_edited(const QString &p_text)
         {
           item->parent()->setHidden(false);
         }
+
         item->setHidden(false);
       }
     }
@@ -4593,6 +4700,7 @@ void spritechat::Courtroom::on_pos_dropdown_context_menu_requested(const QPoint 
     {
       return;
     }
+
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
   menu->popup(ui_iniswap_dropdown->mapToGlobal(pos));
@@ -4614,6 +4722,7 @@ void spritechat::Courtroom::set_iniswap_dropdown()
     ui_iniswap_remove->hide();
     return;
   }
+
   QStringList iniswaps = ao_app->get_list_file(ao_app->get_character_path(m_character.toString(), "iniswaps.ini")) + ao_app->get_list_file(VPath("iniswaps.ini"));
 
   iniswaps.prepend(m_character.toString());
@@ -4624,6 +4733,7 @@ void spritechat::Courtroom::set_iniswap_dropdown()
     ui_iniswap_remove->hide();
     return;
   }
+
   ui_iniswap_dropdown->show();
   for (int i = 0; i < iniswaps.size(); ++i)
   {
@@ -4643,6 +4753,7 @@ void spritechat::Courtroom::set_iniswap_dropdown()
       }
     }
   }
+
   ui_iniswap_dropdown->blockSignals(false);
 }
 
@@ -4661,11 +4772,13 @@ void spritechat::Courtroom::on_iniswap_dropdown_changed(int p_index)
       swaplist.append(entry);
     }
   }
+
   QString p_path = ao_app->get_real_path(VPath("iniswaps.ini"));
   if (!file_exists(p_path))
   {
     p_path = get_base_path() + "iniswaps.ini";
   }
+
   ao_app->write_to_file(swaplist.join("\n"), p_path);
   ui_iniswap_dropdown->blockSignals(true);
   ui_iniswap_dropdown->setCurrentIndex(p_index);
@@ -4676,6 +4789,7 @@ void spritechat::Courtroom::on_iniswap_dropdown_changed(int p_index)
     changePacket.character = iniswap;
     transport.shipPacket(changePacket);
   }
+
   QString icon_path = ao_app->get_image_suffix(ao_app->get_character_path(iniswap, "char_icon"));
   ui_iniswap_dropdown->setItemIcon(p_index, QIcon(icon_path));
   if (p_index != 0)
@@ -4698,6 +4812,7 @@ void spritechat::Courtroom::on_iniswap_context_menu_requested(const QPoint &pos)
   {
     menu->addAction(QString("Edit " + m_character.toString() + "/char.ini"), this, &Courtroom::on_iniswap_edit_requested);
   }
+
   if (ui_iniswap_dropdown->itemText(ui_iniswap_dropdown->currentIndex()) != m_character.toString())
   {
     menu->addAction(QString("Remove " + m_character.toString()), this, &Courtroom::on_iniswap_remove_clicked);
@@ -4723,6 +4838,7 @@ void spritechat::Courtroom::on_iniswap_edit_requested()
   {
     return;
   }
+
   QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
 }
 
@@ -4734,12 +4850,14 @@ void spritechat::Courtroom::on_iniswap_remove_clicked()
                                // client will crash
     return;
   }
+
   QStringList defswaplist = ao_app->get_list_file(ao_app->get_character_path(m_character.toString(), "iniswaps.ini"));
   QString iniswap = ui_iniswap_dropdown->itemText(ui_iniswap_dropdown->currentIndex());
   if (iniswap != m_character.toString() && !defswaplist.contains(iniswap))
   {
     ui_iniswap_dropdown->removeItem(ui_iniswap_dropdown->currentIndex());
   }
+
   on_iniswap_dropdown_changed(0); // Reset back to original
   update_character(m_character);
 }
@@ -4754,6 +4872,7 @@ void spritechat::Courtroom::set_sfx_dropdown()
     ui_sfx_remove->hide();
     return;
   }
+
   // Initialzie character sound list first. Will be empty if not found.
   sound_list = ao_app->get_list_file(ao_app->get_character_path(m_character.toString(), "soundlist.ini"));
 
@@ -4778,6 +4897,7 @@ void spritechat::Courtroom::set_sfx_dropdown()
 
     display_sounds.append(display);
   }
+
   display_sounds.prepend("Nothing");
   display_sounds.prepend("Default");
 
@@ -4816,6 +4936,7 @@ void spritechat::Courtroom::on_sfx_context_menu_requested(const QPoint &pos)
     // Add an option to play the SFX
     menu->addAction(QString("Play " + get_char_sfx()), this, &Courtroom::on_sfx_play_clicked);
   }
+
   if (file_exists(ao_app->get_real_path(ao_app->get_character_path(m_character.toString(), "soundlist.ini"))))
   {
     menu->addAction(QString("Edit " + m_character.toString() + "/soundlist.ini"), this, &Courtroom::on_sfx_edit_requested);
@@ -4824,10 +4945,12 @@ void spritechat::Courtroom::on_sfx_context_menu_requested(const QPoint &pos)
   {
     menu->addAction(QString("Edit base soundlist.ini"), this, &Courtroom::on_sfx_edit_requested);
   }
+
   if (!custom_sfx.isEmpty())
   {
     menu->addAction(QString("Clear Edit Text"), this, &Courtroom::on_sfx_remove_clicked);
   }
+
   menu->addSeparator();
   menu->addAction(QString("Open base sounds folder"), this, [=] {
     QString p_path = get_base_path() + "sounds/general/";
@@ -4835,6 +4958,7 @@ void spritechat::Courtroom::on_sfx_context_menu_requested(const QPoint &pos)
     {
       return;
     }
+
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
   menu->popup(ui_sfx_dropdown->mapToGlobal(pos));
@@ -4862,6 +4986,7 @@ void spritechat::Courtroom::on_sfx_edit_requested()
   {
     p_path = get_base_path() + "soundlist.ini";
   }
+
   QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
 }
 
@@ -4881,6 +5006,7 @@ void spritechat::Courtroom::set_effects_dropdown()
     ui_effects_dropdown->hide();
     return;
   }
+
   QStringList effectslist;
   effectslist.append(ao_app->get_effects(m_character.toString()));
 
@@ -4915,6 +5041,7 @@ void spritechat::Courtroom::on_effects_context_menu_requested(const QPoint &pos)
   {
     menu->addAction(QString("Open misc/" + ao_app->read_char_ini(m_character.toString(), "effects", "Options") + " folder"), this, &Courtroom::on_character_effects_edit_requested);
   }
+
   menu->addAction(QString("Open theme's effects folder"), this, &Courtroom::on_effects_edit_requested);
   menu->popup(ui_effects_dropdown->mapToGlobal(pos));
 }
@@ -4929,6 +5056,7 @@ void spritechat::Courtroom::on_effects_edit_requested()
       return;
     }
   }
+
   QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
 }
 void spritechat::Courtroom::on_character_effects_edit_requested()
@@ -4960,6 +5088,7 @@ bool spritechat::Courtroom::effects_dropdown_find_and_set(const QString &effect)
       return true;
     }
   }
+
   return false;
 }
 
@@ -4969,20 +5098,24 @@ QString spritechat::Courtroom::get_char_sfx()
   {
     return custom_sfx;
   }
+
   int index = ui_sfx_dropdown->currentIndex();
   if (index == 0)
   { // Default
     return ao_app->get_sfx_name(m_character.toString(), current_emote);
   }
+
   if (index == 1)
   { // Nothing
     return "1";
   }
+
   QString sfx = sound_list[index - 2].split("=")[0].trimmed();
   if (sfx == "")
   {
     return "1";
   }
+
   return sfx;
 }
 
@@ -5002,6 +5135,7 @@ void spritechat::Courtroom::on_mute_list_clicked(QModelIndex p_index)
   {
     muted_players.insert(clicked);
   }
+
   set_mute_list();
 }
 
@@ -5016,6 +5150,7 @@ void spritechat::Courtroom::on_pair_list_clicked(QModelIndex p_index)
   {
     other_player_id = clicked;
   }
+
   set_pair_list();
 }
 
@@ -5029,6 +5164,7 @@ void spritechat::Courtroom::on_music_list_double_clicked(QTreeWidgetItem *p_item
     {
       music_stop(false);
     }
+
     return;
   }
 
@@ -5084,6 +5220,7 @@ void spritechat::Courtroom::on_music_list_context_menu_requested(const QPoint &p
         sample_group->addAction(action);
         connect(action, &QAction::triggered, this, [this, track, i] { sample_selections.insert(track.toLower(), i); });
       }
+
       menu->addSeparator();
     }
   }
@@ -5115,6 +5252,7 @@ void spritechat::Courtroom::on_music_list_context_menu_requested(const QPoint &p
     {
       return;
     }
+
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
 
@@ -5199,8 +5337,10 @@ void spritechat::Courtroom::music_random()
     { // add top level songs and songs in expanded categories
       clist += (*it);
     }
+
     ++it;
   }
+
   if (clist.length() == 0)
   {
     return;
@@ -5225,6 +5365,7 @@ void spritechat::Courtroom::music_list_collapse_all()
     {
       current = current->parent();
     }
+
     ui_music_list->setCurrentItem(current);
   }
 }
@@ -5357,6 +5498,7 @@ void spritechat::Courtroom::show_custom_objection_menu(const QPoint &pos)
         }
       }
     }
+
     objection_state = 4;
     custom_obj_menu->setDefaultAction(selecteditem);
   }
@@ -5505,11 +5647,12 @@ void spritechat::Courtroom::on_text_color_context_menu_requested(const QPoint &p
   menu->setAttribute(Qt::WA_DeleteOnClose);
 
   menu->addAction(QString("Open currently used chat_config.ini"), this, [=, this] {
-    QString p_path = ao_app->get_asset("chat_config.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, ao_app->get_chat(m_character.toString()));
+    QString p_path = ao_app->get_asset("chat_config.ini", Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->DEFAULT_THEME, ao_app->get_chat(m_character.toString()));
     if (!file_exists(p_path))
     {
       return;
     }
+
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
   menu->popup(ui_text_color->mapToGlobal(pos));
@@ -5534,6 +5677,7 @@ void spritechat::Courtroom::set_text_color_dropdown()
   {
     zInfo(log::ic) << "Color " << c << ": rgb=" << chat_colors.at(c).color.name() << ", markdown_start=" << chat_colors.at(c).symbolStart << ", markdown_end=" << chat_colors.at(c).symbolEnd;
   }
+
   for (int c = 0; c < chat_colors.length(); ++c)
   {
     QString color_name = chat_colors.at(c).name;
@@ -5548,6 +5692,7 @@ void spritechat::Courtroom::set_text_color_dropdown()
         color_name = QStringLiteral("Color %1").arg(c);
       }
     }
+
     ui_text_color->addItem(color_name);
     QPixmap pixmap(16, 16);
     QPainter painter{&pixmap};
@@ -5556,6 +5701,7 @@ void spritechat::Courtroom::set_text_color_dropdown()
     painter.end();
     ui_text_color->setItemIcon(ui_text_color->count() - 1, pixmap);
   }
+
   for (int c = 0; c < chat_colors.length(); ++c)
   {
     QColor color = ao_app->get_chat_color("c" + QString::number(c), "");
@@ -5586,6 +5732,7 @@ void spritechat::Courtroom::on_text_color_changed(int p_color)
   {
     _currentColor = ChatMarkupEntry{.index = -1};
   }
+
   ui_ic_chat_message_highlighter->setDefaultColor(_currentColor.index);
   refresh_text_color_apply();
   focus_ic_input();
@@ -5606,11 +5753,13 @@ void spritechat::Courtroom::on_text_color_apply_clicked()
                          "start character";
     return;
   }
+
   QString markdown_end = _currentColor.markup.symbolEnd;
   if (markdown_end.isEmpty())
   {
     markdown_end = markdown_start;
   }
+
   QTextCursor cursor = ui_ic_chat_message->textCursor();
   const int start = cursor.selectionStart();
   const int end = cursor.selectionEnd();
@@ -5755,6 +5904,7 @@ void spritechat::Courtroom::on_additive_clicked()
     ui_ic_chat_message->moveCursor(QTextCursor::End);   // move cursor to the end of the message
                                                         // without selecting anything
   }
+
   focus_ic_input();
 }
 
@@ -5796,6 +5946,7 @@ void spritechat::Courtroom::on_evidence_context_menu_requested(const QPoint &pos
     {
       return;
     }
+
     QDesktopServices::openUrl(QUrl::fromLocalFile(p_path));
   });
   menu->popup(ui_evidence_button->mapToGlobal(pos));
@@ -5817,13 +5968,14 @@ void spritechat::Courtroom::on_switch_area_music_clicked()
     last_area_search = ui_music_search->text();
     ui_music_search->setText(last_music_search);
   }
+
   on_music_search_edited(ui_music_search->text());
 }
 
 void spritechat::Courtroom::refresh_clock(Timer *timer)
 {
   AOClockLabel *clock = ui_clock[timer->id()];
-  clock->set(timer->state(), timer->remaining());
+  clock->set(timer->state(), timer->remainingMs());
   clock->setVisible(timer->isVisible());
 }
 
@@ -5842,6 +5994,7 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, const QString
     zWarning(log::ui) << "Tried to truncate an unsupported widget:" << p_identifier;
     return;
   }
+
   // translate the text for the widget we're working with so we truncate the right string
   QString label_text_tr = QCoreApplication::translate(p_widget->metaObject()->className(), "%1").arg((p_label != nullptr ? p_label->text() : p_checkbox->text()));
   if (label_text_tr.endsWith("…") || label_text_tr.endsWith("…"))
@@ -5875,6 +6028,7 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, const QString
     truncated_label.append("…");
     truncated_px_width = p_widget->fontMetrics().boundingRect(truncated_label).width();
   }
+
   if (truncated_label == "…")
   {
     // Safeguard against edge case where label text is shorter in px than '…',
@@ -5883,6 +6037,7 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, const QString
     zWarning(log::ui) << "Potential infinite loop prevented: Label text " << label_text_tr << "truncated to '…', so truncation was aborted.";
     return;
   }
+
   if (p_label != nullptr)
   {
     p_label->setText(truncated_label);
@@ -5891,5 +6046,6 @@ void spritechat::Courtroom::truncate_label_text(QWidget *p_widget, const QString
   {
     p_checkbox->setText(truncated_label);
   }
+
   zDebug(log::ui) << "Truncated label text from" << label_text_tr << "at" << label_px_width << "px to" << truncated_label << "at" << truncated_px_width << "px";
 }

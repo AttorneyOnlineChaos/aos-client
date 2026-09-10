@@ -26,6 +26,7 @@ spritechat::DirectConnectDialog::DirectConnectDialog(QWidget *parent)
     zCritical(log::ui) << "Unable to open file " << l_uiFile.fileName();
     return;
   }
+
   ui_widget = l_loader.load(&l_uiFile, this);
 
   auto l_layout = new QVBoxLayout(this);
@@ -72,12 +73,14 @@ void spritechat::DirectConnectDialog::onConnectPressed()
     call_warning(tr("Invalid server port."));
     return;
   }
+
   ServerBookmark l_server;
   l_server.address = l_url.host();
   l_server.port = l_url.port();
   l_server.protocol = l_url.scheme();
   l_server.name = "Direct Connection";
 
+  m_info_gateway->setAllowInsecureTls(Options::getInstance().allowInsecureTls());
   m_info_gateway->requestInfo(l_server);
   ui_direct_connect_button->setEnabled(false);
   ui_direct_connection_status_lbl->setText("Connecting...");

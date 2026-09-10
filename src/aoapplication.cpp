@@ -1,7 +1,9 @@
 #include "aoapplication.h"
 
 #include "core/logging.h"
+#include "core/plugin_error.h"
 #include "courtroom.h"
+#include "file_functions.h"
 #include "hardware_functions.h"
 #include "lobby.h"
 #include "network_manager.h"
@@ -11,6 +13,7 @@
 #include "spritechat_defs.h"
 #include "widgets/aooptionsdialog.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QRegularExpression>
 
@@ -18,8 +21,21 @@ spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_fac
     : QObject(parent)
     , m_packet_factory{packet_factory}
     , m_track_library{m_asset_lookup}
+    , _userTokens{get_base_path() + QStringLiteral("user_tokens.json")}
 {
   register_packet_routes();
+
+  QList<theory::PluginError> errors = _badgeFactory.loadStaticPlugins();
+  errors.append(_badgeFactory.loadPlugins(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")));
+  for (const theory::PluginError &error : errors)
+  {
+    zWarning(log::plugin) << QStringLiteral("badge plugin: %1").arg(error.toString());
+  }
+
+  if (const auto error = _userTokens.load())
+  {
+    zWarning(log::main) << QStringLiteral("user tokens: %1").arg(error->toString());
+  }
 
   for (theory::TimerId id = 0; id < theory::TimerCount; id++)
   {
@@ -30,10 +46,10 @@ spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_fac
   connect(net_manager, &NetworkManager::statusChanged, this, &AOApplication::handle_network_status);
   connect(net_manager, &NetworkManager::errorOccurred, this, &AOApplication::handle_network_error);
   connect(net_manager, &NetworkManager::pendingPacketAvailable, this, &AOApplication::process_pending_packets);
-  connect(net_manager, &NetworkManager::pong, this, [this](quint64 elapsedTime) { w_courtroom->setWindowTitle(QStringLiteral("%1 (%2 ms)").arg(window_title).arg(elapsedTime)); });
+  connect(net_manager, &NetworkManager::pong, this, [this](quint64 elapsedMs) { w_courtroom->setWindowTitle(QStringLiteral("%1 (%2 ms)").arg(window_title).arg(elapsedMs)); });
 
   m_keepalive_timer = new QTimer(this);
-  m_keepalive_timer->setInterval(45000);
+  m_keepalive_timer->setInterval(45 * 1000);
   connect(m_keepalive_timer, &QTimer::timeout, net_manager, &NetworkManager::ping);
 
   master_gateway = new MasterGateway(this);
@@ -63,7 +79,7 @@ void spritechat::AOApplication::construct_lobby()
     return;
   }
 
-  w_lobby = new Lobby(this, *net_manager, *master_gateway);
+  w_lobby = new Lobby(this, *net_manager, *master_gateway, _badgeFactory);
 
   connect(w_lobby, &Lobby::connection_requested, this, &AOApplication::connect_to_server);
 
@@ -298,6 +314,7 @@ QString spritechat::AOApplication::find_image(const QStringList &p_list)
       break;
     }
   }
+
   return image_path;
 }
 
@@ -550,6 +567,7 @@ bool spritechat::AOApplication::pointExistsOnScreen(QPoint point)
       return true;
     }
   }
+
   return false;
 }
 
@@ -596,6 +614,7 @@ void spritechat::AOApplication::initBASS()
         return;
       }
     }
+
     BASS_Init(-1, 48000, BASS_DEVICE_LATENCY, nullptr, nullptr);
     load_bass_plugins();
   }

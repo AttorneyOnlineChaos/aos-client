@@ -35,6 +35,7 @@ void spritechat::AOSyntaxHighlighter::highlightBlock(const QString &text)
     {
       return false;
     }
+
     finder.setPosition(position + markup.size());
     return finder.isAtBoundary();
   };
@@ -47,6 +48,7 @@ void spritechat::AOSyntaxHighlighter::highlightBlock(const QString &text)
     {
       next = text.size();
     }
+
     const QString grapheme = text.mid(position, next - position);
 
     int color = stack.isEmpty() ? _defaultColor : stack.last();
@@ -70,6 +72,7 @@ void spritechat::AOSyntaxHighlighter::highlightBlock(const QString &text)
         {
           continue;
         }
+
         const bool toggle = markup.symbolEnd.isEmpty() || markup.symbolEnd == markup.symbolStart;
         const bool open = !stack.isEmpty() && stack.last() == i;
         if (markupAt(markup.symbolStart) && markup.symbolStart.size() > matchLength)
@@ -78,6 +81,7 @@ void spritechat::AOSyntaxHighlighter::highlightBlock(const QString &text)
           matchEnd = false;
           matchLength = markup.symbolStart.size();
         }
+
         if (!toggle && open && markupAt(markup.symbolEnd) && markup.symbolEnd.size() > matchLength)
         {
           match = i;
@@ -99,6 +103,7 @@ void spritechat::AOSyntaxHighlighter::highlightBlock(const QString &text)
         {
           stack.append(match);
         }
+
         color = match;
         next = position + matchLength;
       }

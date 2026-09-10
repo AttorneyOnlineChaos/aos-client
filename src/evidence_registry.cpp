@@ -10,6 +10,7 @@ void spritechat::EvidenceRegistry::add(theory::EvidenceId id)
   {
     return;
   }
+
   _map.insert(id, EvidenceInfo{.id = id});
   Q_EMIT added(id);
 }
@@ -21,6 +22,7 @@ void spritechat::EvidenceRegistry::remove(theory::EvidenceId id)
   {
     return;
   }
+
   _map.erase(it);
   Q_EMIT removed(id);
 }
@@ -32,6 +34,7 @@ void spritechat::EvidenceRegistry::update(theory::EvidenceId id, const EvidenceI
   {
     return;
   }
+
   *it = item;
   Q_EMIT updated(id);
 }
@@ -42,6 +45,7 @@ void spritechat::EvidenceRegistry::clear()
   {
     return;
   }
+
   _map.clear();
   Q_EMIT cleared();
 }
@@ -53,6 +57,7 @@ std::optional<spritechat::EvidenceInfo> spritechat::EvidenceRegistry::evidence(t
   {
     return std::nullopt;
   }
+
   return *it;
 }
 
@@ -71,5 +76,6 @@ QList<spritechat::EvidenceInfo> spritechat::EvidenceRegistry::evidenceIf(const C
       result.append(item);
     }
   }
+
   return result;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aoapplication.h"
+#include "badge/badge_client_plugin.h"
 #include "network/master_gateway.h"
 #include "network/server_info_gateway.h"
 #include "network_manager.h"
@@ -10,6 +11,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QPushButton>
+#include <QStringList>
 #include <QTabWidget>
 #include <QTextBrowser>
 #include <QTreeWidget>
@@ -24,7 +26,7 @@ class Lobby : public QMainWindow
   Q_OBJECT
 
 public:
-  Lobby(AOApplication *p_ao_app, NetworkManager &network, MasterGateway &master);
+  Lobby(AOApplication *p_ao_app, NetworkManager &network, MasterGateway &master, const theory::BadgeClientFactory &p_badge_factory);
 
   void set_player_count(int players_online, int max_players);
   void set_server_description(const QString &server_description);
@@ -39,6 +41,7 @@ private:
   AOApplication *ao_app;
   NetworkManager &net_manager;
   MasterGateway &master_gateway;
+  const theory::BadgeClientFactory &badge_factory;
   ServerInfoGateway *server_info_gateway;
 
   const QString DEFAULT_UI = "lobby.ui";
@@ -48,6 +51,7 @@ private:
     Offline,
     Checking,
     Incompatible,
+    MissingBadge,
     Online,
   };
 
@@ -63,6 +67,7 @@ private:
   ServerStatus m_server_status = ServerStatus::Offline;
   int m_player_count = 0;
   int m_max_players = 0;
+  QStringList m_missing_badge_ids;
 
   enum TabPage
   {

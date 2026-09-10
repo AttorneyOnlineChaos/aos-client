@@ -156,6 +156,7 @@ target_link_libraries(spritechat PUBLIC
   Qt${QT_VERSION_MAJOR}::UiTools
   bass
   bassopus
+  theory-badge-client
   theory-game
   theory-protocol
   theory-widgets

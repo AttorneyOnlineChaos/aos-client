@@ -17,7 +17,7 @@ class AOClockLabel : public QLabel
 public:
   AOClockLabel(QWidget *parent);
 
-  void set(theory::TimerState state, qint64 remaining);
+  void set(theory::TimerState state, qint64 remainingMs);
   void clear();
 
 protected:

@@ -9,7 +9,7 @@ spritechat::ScreenSlideTimer::ScreenSlideTimer(QObject *parent)
     : QObject(parent)
 {
   m_pause = new QTimer(this);
-  m_pause->setInterval(TRANSITION_BOOKEND_DELAY);
+  m_pause->setInterval(TRANSITION_BOOKEND_DELAY_MS);
   m_pause->setSingleShot(true);
 
   m_group = new QParallelAnimationGroup(this);
@@ -32,6 +32,7 @@ void spritechat::ScreenSlideTimer::addAnimation(QAbstractAnimation *animation)
     zWarning(log::viewport) << "Cannot add animations while transition is in progress";
     return;
   }
+
   m_group->addAnimation(animation);
 }
 
@@ -42,6 +43,7 @@ void spritechat::ScreenSlideTimer::start()
     zWarning(log::viewport) << "Transition already in progress";
     return;
   }
+
   m_running = true;
   startNextState();
 }

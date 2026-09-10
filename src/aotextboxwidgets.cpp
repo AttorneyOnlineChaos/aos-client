@@ -129,6 +129,7 @@ void spritechat::AOChatboxLabel::paintEvent(QPaintEvent *event)
     {
       painter.fillPath(path, palette().window());
     }
+
     painter.fillPath(path, m_brush);
   }
   else

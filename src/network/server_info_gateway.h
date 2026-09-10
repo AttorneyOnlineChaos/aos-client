@@ -25,12 +25,14 @@ public:
 
   void requestInfo(const ServerBookmark &server);
 
+  bool allowInsecureTls() const;
+  void setAllowInsecureTls(bool allow);
+
 Q_SIGNALS:
   void infoSettled();
 
 private:
-  static constexpr int RequestCooldown = 10 * 1000;
-  static constexpr int ReplyLimit = 64 * 1024;
+  static constexpr int REQUEST_COOLDOWN_MS = 10 * 1000;
 
   QNetworkAccessManager *_http;
   QPointer<QNetworkReply> _reply;
@@ -40,6 +42,7 @@ private:
   theory::ServerInfo _info;
   bool _reachable = false;
   bool _compatible = false;
+  bool _allowInsecureTls = false;
 
 private Q_SLOTS:
   void processReply(QNetworkReply *reply);

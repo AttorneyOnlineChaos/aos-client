@@ -3,8 +3,12 @@
 #include "ao_track_library.h"
 #include "area_registry.h"
 #include "asset_lookup.h"
+#include "badge/badge_client_engine.h"
+#include "badge/badge_client_plugin.h"
+#include "badge/user_token_cache.h"
 #include "console_logger.h"
 #include "core/log.h"
+#include "core/pointer_types.h"
 #include "datatypes.h"
 #include "evidence_registry.h"
 #include "game/chat_markup.h"
@@ -31,6 +35,7 @@
 #include "server_settings_handle.h"
 #include "timer.h"
 #include "widgets/aooptionsdialog.h"
+#include "widgets/backdrop.h"
 
 #include <bass.h>
 
@@ -40,8 +45,10 @@
 #include <QDir>
 #include <QFile>
 #include <QHash>
+#include <QJsonObject>
 #include <QList>
 #include <QObject>
+#include <QPointer>
 #include <QRect>
 #include <QScreen>
 #include <QSettings>
@@ -272,7 +279,7 @@ public:
   // Currently defined subtheme
   QString subtheme;
 
-  const QString default_theme = "default"; // don't change this!!! don't do it!!!
+  static inline const QString DEFAULT_THEME = QStringLiteral("default"); // don't change this!!! don't do it!!!
 
   bool pointExistsOnScreen(QPoint point);
   void centerOrMoveWidgetOnPrimaryScreen(QWidget *widget);
@@ -327,10 +334,24 @@ private:
   bool m_session_active = false;
   bool m_recovered_session = false;
   QHash<QUrl, QString> m_tokens;
+  theory::UserTokenCache _userTokens;
+
+  theory::BadgeClientFactory _badgeFactory;
+  theory::Unique<theory::BadgeClientEngine> _badgeClient;
+  QPointer<theory::Backdrop> _badgeBackdrop;
+  QPointer<QWidget> _badgeWidget;
 
   void start_session();
   void stop_session();
   void drop_session();
+  void openSignIn();
+  void closeSignIn();
+  void shipBadgeSelection(const QString &badgeId);
+  void sendBadgeResponse(const QString &badgeId, const QJsonObject &responseData);
+  void abortSignIn(const QString &message);
+  void leaveSignIn();
+  void showSignInWidget();
+  void hideSignInWidget();
 
   void process(const theory::CharacterListPacket &packet);
   void process(const theory::MusicListPacket &packet);
@@ -364,6 +385,8 @@ private:
   void process(const theory::GameErrorPacket &packet);
   void process(const theory::ErrorPacket &packet);
 
+  void process(const theory::BadgeSelectionPacket &packet);
+  void process(const theory::BadgePacket &packet);
   void process(const theory::SessionGrantPacket &packet);
   void process(const theory::ServerSettingsPacket &packet);
   void process(const theory::WelcomePacket &packet);

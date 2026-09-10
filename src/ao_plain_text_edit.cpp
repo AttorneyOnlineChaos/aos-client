@@ -49,11 +49,13 @@ void spritechat::AOPlainTextEdit::keyPressEvent(QKeyEvent *event)
       QPlainTextEdit::keyPressEvent(event);
       break;
     }
+
     if (const auto message = _history.undo(toPlainText()))
     {
       setPlainText(message.value());
       moveCursor(QTextCursor::End);
     }
+
     event->accept();
     break;
   case Qt::Key_Down:
@@ -62,11 +64,13 @@ void spritechat::AOPlainTextEdit::keyPressEvent(QKeyEvent *event)
       QPlainTextEdit::keyPressEvent(event);
       break;
     }
+
     if (const auto message = _history.redo())
     {
       setPlainText(message.value());
       moveCursor(QTextCursor::End);
     }
+
     event->accept();
     break;
   }

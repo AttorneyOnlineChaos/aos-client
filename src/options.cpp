@@ -33,6 +33,7 @@ void spritechat::Options::migrateCallwords()
     QString line = in.readLine();
     l_callwords.append(line);
   }
+
   l_file.close();
   l_file.remove();
 
@@ -53,12 +54,14 @@ void spritechat::Options::migrate()
   {
     migrateCallwords();
   }
+
   if (config.contains("ooc_name"))
   {
     if (username().isEmpty())
     {
       config.setValue("default_username", config.value("ooc_name"));
     }
+
     config.remove("ooc_name");
   }
 
@@ -92,6 +95,7 @@ double spritechat::Options::themeScalingFactor() const
   {
     value = 0.1;
   }
+
   return value;
 }
 
@@ -160,12 +164,12 @@ void spritechat::Options::setMaxLogSize(int value)
   config.setValue("log_maximum", value);
 }
 
-int spritechat::Options::textCrawlSpeed() const
+int spritechat::Options::textCrawlSpeedMs() const
 {
   return config.value("text_crawl", 40).toInt();
 }
 
-void spritechat::Options::setTextCrawlSpeed(int value)
+void spritechat::Options::setTextCrawlSpeedMs(int value)
 {
   config.setValue("text_crawl", value);
 }
@@ -180,12 +184,12 @@ void spritechat::Options::setOverflowWarningThreshold(int value)
   config.setValue("overflow_warning_threshold", value);
 }
 
-int spritechat::Options::chatRateLimit() const
+int spritechat::Options::chatRateLimitMs() const
 {
   return config.value("chat_ratelimit", 300).toInt();
 }
 
-void spritechat::Options::setChatRateLimit(int value)
+void spritechat::Options::setChatRateLimitMs(int value)
 {
   config.setValue("chat_ratelimit", value);
 }
@@ -380,6 +384,16 @@ void spritechat::Options::setSlidesEnabled(bool value)
   config.setValue("slides", value);
 }
 
+bool spritechat::Options::allowInsecureTls() const
+{
+  return config.value("allow_insecure_tls", false).toBool();
+}
+
+void spritechat::Options::setAllowInsecureTls(bool value)
+{
+  config.setValue("allow_insecure_tls", value);
+}
+
 bool spritechat::Options::mousewheelGridNavigationReversed() const
 {
   return config.value("mousewheel_grid_navigation_reversed", false).toBool();
@@ -486,6 +500,7 @@ QString spritechat::Options::subTheme() const
   {
     return m_server_subtheme;
   }
+
   return settingsSubTheme();
 }
 
@@ -605,6 +620,7 @@ QStringList spritechat::Options::callwords() const
   {
     l_callwords.clear();
   }
+
   return l_callwords;
 }
 
@@ -653,8 +669,10 @@ QList<spritechat::ServerBookmark> spritechat::Options::favorites()
       {
         continue;
       }
+
       filtered_grouplist.append(group);
     }
+
     std::sort(filtered_grouplist.begin(), filtered_grouplist.end(), [](const auto &a, const auto &b) -> bool { return a.toInt() < b.toInt(); });
     grouplist = std::move(filtered_grouplist);
   }
@@ -667,15 +685,7 @@ QList<spritechat::ServerBookmark> spritechat::Options::favorites()
     f_server.port = favorite.value("port", 27016).toInt();
     f_server.name = favorite.value("name", "Missing Name").toString();
     f_server.description = favorite.value("desc", "No description").toString();
-    if (favorite.contains("protocol"))
-    {
-      f_server.protocol = favorite.value("protocol").toString();
-    }
-    else
-    {
-      f_server.protocol = "tcp";
-    }
-
+    f_server.protocol = favorite.value("protocol", "ws").toString();
     serverlist.append(std::move(f_server));
     favorite.endGroup();
   }
@@ -697,6 +707,7 @@ void spritechat::Options::setFavorites(const QList<ServerBookmark> &value)
     favorite.setValue("protocol", fav_server.protocol);
     favorite.endGroup();
   }
+
   favorite.sync();
 }
 
@@ -755,6 +766,7 @@ QString spritechat::Options::getUIAsset(const QString &f_asset_name)
       return l_path;
     }
   }
+
   zWarning(log::asset) << "Unable to locate ui-asset" << f_asset_name << "in theme" << theme() << "Defaulting to embeeded asset.";
   return QString(":/data/ui/" + f_asset_name);
 }
@@ -771,6 +783,7 @@ std::optional<QPoint> spritechat::Options::windowPosition(const QString &widget)
   {
     return std::nullopt;
   }
+
   return std::optional<QPoint>(point);
 }
 

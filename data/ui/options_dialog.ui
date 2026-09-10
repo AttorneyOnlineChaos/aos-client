@@ -1145,6 +1145,13 @@ Default: 0.</string>
         </widget>
        </item>
        <item>
+        <widget class="QCheckBox" name="insecure_tls_cb">
+         <property name="text">
+          <string>Allow insecure TLS (accept untrusted certificates)</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QFrame" name="privacy_separator">
          <property name="frameShape">
           <enum>QFrame::NoFrame</enum>

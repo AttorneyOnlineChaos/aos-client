@@ -14,5 +14,6 @@ bool spritechat::AOLineEditFilter::eventFilter(QObject *obj, QEvent *event)
       return true;
     }
   }
+
   return false;
 }

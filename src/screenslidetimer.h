@@ -11,7 +11,7 @@ class ScreenSlideTimer : public QObject
   Q_OBJECT
 
 public:
-  static const int TRANSITION_BOOKEND_DELAY = 300;
+  static const int TRANSITION_BOOKEND_DELAY_MS = 300;
 
   explicit ScreenSlideTimer(QObject *parent = nullptr);
   virtual ~ScreenSlideTimer();

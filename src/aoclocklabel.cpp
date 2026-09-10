@@ -4,9 +4,9 @@ spritechat::AOClockLabel::AOClockLabel(QWidget *parent)
     : QLabel(parent)
 {}
 
-void spritechat::AOClockLabel::set(theory::TimerState state, qint64 remaining)
+void spritechat::AOClockLabel::set(theory::TimerState state, qint64 remainingMs)
 {
-  m_target_time = QDateTime::currentDateTime().addMSecs(qMax(qint64(0), remaining));
+  m_target_time = QDateTime::currentDateTime().addMSecs(qMax(qint64(0), remainingMs));
 
   if (state == theory::TimerState::Running)
   {

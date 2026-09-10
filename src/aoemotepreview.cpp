@@ -35,6 +35,7 @@ void spritechat::AOEmotePreview::display(const QString &character, const QString
   {
     ui_vp_player_char->move(ui_viewport->width() * xOffset / 100, ui_viewport->height() * yOffset / 100);
   }
+
   ui_vp_player_char->loadCharacterEmote(character, emote, emoteType);
   ui_vp_player_char->setPlayOnce(false);
   ui_vp_player_char->setFlipped(flipped);

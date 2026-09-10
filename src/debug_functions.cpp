@@ -49,6 +49,7 @@ void call_message(QMessageBox::Icon icon, const QString &p_message)
     {
       return;
     }
+
     msgBox->defaultButton()->setText(QString("%1 (%2)").arg(QDialogButtonBox::tr("OK")).arg(counter));
     counter--;
   };

@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkRequest>
+#include <QSslError>
 #include <QUrl>
 
 #include <functional>
@@ -39,6 +40,16 @@ bool spritechat::ServerInfoGateway::isCompatible() const
   return _compatible;
 }
 
+bool spritechat::ServerInfoGateway::allowInsecureTls() const
+{
+  return _allowInsecureTls;
+}
+
+void spritechat::ServerInfoGateway::setAllowInsecureTls(bool allow)
+{
+  _allowInsecureTls = allow;
+}
+
 void spritechat::ServerInfoGateway::requestInfo(const ServerBookmark &server)
 {
   _server = server;
@@ -50,7 +61,7 @@ void spritechat::ServerInfoGateway::requestInfo(const ServerBookmark &server)
   if (_cache.contains(cache_key))
   {
     const auto &entry = _cache[cache_key];
-    if (QDateTime::currentMSecsSinceEpoch() - entry.first < RequestCooldown)
+    if (QDateTime::currentMSecsSinceEpoch() - entry.first < REQUEST_COOLDOWN_MS)
     {
       _info = entry.second;
       _reachable = true;
@@ -68,10 +79,40 @@ void spritechat::ServerInfoGateway::requestInfo(const ServerBookmark &server)
   }
 
   QNetworkRequest request(server.info_url());
-  request.setTransferTimeout(RequestCooldown);
+  request.setTransferTimeout(REQUEST_COOLDOWN_MS);
 
   QNetworkReply *reply = _http->get(request);
   _reply = reply;
+  if (_allowInsecureTls)
+  {
+    connect(reply, &QNetworkReply::sslErrors, this, [reply](const QList<QSslError> &errors) {
+      bool untrusted = false;
+      for (const QSslError &sslError : errors)
+      {
+        switch (sslError.error())
+        {
+        default:
+          return;
+        case QSslError::SelfSignedCertificate:
+        case QSslError::SelfSignedCertificateInChain:
+        case QSslError::CertificateUntrusted:
+        case QSslError::UnableToGetIssuerCertificate:
+        case QSslError::UnableToGetLocalIssuerCertificate:
+        case QSslError::UnableToVerifyFirstCertificate:
+          untrusted = true;
+          break;
+        case QSslError::HostNameMismatch:
+          break;
+        }
+      }
+
+      if (untrusted)
+      {
+        reply->ignoreSslErrors(errors);
+      }
+    });
+  }
+
   connect(reply, &QNetworkReply::finished, this, std::bind(&ServerInfoGateway::processReply, this, reply));
 }
 
@@ -83,10 +124,11 @@ void spritechat::ServerInfoGateway::processReply(QNetworkReply *reply)
   {
     return;
   }
+
   _reply = nullptr;
 
   const int http_status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-  if (reply->error() != QNetworkReply::NoError || http_status != 200 || reply->bytesAvailable() > ReplyLimit)
+  if (reply->error() != QNetworkReply::NoError || http_status != 200)
   {
     zDebug(log::network) << "Failed to get server info from" << reply->url() << "(" << reply->errorString() << ") (http status" << http_status << ")";
     Q_EMIT infoSettled();

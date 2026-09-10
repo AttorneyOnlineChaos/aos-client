@@ -52,6 +52,7 @@ void spritechat::AnimationLayer::setFileName(const QString &fileName)
 #endif
     m_file_name = QObject::tr("Invalid File");
   }
+
   resetData();
 }
 
@@ -64,6 +65,7 @@ void spritechat::AnimationLayer::startPlayback()
 #endif
     return;
   }
+
   resetData();
   m_processing = true;
   setVisible(true);
@@ -77,11 +79,13 @@ void spritechat::AnimationLayer::stopPlayback()
   {
     m_ticker->stop();
   }
+
   m_processing = false;
   if (m_reset_cache_when_stopped)
   {
     createLoader();
   }
+
   Q_EMIT stoppedPlayback();
 }
 
@@ -100,6 +104,7 @@ void spritechat::AnimationLayer::pausePlayback(bool enabled)
 #endif
     return;
   }
+
   m_pause = enabled;
 }
 
@@ -138,6 +143,7 @@ void spritechat::AnimationLayer::jumpToFrame(int number)
   {
     m_ticker->stop();
   }
+
   m_target_frame_number = number;
   if (is_processing)
   {
@@ -175,14 +181,9 @@ void spritechat::AnimationLayer::setResizeMode(RESIZE_MODE mode)
   m_resize_mode = mode;
 }
 
-void spritechat::AnimationLayer::setMinimumDurationPerFrame(int duration)
+void spritechat::AnimationLayer::setMaximumDurationPerFrame(int durationMs)
 {
-  m_minimum_duration = duration;
-}
-
-void spritechat::AnimationLayer::setMaximumDurationPerFrame(int duration)
-{
-  m_maximum_duration = duration;
+  m_maximum_duration_ms = durationMs;
 }
 
 void spritechat::AnimationLayer::setMaskingRect(QRect rect)
@@ -220,6 +221,7 @@ void spritechat::AnimationLayer::resetData()
   {
     m_loader->load(m_file_name);
   }
+
   m_frame_count = m_loader->frameCount();
   m_frame_size = m_loader->size();
   m_frame_rect = QRect(QPoint(0, 0), m_frame_size);
@@ -281,9 +283,9 @@ void spritechat::AnimationLayer::finishPlayback()
 
 void spritechat::AnimationLayer::prepareNextTick()
 {
-  int duration = qMax(m_minimum_duration, m_current_frame.duration);
-  duration = (m_maximum_duration > 0) ? qMin(m_maximum_duration, duration) : duration;
-  m_ticker->start(duration);
+  int duration_ms = m_current_frame.durationMs;
+  duration_ms = (m_maximum_duration_ms > 0) ? qMin(m_maximum_duration_ms, duration_ms) : duration_ms;
+  m_ticker->start(duration_ms);
 }
 
 void spritechat::AnimationLayer::displayCurrentFrame()
@@ -364,6 +366,7 @@ void spritechat::AnimationLayer::frameTicker()
     m_frame_number = m_target_frame_number;
     m_target_frame_number = -1;
   }
+
   m_current_frame = m_loader->frame(m_frame_number);
   displayCurrentFrame();
   Q_EMIT frameNumberChanged(m_frame_number);
@@ -436,6 +439,7 @@ void spritechat::CharacterAnimationLayer::loadCharacterEmote(const QString &char
     path_list << ao_app->get_character_path(character, prefix + m_emote);
     prefixed_emote_list << prefix + m_emote;
   }
+
   path_list << ao_app->get_character_path(character, m_emote);
   prefixed_emote_list << m_emote;
 
@@ -443,7 +447,7 @@ void spritechat::CharacterAnimationLayer::loadCharacterEmote(const QString &char
   {
     path_list << ao_app->get_character_path(character, QStringLiteral("placeholder"));
     prefixed_emote_list << QStringLiteral("placeholder");
-    path_list << ao_app->get_theme_path("placeholder", ao_app->default_theme);
+    path_list << ao_app->get_theme_path("placeholder", ao_app->DEFAULT_THEME);
     prefixed_emote_list << QStringLiteral("placeholder");
   }
 
@@ -503,6 +507,7 @@ void spritechat::CharacterAnimationLayer::notifyFrameEffect(int frameNumber)
             {
               Q_EMIT soundEffect(sound.fileName);
             }
+
             break;
           }
 
@@ -568,7 +573,7 @@ spritechat::SplashAnimationLayer::SplashAnimationLayer(AOApplication *ao_app, QW
 
 void spritechat::SplashAnimationLayer::loadAndPlayAnimation(const QString &p_filename, const QString &p_charname, const QString &p_miscname)
 {
-  QString file_path = ao_app->get_image(p_filename, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, p_miscname, p_charname, "placeholder");
+  QString file_path = ao_app->get_image(p_filename, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->DEFAULT_THEME, p_miscname, p_charname, "placeholder");
   setFileName(file_path);
   setResizeMode(ao_app->get_misc_scaling(p_miscname));
   startPlayback();
@@ -614,7 +619,7 @@ spritechat::InterfaceAnimationLayer::InterfaceAnimationLayer(AOApplication *ao_a
 
 void spritechat::InterfaceAnimationLayer::loadAndPlayAnimation(const QString &fileName, const QString &miscName)
 {
-  QString file_path = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, miscName);
+  QString file_path = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->DEFAULT_THEME, miscName);
   setFileName(file_path);
   startPlayback();
 }
@@ -635,7 +640,7 @@ void spritechat::StickerAnimationLayer::loadAndPlayAnimation(const QString &file
     misc_file = ao_app->get_chat(fileName);
   }
 
-  QString file_path = ao_app->get_image("sticker/" + fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, misc_file);
+  QString file_path = ao_app->get_image("sticker/" + fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->DEFAULT_THEME, misc_file);
   setFileName(file_path);
   setResizeMode(ao_app->get_misc_scaling(misc_file));
   startPlayback();

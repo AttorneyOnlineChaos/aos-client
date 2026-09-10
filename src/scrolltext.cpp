@@ -89,6 +89,7 @@ void spritechat::ScrollText::paintEvent(QPaintEvent *)
     {
       pb.setOpacity(static_cast<qreal>((qMax(-8, scrollPos) + 8) / 8.0));
     }
+
     pb.drawImage(0, 0, alphaChannel);
 
     p.drawImage(0, 0, buffer);
@@ -115,10 +116,12 @@ void spritechat::ScrollText::resizeEvent(QResizeEvent *)
     {
       scanline1[x - 1] = scanline1[width() - x] = qRgba(0, 0, 0, x << 4);
     }
+
     for (int x = 15; x < width() - 15; ++x)
     {
       scanline1[x] = qRgb(0, 0, 0);
     }
+
     // copy scanline to the other ones
     for (int y = 1; y < height(); ++y)
     {

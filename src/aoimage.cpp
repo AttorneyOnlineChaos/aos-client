@@ -19,7 +19,7 @@ QString spritechat::AOImage::image()
 
 bool spritechat::AOImage::setImage(const QString &fileName, const QString &miscellaneous)
 {
-  QString p_image_resolved = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->default_theme, miscellaneous, "", "", false);
+  QString p_image_resolved = ao_app->get_image(fileName, Options::getInstance().theme(), Options::getInstance().subTheme(), ao_app->DEFAULT_THEME, miscellaneous, "", "", false);
 
   if (!file_exists(p_image_resolved))
   {

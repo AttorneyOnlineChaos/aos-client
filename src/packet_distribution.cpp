@@ -15,6 +15,7 @@ spritechat::Timer *spritechat::AOApplication::timer(theory::TimerId id) const
   {
     return nullptr;
   }
+
   return m_timers.at(id);
 }
 
@@ -45,12 +46,14 @@ void spritechat::AOApplication::process(const theory::AreaRecordPacket &packet)
       zWarning(log::protocol) << QStringLiteral("area record with an invalid area id: %1").arg(packet.areaId);
       return;
     }
+
     m_area_registry.add(packet.areaId);
     if (auto area = m_area_registry.area(packet.areaId))
     {
       area->inventoryId = packet.inventoryId;
       m_area_registry.update(packet.areaId, area.value());
     }
+
     break;
 
   case theory::AreaRecordPacket::Action::Remove:
@@ -72,6 +75,7 @@ void spritechat::AOApplication::process(const theory::BackgroundPacket &packet)
   {
     w_courtroom->set_side(packet.side.value());
   }
+
   w_courtroom->set_background(packet.background, packet.display);
 }
 
@@ -87,6 +91,7 @@ void spritechat::AOApplication::process(const theory::AreaUpdatePacket &packet)
   {
     return;
   }
+
   AreaInfo area = maybe_area.value();
 
   std::optional<theory::JsonCodecError> error;
@@ -154,6 +159,7 @@ void spritechat::AOApplication::process(const theory::TimerPacket &packet)
       {
         return;
       }
+
       l_timer->setState(l_state);
       break;
     }
@@ -165,7 +171,8 @@ void spritechat::AOApplication::process(const theory::TimerPacket &packet)
       {
         return;
       }
-      l_timer->setRemaining(l_remaining);
+
+      l_timer->setRemainingMs(l_remaining);
       break;
     }
 
@@ -176,6 +183,7 @@ void spritechat::AOApplication::process(const theory::TimerPacket &packet)
       {
         return;
       }
+
       l_timer->setVisible(l_visible);
       break;
     }
@@ -229,12 +237,14 @@ void spritechat::AOApplication::process(const theory::PlayerRecordPacket &packet
       zWarning(log::protocol) << QStringLiteral("player record with an invalid player id: %1").arg(packet.playerId);
       return;
     }
+
     m_player_registry.add(packet.playerId);
     if (auto player = m_player_registry.player(packet.playerId))
     {
       player->inventoryId = packet.inventoryId;
       m_player_registry.update(packet.playerId, player.value());
     }
+
     break;
 
   case theory::PlayerRecordPacket::Action::Remove:
@@ -250,6 +260,7 @@ void spritechat::AOApplication::process(const theory::PlayerUpdatePacket &packet
   {
     return;
   }
+
   PlayerInfo player = maybe_player.value();
 
   std::optional<theory::JsonCodecError> error;
@@ -300,6 +311,7 @@ void spritechat::AOApplication::process(const theory::InventoryRecordPacket &pac
       zWarning(log::protocol) << QStringLiteral("inventory record with an invalid inventory id: %1").arg(packet.inventoryId);
       return;
     }
+
     m_inventory_registry.add(packet.inventoryId);
     break;
 
@@ -308,6 +320,7 @@ void spritechat::AOApplication::process(const theory::InventoryRecordPacket &pac
     {
       m_evidence_registry.remove(item.id);
     }
+
     m_inventory_registry.remove(packet.inventoryId);
     break;
   }
@@ -321,6 +334,7 @@ void spritechat::AOApplication::process(const theory::InventoryUpdatePacket &pac
     zWarning(log::protocol) << QStringLiteral("inventory update for an unknown inventory: %1").arg(packet.inventoryId);
     return;
   }
+
   InventoryInfo inventory = maybe_inventory.value();
 
   std::optional<theory::JsonCodecError> error;
@@ -356,11 +370,13 @@ void spritechat::AOApplication::process(const theory::EvidenceRecordPacket &pack
       zWarning(log::protocol) << QStringLiteral("evidence record with an invalid evidence id: %1").arg(packet.evidenceId);
       return;
     }
+
     if (!m_inventory_registry.inventory(packet.inventoryId))
     {
       zWarning(log::protocol) << QStringLiteral("evidence roster names an unknown inventory: %1").arg(packet.inventoryId);
       return;
     }
+
     m_evidence_registry.add(packet.evidenceId);
     m_evidence_registry.update(packet.evidenceId, EvidenceInfo{.id = packet.evidenceId, .inventoryId = packet.inventoryId});
     break;
@@ -379,6 +395,7 @@ void spritechat::AOApplication::process(const theory::EvidenceUpdatePacket &pack
     zWarning(log::protocol) << QStringLiteral("evidence update for an unknown item: %1").arg(packet.evidenceId);
     return;
   }
+
   EvidenceInfo item = maybe_item.value();
 
   std::optional<theory::JsonCodecError> error;
@@ -408,6 +425,7 @@ void spritechat::AOApplication::process(const theory::ModCallNoticePacket &packe
   {
     notice.append(tr("Regarding: %1\n").arg(packet.targetName));
   }
+
   notice.append(tr("Reason: %1").arg(packet.reason));
 
   w_courtroom->mod_called(notice);
@@ -449,6 +467,7 @@ void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
       {
         message.append(tr("\n\nReason: %1").arg(packet.what));
       }
+
       call_warning(message);
       break;
     }
@@ -460,6 +479,7 @@ void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
       {
         message.append(tr("\n\nReason: %1").arg(packet.what));
       }
+
       call_warning(message);
       break;
     }
@@ -471,6 +491,7 @@ void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
       {
         message.append(tr("\n\nReason: %1").arg(packet.what));
       }
+
       call_warning(message);
       break;
     }
@@ -482,6 +503,19 @@ void spritechat::AOApplication::process(const theory::ErrorPacket &packet)
       {
         message.append(tr("\n\nReason: %1").arg(packet.what));
       }
+
+      call_warning(message);
+      break;
+    }
+
+  case theory::ErrorPacket::Unauthorized:
+    {
+      QString message = tr("The server refused to sign you in.");
+      if (!packet.what.isEmpty())
+      {
+        message.append(tr("\n\nReason: %1").arg(packet.what));
+      }
+
       call_warning(message);
       break;
     }

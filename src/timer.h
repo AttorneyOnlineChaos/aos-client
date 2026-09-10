@@ -18,8 +18,8 @@ public:
   theory::TimerState state() const;
   void setState(theory::TimerState state);
 
-  qint64 remaining() const;
-  void setRemaining(qint64 milliseconds);
+  qint64 remainingMs() const;
+  void setRemainingMs(qint64 remainingMs);
 
   bool isVisible() const;
   void setVisible(bool visible);
@@ -28,13 +28,13 @@ public:
 
 Q_SIGNALS:
   void stateChanged(theory::TimerState state);
-  void remainingChanged(qint64 milliseconds);
+  void remainingMsChanged(qint64 remainingMs);
   void visibilityChanged(bool visible);
 
 private:
   theory::TimerId _id;
   theory::TimerState _state = theory::TimerState::NotRunning;
-  qint64 _remaining = 0;
+  qint64 _remainingMs = 0;
   bool _visible = false;
 };
 } // namespace spritechat

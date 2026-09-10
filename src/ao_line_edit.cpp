@@ -38,6 +38,7 @@ void spritechat::AOLineEdit::keyPressEvent(QKeyEvent *event)
       setText(message.value());
       end(false);
     }
+
     event->accept();
     break;
   case Qt::Key_Down:
@@ -46,6 +47,7 @@ void spritechat::AOLineEdit::keyPressEvent(QKeyEvent *event)
       setText(message.value());
       end(false);
     }
+
     event->accept();
     break;
   }

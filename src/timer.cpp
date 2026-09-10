@@ -21,24 +21,26 @@ void spritechat::Timer::setState(theory::TimerState state)
   {
     return;
   }
+
   _state = state;
   Q_EMIT stateChanged(_state);
 }
 
-qint64 spritechat::Timer::remaining() const
+qint64 spritechat::Timer::remainingMs() const
 {
-  return _remaining;
+  return _remainingMs;
 }
 
-void spritechat::Timer::setRemaining(qint64 milliseconds)
+void spritechat::Timer::setRemainingMs(qint64 remainingMs)
 {
-  const qint64 l_remaining = qMax<qint64>(0, milliseconds);
-  if (_remaining == l_remaining)
+  const qint64 l_remaining = qMax<qint64>(0, remainingMs);
+  if (_remainingMs == l_remaining)
   {
     return;
   }
-  _remaining = l_remaining;
-  Q_EMIT remainingChanged(_remaining);
+
+  _remainingMs = l_remaining;
+  Q_EMIT remainingMsChanged(_remainingMs);
 }
 
 bool spritechat::Timer::isVisible() const
@@ -52,6 +54,7 @@ void spritechat::Timer::setVisible(bool visible)
   {
     return;
   }
+
   _visible = visible;
   Q_EMIT visibilityChanged(_visible);
 }
@@ -59,6 +62,6 @@ void spritechat::Timer::setVisible(bool visible)
 void spritechat::Timer::reset()
 {
   setState(theory::TimerState::NotRunning);
-  setRemaining(0);
+  setRemainingMs(0);
   setVisible(false);
 }

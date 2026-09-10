@@ -12,7 +12,7 @@ spritechat::MasterGateway::MasterGateway(QObject *parent)
 {
   connect(&_client, &MasterClient::errorOccurred, this, &MasterGateway::errorOccurred);
 
-  _heartbeatTimer.setInterval(std::chrono::minutes(5));
+  _heartbeatTimer.setInterval(300 * 1000);
   connect(&_heartbeatTimer, &QTimer::timeout, this, &MasterGateway::postPlayerCount);
   _heartbeatTimer.start();
 }
@@ -116,7 +116,14 @@ void spritechat::MasterGateway::requestServerList()
       server.address = entry["ip"].toString();
       server.name = entry["name"].toString();
       server.description = entry["description"].toString(tr("No description provided."));
-      if (entry.contains("wss_port"))
+
+      const QJsonValue secure = entry["secure"];
+      if (secure.isBool())
+      {
+        server.port = entry["port"].toInt();
+        server.protocol = secure.toBool() ? QStringLiteral("wss") : QStringLiteral("ws");
+      }
+      else if (entry.contains("wss_port"))
       {
         server.port = entry["wss_port"].toInt();
         server.protocol = QStringLiteral("wss");
@@ -125,11 +132,6 @@ void spritechat::MasterGateway::requestServerList()
       {
         server.port = entry["ws_port"].toInt();
         server.protocol = QStringLiteral("ws");
-      }
-      else
-      {
-        server.port = entry["port"].toInt();
-        server.protocol = QStringLiteral("tcp");
       }
 
       if (server.port != 0)

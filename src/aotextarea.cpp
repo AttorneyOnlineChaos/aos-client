@@ -25,6 +25,7 @@ void spritechat::AOTextArea::addMessage(const QString &name, QString message, co
   {
     this->insertHtml("[" + timestamp.toHtmlEscaped() + "]&nbsp;");
   }
+
   if (!name.isEmpty())
   {
     this->insertHtml("<b><font color=" + nameColor + ">" + name.toHtmlEscaped() + "</font></b>:&nbsp;");

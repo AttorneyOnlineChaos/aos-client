@@ -4,6 +4,7 @@
 #include "courtroom.h"
 #include "debug_functions.h"
 #include "hardware_functions.h"
+#include "lobby.h"
 #include "network_manager.h"
 #include "options.h"
 #include "protocol/packets/handshake_packets.h"
@@ -11,6 +12,7 @@
 #include "spritechat_defs.h"
 
 #include <QDateTime>
+#include <QLayout>
 #include <QMessageBox>
 #include <QRegularExpression>
 
@@ -21,6 +23,8 @@ void spritechat::AOApplication::shipPacket(const theory::Packet &packet)
 
 void spritechat::AOApplication::register_packet_routes()
 {
+  m_router.registerRoute<theory::BadgeSelectionPacket>(&AOApplication::process, this);
+  m_router.registerRoute<theory::BadgePacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::SessionGrantPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::ServerSettingsPacket>(&AOApplication::process, this);
   m_router.registerRoute<theory::WelcomePacket>(&AOApplication::process, this);
@@ -101,11 +105,13 @@ void spritechat::AOApplication::connect_to_server(const ServerBookmark &server)
 
   m_session_active = false;
 
+  net_manager->setAllowInsecureTls(Options::getInstance().allowInsecureTls());
   net_manager->connectToServer(server);
 }
 
 void spritechat::AOApplication::reconnect_to_server()
 {
+  net_manager->setAllowInsecureTls(Options::getInstance().allowInsecureTls());
   net_manager->connectToServer(m_server);
 }
 
@@ -120,6 +126,8 @@ void spritechat::AOApplication::start_session()
     construct_courtroom();
   }
 
+  openSignIn();
+
   theory::HelloPacket packet;
   packet.hdid = get_hdid();
   packet.protocolVersion = theory::protocolVersion();
@@ -131,11 +139,15 @@ void spritechat::AOApplication::start_session()
   {
     claim.sessionToken = m_tokens.value(server_url);
   }
+
+  claim.userToken = _userTokens.token(server_url);
   shipPacket(claim);
 }
 
 void spritechat::AOApplication::stop_session()
 {
+  closeSignIn();
+
   Options::getInstance().setServerSubTheme(QString());
 
   if (m_session_active)
@@ -154,6 +166,7 @@ void spritechat::AOApplication::stop_session()
       return;
     }
   }
+
   m_session_active = false;
 
   construct_lobby();
@@ -162,13 +175,122 @@ void spritechat::AOApplication::stop_session()
 
 void spritechat::AOApplication::drop_session()
 {
+  closeSignIn();
   m_session_active = false;
   m_tokens.remove(m_server.join_url());
 }
 
+void spritechat::AOApplication::openSignIn()
+{
+  _badgeClient = theory::makeUnique<theory::BadgeClientEngine>(_badgeFactory);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::badgeSelected, this, &AOApplication::shipBadgeSelection);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::badgeSelected, this, &AOApplication::hideSignInWidget);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::responseReady, this, &AOApplication::sendBadgeResponse);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::responseReady, this, &AOApplication::hideSignInWidget);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::errorOccurred, this, &AOApplication::abortSignIn, Qt::QueuedConnection);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::cancelled, this, &AOApplication::leaveSignIn, Qt::QueuedConnection);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::interactionRequired, this, &AOApplication::showSignInWidget);
+}
+
+void spritechat::AOApplication::closeSignIn()
+{
+  delete _badgeBackdrop;
+  _badgeClient.reset();
+}
+
+void spritechat::AOApplication::shipBadgeSelection(const QString &badgeId)
+{
+  theory::BadgeSelectPacket select;
+  select.badgeId = badgeId;
+  shipPacket(select);
+}
+
+void spritechat::AOApplication::sendBadgeResponse(const QString &badgeId, const QJsonObject &responseData)
+{
+  theory::BadgePacket badge;
+  badge.badgeId = badgeId;
+  badge.payload = responseData;
+  shipPacket(badge);
+}
+
+void spritechat::AOApplication::abortSignIn(const QString &message)
+{
+  call_warning(message);
+  net_manager->disconnectFromServer();
+}
+
+void spritechat::AOApplication::leaveSignIn()
+{
+  net_manager->disconnectFromServer();
+}
+
+void spritechat::AOApplication::showSignInWidget()
+{
+  if (!_badgeBackdrop)
+  {
+    QWidget *window = w_courtroom;
+    if (w_lobby)
+    {
+      window = w_lobby->centralWidget();
+    }
+
+    _badgeBackdrop = new theory::Backdrop{window};
+    _badgeBackdrop->setObjectName(QStringLiteral("badge_backdrop"));
+    _badgeBackdrop->container()->setObjectName(QStringLiteral("badge_container"));
+  }
+
+  if (_badgeWidget)
+  {
+    _badgeWidget->hide();
+    _badgeWidget->deleteLater();
+  }
+
+  QWidget *container = _badgeBackdrop->container();
+  _badgeWidget = _badgeClient->createWidget(container);
+  container->layout()->addWidget(_badgeWidget);
+  _badgeBackdrop->show();
+}
+
+void spritechat::AOApplication::hideSignInWidget()
+{
+  if (_badgeBackdrop)
+  {
+    _badgeBackdrop->hide();
+  }
+}
+
+void spritechat::AOApplication::process(const theory::BadgeSelectionPacket &packet)
+{
+  if (!_badgeClient)
+  {
+    zWarning(log::protocol) << "badge selection outside authentication window";
+    return;
+  }
+
+  _badgeClient->processSelection(packet.badgeIds);
+}
+
+void spritechat::AOApplication::process(const theory::BadgePacket &packet)
+{
+  if (!_badgeClient)
+  {
+    zWarning(log::protocol) << "badge challenge outside authentication window";
+    return;
+  }
+
+  _badgeClient->processChallenge(packet.badgeId, packet.payload);
+}
+
 void spritechat::AOApplication::process(const theory::SessionGrantPacket &packet)
 {
+  closeSignIn();
   m_tokens.insert(m_server.join_url(), packet.sessionToken);
+  _userTokens.setToken(m_server.join_url(), packet.userToken);
+  if (const auto error = _userTokens.save())
+  {
+    zWarning(log::main) << QStringLiteral("user tokens: %1").arg(error->toString());
+  }
+
   m_recovered_session = packet.result == theory::SessionGrantPacket::Recovered;
 }
 
@@ -191,6 +313,7 @@ void spritechat::AOApplication::process(const theory::WelcomePacket &packet)
   {
     w_courtroom->enter_char_select();
   }
+
   w_courtroom->setEnabled(true);
   w_courtroom->show();
 
@@ -204,6 +327,13 @@ void spritechat::AOApplication::process_pending_packets()
     theory::PacketPointer packet = net_manager->nextPacket();
     if (!packet)
     {
+      return;
+    }
+
+    if (const auto error = packet->verify())
+    {
+      net_manager->disconnectFromServer();
+      call_warning(tr("Protocol error.\n\nDetails: %1: %2").arg(packet->header(), error->toString()));
       return;
     }
 

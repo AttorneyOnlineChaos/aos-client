@@ -31,12 +31,23 @@ std::optional<theory::CargoError> spritechat::NetworkManager::lastError() const
   return _socket.lastError();
 }
 
+bool spritechat::NetworkManager::allowInsecureTls() const
+{
+  return _allowInsecureTls;
+}
+
+void spritechat::NetworkManager::setAllowInsecureTls(bool allow)
+{
+  _allowInsecureTls = allow;
+}
+
 void spritechat::NetworkManager::setStatus(Status status)
 {
   if (_status == status)
   {
     return;
   }
+
   _status = status;
   Q_EMIT statusChanged(_status);
 }
@@ -52,6 +63,7 @@ void spritechat::NetworkManager::connectToServer(const ServerBookmark &server)
   zInfo(log::network) << QStringLiteral("Connecting to %1").arg(server.toString());
 
   _socket.setSocket(new QWebSocket);
+  _socket.setAllowInsecureTls(_allowInsecureTls);
 
   setStatus(Connecting);
 

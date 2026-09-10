@@ -26,6 +26,7 @@ void spritechat::AnimationLoader::load(const QString &fileName)
   {
     return;
   }
+
   stopLoading();
   m_file_name = fileName;
   QImageReader *reader = new QImageReader;
@@ -94,7 +95,7 @@ void spritechat::AnimationLoader::populateVector(QImageReader *reader)
       QMutexLocker locker(&m_task_lock);
       AnimationFrame frame;
       frame.texture = QPixmap::fromImage(reader->read());
-      frame.duration = reader->nextImageDelay();
+      frame.durationMs = reader->nextImageDelay();
       m_frames.append(frame);
       ++loaded_frame_count;
     }
