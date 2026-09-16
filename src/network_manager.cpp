@@ -83,6 +83,12 @@ void spritechat::NetworkManager::disconnectFromServer()
     return;
   }
 
+  abortConnection();
+}
+
+void spritechat::NetworkManager::abortConnection()
+{
+  _socket.abort();
   setStatus(NotConnected);
 }
 

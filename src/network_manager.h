@@ -42,6 +42,7 @@ public:
 
 public Q_SLOTS:
   void disconnectFromServer();
+  void abortConnection();
   void shipPacket(const theory::Packet &packet) override;
   void ping();
 

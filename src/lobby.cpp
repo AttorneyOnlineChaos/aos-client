@@ -344,6 +344,8 @@ void spritechat::Lobby::on_about_clicked()
 // clicked on an item in the serverlist
 void spritechat::Lobby::on_server_list_clicked(QTreeWidgetItem *p_item, int column)
 {
+  net_manager.abortConnection();
+
   column = 0;
   ServerBookmark f_server;
   int n_server = p_item->text(column).toInt();
@@ -395,6 +397,8 @@ void spritechat::Lobby::on_list_doubleclicked(QTreeWidgetItem *p_item, int colum
 
 void spritechat::Lobby::on_favorite_tree_clicked(QTreeWidgetItem *p_item, int column)
 {
+  net_manager.abortConnection();
+
   column = 0;
   ServerBookmark f_server;
   int n_server = p_item->text(column).toInt();
