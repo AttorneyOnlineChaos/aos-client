@@ -219,24 +219,10 @@ spritechat::VPath spritechat::AOApplication::get_background_path(const QString &
   return m_asset_lookup.get_background_path(p_file);
 }
 
-#if (defined(_WIN32) || defined(_WIN64))
 spritechat::VPath spritechat::AOApplication::get_default_background_path(const QString &p_file)
 {
   return m_asset_lookup.get_default_background_path(p_file);
 }
-#elif defined __APPLE__
-void spritechat::AOApplication::load_bass_plugins()
-{
-  BASS_PluginLoad("libbassopus.dylib", 0);
-}
-#elif (defined(LINUX) || defined(__linux__))
-void spritechat::AOApplication::load_bass_plugins()
-{
-  BASS_PluginLoad("libbassopus.so", 0);
-}
-#else
-#error This operating system is unsupported for BASS plugins.
-#endif
 
 spritechat::VPath spritechat::AOApplication::get_evidence_path(const QString &p_file)
 {
@@ -620,10 +606,19 @@ void spritechat::AOApplication::initBASS()
   }
 }
 
+#if (defined(_WIN32) || defined(_WIN64))
 void spritechat::AOApplication::load_bass_plugins()
 {
   BASS_PluginLoad("bassopus.dll", 0);
 }
+#elif (defined(LINUX) || defined(__linux__))
+void spritechat::AOApplication::load_bass_plugins()
+{
+  BASS_PluginLoad("libbassopus.so", 0);
+}
+#else
+#error This operating system is unsupported for BASS plugins.
+#endif
 
 // Callback for when BASS device is lost
 // Only actually used for music syncs
