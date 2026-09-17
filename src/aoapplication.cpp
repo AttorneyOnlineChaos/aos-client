@@ -12,7 +12,6 @@
 #include "spritechat_defs.h"
 #include "widgets/aooptionsdialog.h"
 
-#include <QCoreApplication>
 #include <QDateTime>
 #include <QRegularExpression>
 
@@ -25,7 +24,7 @@ spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_fac
   register_packet_routes();
 
   QList<theory::PluginError> errors = _badgeFactory.loadStaticPlugins();
-  errors.append(_badgeFactory.loadPlugins(QCoreApplication::applicationDirPath() + QStringLiteral("/plugins")));
+  errors.append(_badgeFactory.loadPlugins(get_app_path() + QStringLiteral("/plugins")));
   for (const theory::PluginError &error : errors)
   {
     zWarning(log::plugin) << QStringLiteral("badge plugin: %1").arg(error.toString());
