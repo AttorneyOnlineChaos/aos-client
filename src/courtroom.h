@@ -27,7 +27,6 @@
 #include "game/chat_markup.h"
 #include "game/evidence.h"
 #include "game/music.h"
-#include "hardware_functions.h"
 #include "inventory_registry.h"
 #include "lobby.h"
 #include "network/packet_transmitter.h"

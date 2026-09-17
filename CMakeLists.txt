@@ -88,8 +88,6 @@ qt_add_library(spritechat STATIC
   src/evidence_registry.h
   src/file_functions.cpp
   src/file_functions.h
-  src/hardware_functions.cpp
-  src/hardware_functions.h
   src/inventory_registry.cpp
   src/inventory_registry.h
   src/lobby.cpp

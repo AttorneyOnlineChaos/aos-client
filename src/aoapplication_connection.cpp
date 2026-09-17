@@ -3,7 +3,6 @@
 #include "core/logging.h"
 #include "courtroom.h"
 #include "debug_functions.h"
-#include "hardware_functions.h"
 #include "lobby.h"
 #include "network_manager.h"
 #include "options.h"
@@ -129,7 +128,6 @@ void spritechat::AOApplication::start_session()
   openSignIn();
 
   theory::HelloPacket packet;
-  packet.hdid = get_hdid();
   packet.protocolVersion = theory::protocolVersion();
   shipPacket(packet);
 

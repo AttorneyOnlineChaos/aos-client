@@ -4,7 +4,6 @@
 #include "core/plugin_error.h"
 #include "courtroom.h"
 #include "file_functions.h"
-#include "hardware_functions.h"
 #include "lobby.h"
 #include "network_manager.h"
 #include "options.h"
