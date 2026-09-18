@@ -15,7 +15,10 @@ spritechat::NetworkManager::NetworkManager(const theory::PacketFactory &packetFa
   _socket.setFactory(&_packetFactory);
 
   connect(&_socket, &theory::CargoSocket::connectedToPeer, this, [this] { setStatus(Connected); });
-  connect(&_socket, &theory::CargoSocket::disconnectedFromPeer, this, [this] { setStatus(NotConnected); });
+  connect(&_socket, &theory::CargoSocket::disconnectedFromPeer, this, [this](theory::CargoSocket::Closure closure) {
+    setStatus(NotConnected);
+    Q_EMIT disconnectedFromServer(closure);
+  });
   connect(&_socket, &theory::CargoSocket::errorOccurred, this, &NetworkManager::reportError);
   connect(&_socket, &theory::CargoSocket::pendingPacketAvailable, this, &NetworkManager::pendingPacketAvailable);
   connect(&_socket, &theory::CargoSocket::pong, this, &NetworkManager::pong);
@@ -83,12 +86,12 @@ void spritechat::NetworkManager::disconnectFromServer()
     return;
   }
 
-  abortConnection();
+  closeConnection();
 }
 
-void spritechat::NetworkManager::abortConnection()
+void spritechat::NetworkManager::closeConnection()
 {
-  _socket.abort();
+  _socket.close();
   setStatus(NotConnected);
 }
 

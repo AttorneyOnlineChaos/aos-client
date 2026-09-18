@@ -66,14 +66,11 @@ void spritechat::AOApplication::handle_network_status(NetworkManager::Status sta
   {
   default:
   case NetworkManager::Connecting:
+  case NetworkManager::NotConnected:
     break;
 
   case NetworkManager::Connected:
     start_session();
-    break;
-
-  case NetworkManager::NotConnected:
-    stop_session();
     break;
   }
 }
@@ -142,13 +139,13 @@ void spritechat::AOApplication::start_session()
   shipPacket(claim);
 }
 
-void spritechat::AOApplication::stop_session()
+void spritechat::AOApplication::stop_session(theory::CargoSocket::Closure closure)
 {
   closeSignIn();
 
   Options::getInstance().setServerSubTheme(QString());
 
-  if (m_session_active)
+  if (m_session_active && !theory::CargoSocket::isGracefulClosure(closure))
   {
     w_courtroom->setEnabled(false);
 
@@ -181,7 +178,6 @@ void spritechat::AOApplication::drop_session()
 void spritechat::AOApplication::leaveServer()
 {
   drop_session();
-  createAndShipPacket<theory::GoodbyePacket>();
   construct_lobby();
   destruct_courtroom();
   net_manager->disconnectFromServer();

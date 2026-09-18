@@ -14,6 +14,7 @@
 #include "game/chat_markup.h"
 #include "game/emote_cue.h"
 #include "inventory_registry.h"
+#include "network/cargo_socket.h"
 #include "network/master_gateway.h"
 #include "network/packet.h"
 #include "network/packet_factory.h"
@@ -342,7 +343,7 @@ private:
   QPointer<QWidget> _badgeWidget;
 
   void start_session();
-  void stop_session();
+  void stop_session(theory::CargoSocket::Closure closure);
   void drop_session();
   void leaveServer();
   void openSignIn();

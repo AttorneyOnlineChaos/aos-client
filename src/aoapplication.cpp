@@ -42,6 +42,7 @@ spritechat::AOApplication::AOApplication(const theory::PacketFactory &packet_fac
 
   net_manager = new NetworkManager(m_packet_factory, this);
   connect(net_manager, &NetworkManager::statusChanged, this, &AOApplication::handle_network_status);
+  connect(net_manager, &NetworkManager::disconnectedFromServer, this, &AOApplication::stop_session);
   connect(net_manager, &NetworkManager::errorOccurred, this, &AOApplication::handle_network_error);
   connect(net_manager, &NetworkManager::pendingPacketAvailable, this, &AOApplication::process_pending_packets);
   connect(net_manager, &NetworkManager::pong, this, [this](quint64 elapsedMs) { w_courtroom->setWindowTitle(QStringLiteral("%1 (%2 ms)").arg(window_title).arg(elapsedMs)); });
@@ -115,14 +116,6 @@ void spritechat::AOApplication::construct_courtroom()
   w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_inventory_registry, m_evidence_registry, m_server_settings, m_timers, *net_manager, m_track_library);
 
   connect(w_courtroom, &Courtroom::requestDisconnectionFromServer, this, &AOApplication::leaveServer, Qt::QueuedConnection);
-  connect(w_courtroom, &Courtroom::aboutToClose, this, [this] {
-    if (net_manager->status() != NetworkManager::Connected)
-    {
-      return;
-    }
-
-    createAndShipPacket<theory::GoodbyePacket>();
-  });
 
   w_courtroom->setWindowTitle(window_title);
 

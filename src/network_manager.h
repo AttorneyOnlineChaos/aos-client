@@ -42,12 +42,13 @@ public:
 
 public Q_SLOTS:
   void disconnectFromServer();
-  void abortConnection();
+  void closeConnection();
   void shipPacket(const theory::Packet &packet) override;
   void ping();
 
 Q_SIGNALS:
   void statusChanged(Status status);
+  void disconnectedFromServer(theory::CargoSocket::Closure closure);
   void errorOccurred(const theory::CargoError &error);
   void pendingPacketAvailable();
   void pong(quint64 elapsedMs);

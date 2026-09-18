@@ -48,7 +48,6 @@
 
 #include <QBrush>
 #include <QCheckBox>
-#include <QCloseEvent>
 #include <QComboBox>
 #include <QDebug>
 #include <QDesktopServices>
@@ -270,10 +269,6 @@ public:
 
 Q_SIGNALS:
   void requestDisconnectionFromServer();
-  void aboutToClose();
-
-protected:
-  virtual void closeEvent(QCloseEvent *event) override;
 
 private:
   AOApplication *ao_app;
