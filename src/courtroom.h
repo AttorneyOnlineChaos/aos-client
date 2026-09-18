@@ -269,6 +269,7 @@ public:
   void set_judge_buttons();
 
 Q_SIGNALS:
+  void requestDisconnectionFromServer();
   void aboutToClose();
 
 protected:

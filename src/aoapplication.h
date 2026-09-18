@@ -344,6 +344,7 @@ private:
   void start_session();
   void stop_session();
   void drop_session();
+  void leaveServer();
   void openSignIn();
   void closeSignIn();
   void shipBadgeSelection(const QString &badgeId);

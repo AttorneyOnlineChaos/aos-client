@@ -50,7 +50,7 @@ void spritechat::Courtroom::construct_char_select()
 
   connect(ui_char_list, &QTreeWidget::itemDoubleClicked, this, &Courtroom::on_char_list_double_clicked);
 
-  connect(ui_back_to_lobby, &AOButton::clicked, this, &Courtroom::close);
+  connect(ui_back_to_lobby, &AOButton::clicked, this, &Courtroom::requestDisconnectionFromServer);
 
   connect(ui_char_select_left, &AOButton::clicked, ui_char_buttons, &theory::NavigableGrid::previousPage);
   connect(ui_char_select_right, &AOButton::clicked, ui_char_buttons, &theory::NavigableGrid::nextPage);

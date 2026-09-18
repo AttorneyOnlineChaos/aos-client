@@ -178,6 +178,15 @@ void spritechat::AOApplication::drop_session()
   m_tokens.remove(m_server.join_url());
 }
 
+void spritechat::AOApplication::leaveServer()
+{
+  drop_session();
+  createAndShipPacket<theory::GoodbyePacket>();
+  construct_lobby();
+  destruct_courtroom();
+  net_manager->disconnectFromServer();
+}
+
 void spritechat::AOApplication::openSignIn()
 {
   _badgeClient = theory::makeUnique<theory::BadgeClientEngine>(_badgeFactory);
