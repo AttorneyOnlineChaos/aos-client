@@ -116,6 +116,14 @@ void spritechat::AOApplication::construct_courtroom()
   w_courtroom = new Courtroom(this, m_area_registry, m_player_registry, m_inventory_registry, m_evidence_registry, m_server_settings, m_timers, *net_manager, m_track_library);
 
   connect(w_courtroom, &Courtroom::requestDisconnectionFromServer, this, &AOApplication::leaveServer, Qt::QueuedConnection);
+  connect(w_courtroom, &Courtroom::aboutToClose, this, [this] {
+    if (net_manager->status() != NetworkManager::Connected)
+    {
+      return;
+    }
+
+    net_manager->disconnectFromServer();
+  });
 
   w_courtroom->setWindowTitle(window_title);
 

@@ -2018,6 +2018,13 @@ void spritechat::Courtroom::set_judge_buttons()
   show_judge_controls(ao_app->get_pos_is_judge(current_or_default_side()));
 }
 
+void spritechat::Courtroom::closeEvent(QCloseEvent *event)
+{
+  Q_EMIT aboutToClose();
+
+  QMainWindow::closeEvent(event);
+}
+
 void spritechat::Courtroom::on_chat_return_pressed()
 {
   if (ui_ic_chat_message_box->isOverflowing() || ui_ic_chat_name_box->isOverflowing())
