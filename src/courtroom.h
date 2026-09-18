@@ -61,7 +61,6 @@
 #include <QLineEdit>
 #include <QList>
 #include <QListWidget>
-#include <QMainWindow>
 #include <QMap>
 #include <QMenu>
 #include <QMessageBox>
@@ -79,6 +78,7 @@
 #include <QTextBrowser>
 #include <QTextCharFormat>
 #include <QTreeWidget>
+#include <QWidget>
 
 #include <algorithm>
 #include <optional>
@@ -86,7 +86,7 @@
 
 namespace spritechat
 {
-class Courtroom : public QMainWindow
+class Courtroom : public QWidget
 {
   Q_OBJECT
 
@@ -270,10 +270,6 @@ public:
 
 Q_SIGNALS:
   void requestDisconnectionFromServer();
-  void aboutToClose();
-
-protected:
-  virtual void closeEvent(QCloseEvent *event) override;
 
 private:
   AOApplication *ao_app;

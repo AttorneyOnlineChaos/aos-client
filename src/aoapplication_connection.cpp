@@ -187,9 +187,9 @@ void spritechat::AOApplication::openSignIn()
 {
   _badgeClient = theory::makeUnique<theory::BadgeClientEngine>(_badgeFactory);
   connect(_badgeClient.get(), &theory::BadgeClientEngine::badgeSelected, this, &AOApplication::shipBadgeSelection);
-  connect(_badgeClient.get(), &theory::BadgeClientEngine::badgeSelected, this, &AOApplication::hideSignInWidget);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::badgeSelected, this, &AOApplication::showSignInWidget);
   connect(_badgeClient.get(), &theory::BadgeClientEngine::responseReady, this, &AOApplication::sendBadgeResponse);
-  connect(_badgeClient.get(), &theory::BadgeClientEngine::responseReady, this, &AOApplication::hideSignInWidget);
+  connect(_badgeClient.get(), &theory::BadgeClientEngine::responseReady, this, &AOApplication::showSignInWidget);
   connect(_badgeClient.get(), &theory::BadgeClientEngine::errorOccurred, this, &AOApplication::abortSignIn, Qt::QueuedConnection);
   connect(_badgeClient.get(), &theory::BadgeClientEngine::cancelled, this, &AOApplication::leaveSignIn, Qt::QueuedConnection);
   connect(_badgeClient.get(), &theory::BadgeClientEngine::interactionRequired, this, &AOApplication::showSignInWidget);
@@ -231,7 +231,7 @@ void spritechat::AOApplication::showSignInWidget()
 {
   if (!_badgeBackdrop)
   {
-    QWidget *window = w_courtroom;
+    QWidget *window = _courtroomWindow;
     if (w_lobby)
     {
       window = w_lobby->centralWidget();
@@ -252,14 +252,6 @@ void spritechat::AOApplication::showSignInWidget()
   _badgeWidget = _badgeClient->createWidget(container);
   container->layout()->addWidget(_badgeWidget);
   _badgeBackdrop->show();
-}
-
-void spritechat::AOApplication::hideSignInWidget()
-{
-  if (_badgeBackdrop)
-  {
-    _badgeBackdrop->hide();
-  }
 }
 
 void spritechat::AOApplication::process(const theory::BadgeSelectionPacket &packet)
@@ -301,7 +293,7 @@ void spritechat::AOApplication::process(const theory::ServerSettingsPacket &pack
 {
   server_name = packet.settings.name.isEmpty() ? m_server.name : packet.settings.name;
   window_title = server_name;
-  w_courtroom->setWindowTitle(window_title);
+  _courtroomWindow->setWindowTitle(window_title);
 
   m_server_settings.setSettings(packet.settings);
 }
@@ -318,7 +310,7 @@ void spritechat::AOApplication::process(const theory::WelcomePacket &packet)
   }
 
   w_courtroom->setEnabled(true);
-  w_courtroom->show();
+  _courtroomWindow->show();
 
   destruct_lobby();
 }

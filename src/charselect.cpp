@@ -11,8 +11,6 @@
 
 void spritechat::Courtroom::construct_char_select()
 {
-  this->setWindowFlags((this->windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
-
   ui_char_select_background = new AOImage(ao_app, this);
   ui_char_select_background->setObjectName("ui_char_select_background");
 

@@ -8,6 +8,7 @@
 #include "badge/user_token_cache.h"
 #include "console_logger.h"
 #include "core/log.h"
+#include "courtroom_window.h"
 #include "core/pointer_types.h"
 #include "datatypes.h"
 #include "evidence_registry.h"
@@ -313,6 +314,7 @@ private:
   theory::PacketRouter m_router;
 
   QString window_title;
+  CourtroomWindow *_courtroomWindow = nullptr;
 
   QTimer *m_keepalive_timer;
 
@@ -353,7 +355,6 @@ private:
   void abortSignIn(const QString &message);
   void leaveSignIn();
   void showSignInWidget();
-  void hideSignInWidget();
 
   void process(const theory::CharacterListPacket &packet);
   void process(const theory::MusicListPacket &packet);

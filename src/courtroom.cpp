@@ -25,7 +25,7 @@
 // #define DEBUG_TRANSITION
 
 spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_registry, PlayerRegistry &p_player_registry, InventoryRegistry &p_inventory_registry, EvidenceRegistry &p_evidence_registry, ServerSettingsHandle &p_server_settings, const QList<Timer *> &p_timers, theory::PacketTransmitter &p_transport, const AOTrackLibrary &p_track_library)
-    : QMainWindow()
+    : QWidget{}
     , ao_app{p_ao_app}
     , area_registry{p_area_registry}
     , player_registry{p_player_registry}
@@ -36,9 +36,8 @@ spritechat::Courtroom::Courtroom(AOApplication *p_ao_app, AreaRegistry &p_area_r
     , transport{p_transport}
     , track_library{p_track_library}
 {
-  setWindowIcon(QIcon(":/data/logo-client.png"));
-  setWindowFlags((this->windowFlags() | Qt::CustomizeWindowHint) & ~Qt::WindowMaximizeButtonHint);
   setObjectName("courtroom");
+  setAttribute(Qt::WA_StyledBackground);
 
   ao_app->initBASS();
 
@@ -2016,13 +2015,6 @@ void spritechat::Courtroom::on_authentication_state_received(int p_state)
 void spritechat::Courtroom::set_judge_buttons()
 {
   show_judge_controls(ao_app->get_pos_is_judge(current_or_default_side()));
-}
-
-void spritechat::Courtroom::closeEvent(QCloseEvent *event)
-{
-  Q_EMIT aboutToClose();
-
-  QMainWindow::closeEvent(event);
 }
 
 void spritechat::Courtroom::on_chat_return_pressed()

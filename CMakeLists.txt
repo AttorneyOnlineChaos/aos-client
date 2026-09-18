@@ -76,6 +76,8 @@ qt_add_library(spritechat STATIC
   src/console_logger.h
   src/courtroom.cpp
   src/courtroom.h
+  src/courtroom_window.cpp
+  src/courtroom_window.h
   src/datatypes.cpp
   src/datatypes.h
   src/debug_functions.cpp
